@@ -1487,6 +1487,10 @@
   @media (prefers-reduced-motion: reduce) { #new-fab { transition: none; } }
   /* room to scroll the last lines clear of the button */
   #canvas-wrap { padding-bottom: 96px !important; }
+  /* Search matches in the open song */
+  ::highlight(search-hit) { background-color: var(--hl-yellow); color: #1D1B16; }
+  ::highlight(search-line) { background-color: rgba(255, 214, 0, 0.14); }
+  #canvas .line-row.search-line { background: rgba(255, 214, 0, 0.14); border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -1819,6 +1823,7 @@
 
   function openSong(id) {
     maybeSnapshotOnLeave();
+    searchScrollPending = true;
     state.activeId = id;
     settings.lastOpenId = id;
     persistSettings();
@@ -2244,7 +2249,65 @@
       list.appendChild(item);
     });
   }
-  document.getElementById("song-search").addEventListener("input", renderSidebar);
+  document.getElementById("song-search").addEventListener("input", function () {
+    renderSidebar();
+    searchScrollPending = true;
+    applySearchHighlight();
+  });
+
+  // ---------- search highlighting in the open song ----------
+  // Matches of the sidebar search are highlighted in the sheet (their line gets a soft tint too),
+  // and opening a song from the results scrolls to the first one. Basic view uses the CSS Custom
+  // Highlight API so the lyrics' own markup is never touched; Advanced view tints the matching lines.
+  var searchScrollPending = false;
+  var canHighlight = !!(window.CSS && CSS.highlights && typeof Highlight === "function");
+  function searchQuery() { return (document.getElementById("song-search").value || "").trim().toLowerCase(); }
+  function rangeInEl(el, start, end) {
+    var tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), n, pos = 0, r = document.createRange(), started = false;
+    while ((n = tw.nextNode())) {
+      var len = n.data.length;
+      if (!started && start < pos + len) { r.setStart(n, start - pos); started = true; }
+      if (started && end <= pos + len) { r.setEnd(n, end - pos); return r; }
+      pos += len;
+    }
+    return null;
+  }
+  function applySearchHighlight() {
+    var scroll = searchScrollPending;
+    searchScrollPending = false;
+    var q = searchQuery();
+    if (canHighlight) { CSS.highlights.delete("search-hit"); CSS.highlights.delete("search-line"); }
+    Array.prototype.forEach.call(document.querySelectorAll("#canvas .search-line"), function (r) { r.classList.remove("search-line"); });
+    if (!q) return;
+    var first = null;
+    // Advanced view: one text box per line
+    Array.prototype.forEach.call(document.querySelectorAll("#canvas .line-row"), function (row) {
+      var box = row.querySelector(".line-input");
+      if (box && box.value.toLowerCase().indexOf(q) !== -1) { row.classList.add("search-line"); first = first || row; }
+    });
+    // Basic view: highlight each match and its line
+    var hits = [], lines = [];
+    Array.prototype.forEach.call(document.querySelectorAll("#canvas .read-title, #canvas .read-editor:not(.pv-sheet) > div"), function (el) {
+      var t = el.textContent.toLowerCase(), i = t.indexOf(q), found = false;
+      while (i !== -1) {
+        var r = rangeInEl(el, i, i + q.length);
+        if (r) { hits.push(r); found = true; }
+        i = t.indexOf(q, i + q.length);
+      }
+      if (found) {
+        first = first || el;
+        if (el.classList.contains("read-title")) return;
+        var lr = document.createRange(); lr.selectNodeContents(el); lines.push(lr);
+      }
+    });
+    if (canHighlight && hits.length) {
+      var hl = new Highlight(); hits.forEach(function (r) { hl.add(r); }); hl.priority = 2;
+      var ll = new Highlight(); lines.forEach(function (r) { ll.add(r); }); ll.priority = 1;
+      CSS.highlights.set("search-hit", hl);
+      CSS.highlights.set("search-line", ll);
+    }
+    if (scroll && first) first.scrollIntoView({ block: "center" });
+  }
 
   // ---------- rendering: editor ----------
   function renderEditor() {
@@ -2415,7 +2478,7 @@
     var w = walkEditor(div);
     if (w.lines.length !== 1) return;
     var fresh = readLineEl(w.lines[0].text, w.lines[0].runs);
-    if (fresh.innerHTML !== div.innerHTML) ed.replaceChild(fresh, div);
+    if (fresh.innerHTML !== div.innerHTML) { ed.replaceChild(fresh, div); if (searchQuery()) applySearchHighlight(); }
   }
   document.addEventListener("selectionchange", function () {
     var sel = window.getSelection();
@@ -2431,6 +2494,7 @@
     if (!lineObjs.some(function (l) { return l.text.trim(); })) { el.classList.add("is-empty"); return; }
     el.classList.remove("is-empty");
     lineObjs.forEach(function (l) { el.appendChild(readLineEl(l.text, l.runs)); });
+    if (el.isConnected && searchQuery()) applySearchHighlight();
   }
 
   // Read the Basic editor back into text + per-character styles.
@@ -2520,6 +2584,7 @@
 
   function readEdited(song, ed) {
     ed.classList.toggle("is-empty", !readEditorText(ed).trim());
+    if (searchQuery()) applySearchHighlight();
     readSync.song = song; readSync.el = ed;
     clearTimeout(readSync.timer);
     readSync.timer = setTimeout(function () {
@@ -2629,6 +2694,10 @@
   }
 
   function renderCanvas(song) {
+    drawCanvas(song);
+    applySearchHighlight();
+  }
+  function drawCanvas(song) {
     document.getElementById("font-size-val").textContent = settings.fontSize;
     if (settings.viewMode === "read") { renderReading(song); return; }
     var canvas = document.getElementById("canvas");
@@ -4235,6 +4304,9 @@
     if (moved) closeFmtMenu();
     placeSizeBar(r);
     refreshSizeBarState();
+  });
+  document.getElementById("canvas").addEventListener("input", function (e) {
+    if (e.target.classList && e.target.classList.contains("line-input") && searchQuery()) applySearchHighlight();
   });
   document.getElementById("canvas-wrap").addEventListener("scroll", function () {
     if (!sizeBar.hidden && sizeSaved) placeSizeBar(sizeSaved);

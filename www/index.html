@@ -10,25 +10,83 @@
 <style>
   :root {
     box-sizing: border-box;
-    --bg: #1B1D22;
-    --bg-raised: #22252C;
-    --shell-border: #34373F;
+    /* Dark theme (default) */
+    color-scheme: dark;
+    --bg: #16181C;
+    --bg-raised: #1E2127;
+    --shell-border: #30343C;
     --shell-text: #E7E4DC;
     --shell-text-dim: #9A9CA5;
+    --shell-hover: rgba(255,255,255,0.05);
     --accent: #C9A24B;
-    --accent-dim: #8A7440;
-    --teal: #5A8C89;
-    --paper: #F7F3EA;
-    --paper-edge: #EAE3D2;
-    --ink: #2A2620;
-    --ink-dim: #6B6455;
-    --danger: #B4573F;
+    --accent-dim: #A88B4E;
+    --on-accent: #16181C;
+    --teal: #6FA3A0;
+    --paper: #202328;
+    --paper-edge: #30343C;
+    --paper-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --ink: #E9E4D8;
+    --ink-dim: #9C978B;
+    --tint-1: rgba(255,255,255,0.05);
+    --tint-2: rgba(255,255,255,0.09);
+    --danger: #C9674E;
+    --overlay: rgba(6,7,9,0.65);
+    --c-verse: #C9A24B;
+    --c-chorus: #D8905A;
+    --c-bridge: #6FA3A0;
+    --c-breakdown: #B88599;
+    --c-custom: #B5AC9C;
     --radius-sm: 4px;
     --radius-md: 8px;
     --font-ui: 'Inter', system-ui, sans-serif;
     --font-lyric: 'Fraunces', Georgia, serif;
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #ECE8E0;
+    --bg-raised: #F6F3ED;
+    --shell-border: #D6D0C4;
+    --shell-text: #2A2620;
+    --shell-text-dim: #6E685C;
+    --shell-hover: rgba(0,0,0,0.04);
+    --accent: #A8812F;
+    --accent-dim: #8A6A28;
+    --on-accent: #FFFDF8;
+    --teal: #3F7471;
+    --paper: #FFFDF8;
+    --paper-edge: #E8E1D2;
+    --paper-shadow: 0 6px 24px rgba(60,50,30,0.12);
+    --ink: #2A2620;
+    --ink-dim: #6B6455;
+    --tint-1: rgba(0,0,0,0.04);
+    --tint-2: var(--tint-2);
+    --danger: #B4573F;
+    --overlay: rgba(40,35,25,0.45);
+    --c-verse: #8A7440;
+    --c-chorus: #9C6B2E;
+    --c-bridge: #3F7471;
+    --c-breakdown: #8A5A6B;
+    --c-custom: #5B5347;
+  }
+  :root[data-theme="black"] {
+    color-scheme: dark;
+    --bg: #000000;
+    --bg-raised: #0B0B0B;
+    --shell-border: #232323;
+    --shell-text: #E9E6DF;
+    --shell-text-dim: #8E8E8E;
+    --shell-hover: rgba(255,255,255,0.06);
+    --paper: #000000;
+    --paper-edge: #1F1F1F;
+    --paper-shadow: none;
+    --ink: #EDE8DC;
+    --ink-dim: #8F8A7F;
+    --tint-1: rgba(255,255,255,0.06);
+    --tint-2: rgba(255,255,255,0.1);
+    --overlay: rgba(0,0,0,0.75);
+    --on-accent: #000000;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -90,7 +148,7 @@
     border: 1px solid transparent;
     transition: background 0.12s ease;
   }
-  .song-item:hover { background: rgba(255,255,255,0.04); }
+  .song-item:hover { background: var(--shell-hover); }
   .song-item.active {
     background: rgba(201,162,75,0.12);
     border-color: rgba(201,162,75,0.35);
@@ -270,7 +328,7 @@
     padding: 22px 26px 30px;
     max-width: 720px;
     margin: 0 auto;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    box-shadow: var(--paper-shadow);
   }
 
   .section-block {
@@ -296,13 +354,13 @@
     letter-spacing: 0.05em;
     background: none;
     border: none;
-    color: var(--accent-dim);
+    color: var(--c-verse);
     cursor: pointer;
     padding: 2px 4px 2px 0;
   }
-  .section-type-select.type-chorus { color: #9C6B2E; }
-  .section-type-select.type-bridge { color: var(--teal); }
-  .section-type-select.type-breakdown { color: #8A5A6B; }
+  .section-type-select.type-chorus { color: var(--c-chorus); }
+  .section-type-select.type-bridge { color: var(--c-bridge); }
+  .section-type-select.type-breakdown { color: var(--c-breakdown); }
 
   .section-total {
     margin-left: auto;
@@ -352,7 +410,7 @@
     font-family: var(--font-ui);
     font-size: 0.68rem;
     color: var(--ink-dim);
-    background: rgba(0,0,0,0.045);
+    background: var(--tint-1);
     border-radius: 10px;
     padding: 2px 7px;
   }
@@ -387,7 +445,7 @@
     flex-wrap: wrap;
   }
   .add-section-btn {
-    background: rgba(0,0,0,0.04);
+    background: var(--tint-1);
     border: 1px solid var(--paper-edge);
     color: var(--ink-dim);
     border-radius: var(--radius-sm);
@@ -396,7 +454,7 @@
     cursor: pointer;
     font-family: var(--font-ui);
   }
-  .add-section-btn:hover { background: rgba(0,0,0,0.07); color: var(--ink); }
+  .add-section-btn:hover { background: var(--tint-2); color: var(--ink); }
 
   /* History drawer */
   #history-drawer {
@@ -473,11 +531,158 @@
   .section-note:focus::placeholder { opacity: 0.55; }
   .syl-badge:empty { background: transparent; }
 
+  /* Settings */
+  #settings-btn {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text-dim);
+    border-radius: var(--radius-sm);
+    padding: 9px 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    text-align: left;
+  }
+  #settings-btn:hover { color: var(--shell-text); border-color: var(--accent-dim); }
+  #settings-modal {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    z-index: 55;
+  }
+  #settings-modal.open { display: flex; }
+  #settings-panel {
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-md);
+    width: 100%; max-width: 380px;
+    padding: 18px 20px;
+    color: var(--shell-text);
+  }
+  #settings-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
+  .setting-row { margin-bottom: 18px; }
+  .setting-label { font-size: 0.85rem; margin-bottom: 8px; display: block; }
+  .seg { display: flex; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); overflow: hidden; }
+  .seg button {
+    flex: 1;
+    background: none; border: none;
+    color: var(--shell-text-dim);
+    padding: 9px 8px;
+    font-size: 0.8rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--shell-border); }
+  .seg button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
+  .switch-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .switch-row .setting-label { margin-bottom: 2px; }
+  .setting-help { margin: 0; font-size: 0.74rem; color: var(--shell-text-dim); line-height: 1.45; }
+  .switch {
+    flex-shrink: 0;
+    width: 46px; height: 28px;
+    border-radius: 14px;
+    border: 1px solid var(--shell-border);
+    background: var(--tint-2);
+    position: relative;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease;
+  }
+  .switch span {
+    position: absolute; top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--shell-text-dim);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+  .switch[aria-checked="true"] span { transform: translateX(18px); background: var(--on-accent); }
+  @media (prefers-reduced-motion: reduce) { .switch, .switch span { transition: none; } }
+  #settings-done {
+    width: 100%;
+    background: var(--accent); border: none; color: var(--on-accent);
+    font-weight: 600; font-family: var(--font-ui); font-size: 0.85rem;
+    padding: 10px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+
+  /* Version preview */
+  .v-actions { display: flex; gap: 6px; }
+  .version-preview {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    padding: 4px 9px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+  }
+  .version-preview:hover { border-color: var(--accent-dim); }
+  #preview-modal {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 52;
+  }
+  #preview-modal.open { display: flex; }
+  #preview-panel {
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-md);
+    width: 100%; max-width: 640px;
+    max-height: 100%;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  #preview-head { padding: 16px 20px 12px; border-bottom: 1px solid var(--shell-border); }
+  #preview-date { font-family: var(--font-lyric); font-weight: 500; font-size: 1.15rem; margin: 0 0 4px; color: var(--shell-text); }
+  #preview-meta { font-size: 0.75rem; color: var(--shell-text-dim); }
+  #preview-diff { font-size: 0.75rem; color: var(--shell-text); margin-top: 8px; }
+  #preview-diff::before {
+    content: "";
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    background: rgba(201,162,75,0.35);
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+  #preview-body {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 18px 22px 24px;
+    font-family: var(--font-lyric);
+    -webkit-overflow-scrolling: touch;
+  }
+  .pv-sheet { min-height: 0; cursor: default; }
+  .pv-changed { background: rgba(201,162,75,0.22); border-radius: 3px; box-shadow: -4px 0 0 rgba(201,162,75,0.22), 4px 0 0 rgba(201,162,75,0.22); }
+  #preview-actions {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--shell-border);
+  }
+  #preview-actions button {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    cursor: pointer;
+    border: 1px solid var(--shell-border);
+    background: none;
+    color: var(--shell-text);
+  }
+  #preview-actions button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+
   /* In-app confirmation */
   #confirm-modal {
     position: fixed;
     inset: 0;
-    background: rgba(10,11,13,0.65);
+    background: var(--overlay);
     display: none;
     align-items: center;
     justify-content: center;
@@ -505,7 +710,7 @@
     background: none;
     color: var(--shell-text);
   }
-  #confirm-ok { background: var(--accent); border-color: var(--accent) !important; color: #1B1D22 !important; font-weight: 600; }
+  #confirm-ok { background: var(--accent); border-color: var(--accent) !important; color: var(--on-accent) !important; font-weight: 600; }
   #confirm-ok.danger { background: var(--danger); border-color: var(--danger) !important; color: #fff !important; }
   #paste-title-row {
     display: none;
@@ -519,7 +724,7 @@
 
   /* Custom headers */
   .header-wrap { display: inline-flex; align-items: center; gap: 8px; }
-  .section-type-select.type-custom { color: #5B5347; }
+  .section-type-select.type-custom { color: var(--c-custom); }
   .header-custom-input {
     font-family: var(--font-ui);
     font-weight: 600;
@@ -527,13 +732,13 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--ink);
-    background: rgba(0,0,0,0.04);
+    background: var(--tint-1);
     border: none;
     border-bottom: 1px solid var(--accent-dim);
     padding: 4px 6px;
     width: 180px;
   }
-  .header-custom-input:focus { outline: none; background: rgba(0,0,0,0.06); }
+  .header-custom-input:focus { outline: none; background: var(--tint-2); }
   .header-save {
     background: none;
     border: none;
@@ -544,7 +749,99 @@
     padding: 2px 4px;
   }
   .header-save:hover { color: var(--ink); }
-  .header-save.saved { color: #9C6B2E; }
+  .header-save.saved { color: var(--c-chorus); }
+
+  /* Basic / Advanced toggle */
+  #view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  #view-toggle button {
+    background: none;
+    border: none;
+    color: var(--shell-text-dim);
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+  #view-toggle button + button { border-left: 1px solid var(--shell-border); }
+  #view-toggle button[aria-pressed="true"] { background: rgba(201,162,75,0.16); color: var(--shell-text); }
+
+  /* Reading view */
+  .read-sheet { font-family: var(--font-lyric); color: var(--ink); line-height: 1.55; }
+  .read-toolbar { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 8px; }
+  .read-copy {
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: var(--tint-1);
+    border: 1px solid var(--paper-edge);
+    color: var(--ink-dim);
+    border-radius: var(--radius-sm);
+    padding: 6px 11px;
+    font-size: 0.75rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+  .read-copy:hover { color: var(--ink); background: var(--tint-2); }
+  .read-title {
+    font-weight: 600;
+    font-size: 1.5em;
+    margin: 0 0 1.1em;
+    line-height: 1.2;
+  }
+  .read-section { margin-bottom: 1.8em; }
+  .read-header {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.78em;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.7em;
+  }
+  .read-header.type-verse, .rl-head.type-verse { color: var(--c-verse); }
+  .read-header.type-chorus, .rl-head.type-chorus { color: var(--c-chorus); }
+  .read-header.type-bridge, .rl-head.type-bridge { color: var(--c-bridge); }
+  .read-header.type-breakdown, .rl-head.type-breakdown { color: var(--c-breakdown); }
+  .read-header.type-custom, .rl-head.type-custom { color: var(--c-custom); }
+
+  /* Editable reading view */
+  .read-editor {
+    font-family: var(--font-lyric);
+    line-height: 1.6;
+    color: var(--ink);
+    outline: none;
+    min-height: 40vh;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    caret-color: var(--accent);
+    -webkit-user-modify: read-write-plaintext-only;
+  }
+  .read-editor:empty::before,
+  .read-editor.is-empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-dim);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .read-editor .rl-head { font-family: var(--font-ui); font-weight: 600; font-size: 0.82em; }
+  .read-editor .rl-head.rl-first-gap { margin-top: 0; }
+  .read-editor .rl-note { font-family: var(--font-ui); font-weight: 400; font-style: italic; font-size: 0.82em; color: var(--ink-dim); }
+  .read-editor .rl-paren { color: var(--ink-dim); }
+  .read-hint { font-family: var(--font-ui); font-size: 0.72rem; color: var(--ink-dim); margin: 0 auto 0 0; align-self: center; }
+  .read-header .read-note {
+    font-weight: 400;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-dim);
+    margin-left: 6px;
+  }
+  .read-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .read-gap { height: 1em; }
+  .read-empty { color: var(--ink-dim); font-style: italic; }
 
   #paste-btn {
     background: none;
@@ -563,7 +860,7 @@
   #paste-modal {
     position: fixed;
     inset: 0;
-    background: rgba(10,11,13,0.65);
+    background: var(--overlay);
     display: none;
     align-items: center;
     justify-content: center;
@@ -627,7 +924,7 @@
     background: none;
     color: var(--shell-text);
   }
-  #paste-actions button.primary { background: var(--accent); border-color: var(--accent); color: #1B1D22; font-weight: 600; }
+  #paste-actions button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
   #paste-actions button:disabled { opacity: 0.4; cursor: default; }
 
   ::-webkit-scrollbar { width: 9px; height: 9px; }
@@ -662,7 +959,7 @@
     #app.sidebar-open #sidebar-backdrop {
       display: block;
       position: fixed; inset: 0;
-      background: rgba(10,11,13,0.55);
+      background: var(--overlay);
       z-index: 39;
     }
     .song-item .del { opacity: 0.6; }
@@ -702,6 +999,7 @@
     </div>
     <div id="song-list"></div>
     <button id="new-song-btn">+ New song</button>
+    <button id="settings-btn">⚙︎ Settings</button>
   </div>
 
   <div id="main">
@@ -734,6 +1032,10 @@
           </div>
         </div>
         <div class="spacer"></div>
+        <div id="view-toggle" role="group" aria-label="View">
+          <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
+          <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
+        </div>
         <button id="paste-btn">Paste a song</button>
         <button id="history-toggle">Version history</button>
         <div class="timestamps" id="timestamps"></div>
@@ -765,6 +1067,43 @@
       <button id="paste-cancel">Cancel</button>
       <button id="paste-append" disabled>Add to end of song</button>
       <button id="paste-replace" class="primary" disabled>Replace song lyrics</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div id="settings-panel">
+    <h2 id="settings-title">Settings</h2>
+    <div class="setting-row">
+      <span class="setting-label">Appearance</span>
+      <div class="seg" id="theme-seg" role="group" aria-label="Appearance">
+        <button data-theme-choice="light">Light</button>
+        <button data-theme-choice="dark">Dark</button>
+        <button data-theme-choice="system">Match phone</button>
+      </div>
+    </div>
+    <div class="setting-row switch-row">
+      <div>
+        <span class="setting-label" id="black-label">True black</span>
+        <p class="setting-help">Pure black background for OLED screens. Used whenever the app is dark.</p>
+      </div>
+      <button id="black-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="black-label"><span></span></button>
+    </div>
+    <button id="settings-done">Done</button>
+  </div>
+</div>
+
+<div id="preview-modal" role="dialog" aria-modal="true" aria-labelledby="preview-date">
+  <div id="preview-panel">
+    <div id="preview-head">
+      <h2 id="preview-date"></h2>
+      <div id="preview-meta"></div>
+      <div id="preview-diff"></div>
+    </div>
+    <div id="preview-body"></div>
+    <div id="preview-actions">
+      <button id="preview-close">Close</button>
+      <button id="preview-restore" class="primary">Restore this version</button>
     </div>
   </div>
 </div>
@@ -908,6 +1247,7 @@
       item.addEventListener("click", function () {
         maybeSnapshotOnLeave();
         state.activeId = song.id;
+        openInBasic();
         renderAll();
       });
       list.appendChild(item);
@@ -939,7 +1279,197 @@
     renderVersions(song);
   }
 
+  // ---------- reading view ----------
+  function sectionsAsText(song) {
+    var out = [];
+    song.sections.forEach(function (s, i) {
+      var lines = tidyLines(s.lines.slice());
+      if (i > 0) out.push("", "");
+      out.push("[" + s.type + "]" + (s.note && s.note.trim() ? " (" + s.note.trim() + ")" : ""));
+      if (lines.length) out.push("");
+      lines.forEach(function (l) { out.push(l); });
+    });
+    return out.join("\n");
+  }
+  function songAsText(song) {
+    var body = sectionsAsText(song);
+    return ((song.title.trim() ? song.title.trim() + "\n\n" : "") + body).trim() + "\n";
+  }
+
+  function copyText(text, btn) {
+    function done(ok) {
+      btn.textContent = ok ? "Copied" : "Couldn't copy";
+      setTimeout(function () { btn.textContent = "Copy lyrics"; }, 1600);
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // Editable reading view: plain text you can type in like Notes.
+  // Headers and notes are colored; the text is parsed back into sections as you type.
+  var readSync = { timer: null, song: null, el: null };
+
+  function readLineEl(line, idx, lines) {
+    var d = document.createElement("div");
+    if (!line.trim()) { d.appendChild(document.createElement("br")); return d; }
+    var h = detectHeader(line);
+    if (h) {
+      var t = line.trim();
+      var cut = t.charAt(0) === "[" ? t.indexOf("]") + 1 : t.length;
+      var head = document.createElement("span");
+      head.className = "rl-head " + typeClass(h.name);
+      head.textContent = t.slice(0, cut);
+      d.appendChild(head);
+      if (cut < t.length) {
+        var note = document.createElement("span");
+        note.className = "rl-note";
+        note.textContent = t.slice(cut);
+        d.appendChild(note);
+      }
+      return d;
+    }
+    // dim (parenthetical) vocal notes inside lyric lines
+    line.split(/(\([^()]*(?:\([^()]*\)[^()]*)*\))/).forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2 === 1) {
+        var sp = document.createElement("span");
+        sp.className = "rl-paren";
+        sp.textContent = part;
+        d.appendChild(sp);
+      } else {
+        d.appendChild(document.createTextNode(part));
+      }
+    });
+    return d;
+  }
+
+  function fillReadEditor(el, text) {
+    el.innerHTML = "";
+    if (!text.trim()) { el.classList.add("is-empty"); return; }
+    el.classList.remove("is-empty");
+    var lines = text.split("\n");
+    lines.forEach(function (l, i) { el.appendChild(readLineEl(l, i, lines)); });
+  }
+
+  function readEditorText(el) {
+    return (el.innerText || "").replace(/\u00a0/g, " ").replace(/\r/g, "");
+  }
+
+  function applyReadText(song, text) {
+    var parsed = stripParseFlags(parseSong(text, false).sections);
+    song.sections = parsed.length ? parsed : [{ id: newSectionId(), type: "Verse", note: "", lines: [""] }];
+    markEdited(song, true);
+  }
+
+  function flushReadSync() {
+    if (!readSync.timer) return;
+    clearTimeout(readSync.timer);
+    readSync.timer = null;
+    if (readSync.song && readSync.el) applyReadText(readSync.song, readEditorText(readSync.el));
+  }
+
+  function renderReading(song) {
+    var canvas = document.getElementById("canvas");
+    canvas.innerHTML = "";
+
+    var bar = document.createElement("div");
+    bar.className = "read-toolbar";
+    var hint = document.createElement("span");
+    hint.className = "read-hint";
+    hint.textContent = "Type anywhere. Start a section with [Verse], [Chorus]…";
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "read-copy";
+    copyBtn.textContent = "Copy lyrics";
+    copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
+    bar.appendChild(hint);
+    bar.appendChild(copyBtn);
+    canvas.appendChild(bar);
+
+    var sheet = document.createElement("div");
+    sheet.className = "read-sheet";
+    sheet.style.fontSize = settings.fontSize + "px";
+
+    if (song.title.trim()) {
+      var t = document.createElement("h2");
+      t.className = "read-title";
+      t.textContent = song.title;
+      sheet.appendChild(t);
+    }
+
+    var ed = document.createElement("div");
+    ed.className = "read-editor";
+    ed.setAttribute("contenteditable", "plaintext-only");
+    if (ed.contentEditable !== "plaintext-only") ed.setAttribute("contenteditable", "true");
+    ed.setAttribute("role", "textbox");
+    ed.setAttribute("aria-multiline", "true");
+    ed.setAttribute("aria-label", "Lyrics");
+    ed.setAttribute("data-placeholder", "Write or paste your lyrics here…");
+    ed.spellcheck = true;
+
+    var isEmpty = song.sections.every(function (s) { return !s.lines.some(function (l) { return l.trim(); }); });
+    fillReadEditor(ed, isEmpty && song.sections.length === 1 ? "" : sectionsAsText(song));
+
+    ed.addEventListener("input", function () {
+      ed.classList.toggle("is-empty", !readEditorText(ed).trim());
+      readSync.song = song; readSync.el = ed;
+      clearTimeout(readSync.timer);
+      readSync.timer = setTimeout(function () {
+        readSync.timer = null;
+        applyReadText(song, readEditorText(ed));
+      }, 400);
+    });
+    ed.addEventListener("paste", function (e) {
+      var cd = e.clipboardData || window.clipboardData;
+      if (!cd) return;
+      e.preventDefault();
+      var text = cd.getData("text").replace(/\r\n?/g, "\n");
+      document.execCommand("insertText", false, text);
+    });
+    ed.addEventListener("blur", function () {
+      flushReadSync();
+      if (readEditorText(ed).trim()) fillReadEditor(ed, sectionsAsText(song)); // tidy + recolor
+    });
+
+    sheet.appendChild(ed);
+    canvas.appendChild(sheet);
+  }
+
+  // Basic = "read", Advanced = "edit". Every song opens in Basic.
+  function markViewButtons(mode) {
+    document.getElementById("view-edit").setAttribute("aria-pressed", mode !== "read" ? "true" : "false");
+    document.getElementById("view-read").setAttribute("aria-pressed", mode === "read" ? "true" : "false");
+  }
+  function openInBasic() {
+    flushReadSync();
+    settings.viewMode = "read";
+    markViewButtons("read");
+  }
+  function setViewMode(mode) {
+    flushReadSync();
+    settings.viewMode = mode;
+    markViewButtons(mode);
+    var song = getActiveSong();
+    if (song) renderCanvas(song);
+  }
+
   function renderCanvas(song) {
+    if (settings.viewMode === "read") { renderReading(song); return; }
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
     canvas.style.setProperty("--lyric-size", settings.fontSize + "px");
@@ -1196,9 +1726,12 @@
                       "bridge","breakdown","intro","outro","hook","refrain","interlude","tag","instrumental","coda"];
 
   function titleCase(s) {
-    return s.replace(/\s+/g, " ").trim().split(" ").map(function (w) {
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    }).join(" ");
+    return s.replace(/\s+/g, " ").trim().toLowerCase().replace(/(^|[\s\-])([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); });
+  }
+  // Keep the writer's own capitalization; only fix all-lowercase names
+  function tidyName(s) {
+    s = s.replace(/\s+/g, " ").trim();
+    return s === s.toLowerCase() ? titleCase(s) : s;
   }
   function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
@@ -1210,7 +1743,7 @@
     if (si !== -1) return settings.savedHeaders[si];
     for (var i = 0; i < HEADER_WORDS.length; i++) {
       var re = new RegExp("^" + escapeRe(HEADER_WORDS[i]) + "(\\s*(\\d+|[ivx]+))?(\\s*x\\s*\\d+)?$", "i");
-      if (re.test(bare)) return titleCase(bare);
+      if (re.test(bare)) return tidyName(bare);
     }
     return null;
   }
@@ -1231,7 +1764,7 @@
     if (sq) {
       var inner = sq[1].replace(/:$/, "").trim();
       var si = savedIndex(inner);
-      var name = si !== -1 ? settings.savedHeaders[si] : (matchHeaderName(inner) || titleCase(inner));
+      var name = si !== -1 ? settings.savedHeaders[si] : tidyName(inner);
       var rest = sq[2].trim();
       if (!rest) return { name: name, note: "", firstLine: null };
       var n = unwrapNote(rest);
@@ -1550,6 +2083,7 @@
   }
 
   function maybeSnapshotOnLeave() {
+    flushReadSync();
     var song = getActiveSong();
     if (!song) return;
     var snap = snapshotOf(song);
@@ -1588,27 +2122,111 @@
       var meta = document.createElement("div");
       meta.className = "v-meta";
       meta.textContent = (data.title || "Untitled") + " · " + data.sections.length + " sections · " + lineCount + " lines";
+      var actions = document.createElement("div");
+      actions.className = "v-actions";
+      var pv = document.createElement("button");
+      pv.className = "version-preview";
+      pv.textContent = "Preview";
+      pv.addEventListener("click", function () { openVersionPreview(song, v); });
       var btn = document.createElement("button");
       btn.className = "version-restore";
-      btn.textContent = "Restore this version";
+      btn.textContent = "Restore";
       btn.addEventListener("click", function () {
         askConfirm("Restore the version from " + fmtDateTime(v.timestamp) + "? What you have now is saved to version history first.", "Restore version", false, function () {
-          maybeSnapshotOnLeave();
-          song.title = data.title;
-          song.bpm = data.bpm;
-          song.key = data.key;
-          song.sections = JSON.parse(JSON.stringify(data.sections));
-          markEdited(song);
-          persistSongs();
-          renderAll();
+          restoreVersion(song, v);
         });
       });
+      actions.appendChild(pv);
+      actions.appendChild(btn);
       item.appendChild(date);
       item.appendChild(meta);
-      item.appendChild(btn);
+      item.appendChild(actions);
       list.appendChild(item);
     });
   }
+
+  function restoreVersion(song, v) {
+    var data = JSON.parse(v.snapshot);
+    maybeSnapshotOnLeave();
+    song.title = data.title;
+    song.bpm = data.bpm;
+    song.key = data.key;
+    song.sections = JSON.parse(JSON.stringify(data.sections));
+    markEdited(song);
+    persistSongs();
+    renderAll();
+  }
+
+  // ---------- version preview ----------
+  var previewModal = document.getElementById("preview-modal");
+  var previewTarget = null;
+
+  function openVersionPreview(song, v) {
+    flushReadSync();
+    var data = JSON.parse(v.snapshot);
+    previewTarget = { song: song, v: v };
+
+    document.getElementById("preview-date").textContent = "Version from " + fmtDateTime(v.timestamp);
+    var lineCount = data.sections.reduce(function (sum, s) { return sum + s.lines.filter(function (l) { return l.trim(); }).length; }, 0);
+    var bits = [data.sections.length + " sections", lineCount + " lines"];
+    if (data.bpm) bits.push(data.bpm + " BPM");
+    if (data.key && data.key !== "—") bits.push("Key " + data.key);
+    document.getElementById("preview-meta").textContent = bits.join(" · ");
+
+    // Lines that don't appear anywhere in the current song get highlighted
+    var current = {};
+    sectionsAsText(song).split("\n").forEach(function (l) { if (l.trim()) current[l.trim()] = true; });
+    var changed = 0;
+
+    var body = document.getElementById("preview-body");
+    body.innerHTML = "";
+    body.style.fontSize = settings.fontSize + "px";
+    if ((data.title || "").trim()) {
+      var t = document.createElement("h2");
+      t.className = "read-title";
+      t.textContent = data.title;
+      if (data.title.trim() !== song.title.trim()) { t.classList.add("pv-changed"); changed++; }
+      body.appendChild(t);
+    }
+    var text = sectionsAsText({ sections: data.sections });
+    var wrap = document.createElement("div");
+    wrap.className = "read-editor pv-sheet";
+    text.split("\n").forEach(function (l) {
+      var el = readLineEl(l);
+      if (l.trim() && !current[l.trim()]) { el.classList.add("pv-changed"); changed++; }
+      wrap.appendChild(el);
+    });
+    if (!text.trim()) {
+      var e = document.createElement("p");
+      e.className = "read-empty";
+      e.textContent = "This version has no lyrics.";
+      wrap.appendChild(e);
+    }
+    body.appendChild(wrap);
+
+    document.getElementById("preview-diff").textContent = changed
+      ? changed + " highlighted line" + (changed === 1 ? " is" : "s are") + " different from what you have now."
+      : "This version matches what you have now.";
+
+    previewModal.classList.add("open");
+    body.scrollTop = 0;
+    var firstChange = body.querySelector(".pv-changed");
+    if (firstChange && firstChange.offsetTop > body.clientHeight * 0.6) {
+      body.scrollTop = Math.max(0, firstChange.offsetTop - body.offsetTop - 60);
+    }
+  }
+  function closePreview() { previewModal.classList.remove("open"); previewTarget = null; }
+  document.getElementById("preview-close").addEventListener("click", closePreview);
+  previewModal.addEventListener("click", function (e) { if (e.target === previewModal) closePreview(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && previewModal.classList.contains("open") && !confirmModal.classList.contains("open")) closePreview();
+  });
+  document.getElementById("preview-restore").addEventListener("click", function () {
+    if (!previewTarget) return;
+    var t = previewTarget;
+    closePreview();
+    restoreVersion(t.song, t.v);
+  });
 
   // ---------- top-level render ----------
   function renderAll() {
@@ -1623,6 +2241,7 @@
     state.songs.push(song);
     state.activeId = song.id;
     persistSongs();
+    openInBasic();
     renderAll();
     document.getElementById("title-input").focus();
   });
@@ -1689,11 +2308,59 @@
     document.getElementById("new-song-btn").click();
   });
 
+  document.getElementById("view-edit").addEventListener("click", function () { setViewMode("edit"); });
+  document.getElementById("view-read").addEventListener("click", function () { setViewMode("read"); });
+
+  // ---------- appearance ----------
+  var systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function applyTheme() {
+    var pref = settings.theme || "dark";
+    var resolved = pref === "system" ? (systemDark && systemDark.matches ? "dark" : "light") : pref;
+    if (resolved === "dark" && settings.trueBlack) resolved = "black";
+    document.documentElement.setAttribute("data-theme", resolved);
+    document.getElementById("black-switch").setAttribute("aria-checked", settings.trueBlack ? "true" : "false");
+    var btns = document.querySelectorAll("#theme-seg button");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-theme-choice") === pref ? "true" : "false");
+    }
+  }
+  if (systemDark) {
+    var onSys = function () { if (settings.theme === "system") applyTheme(); };
+    if (systemDark.addEventListener) systemDark.addEventListener("change", onSys);
+    else if (systemDark.addListener) systemDark.addListener(onSys);
+  }
+  document.getElementById("theme-seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    settings.theme = b.getAttribute("data-theme-choice");
+    persistSettings();
+    applyTheme();
+  });
+  document.getElementById("black-switch").addEventListener("click", function () {
+    settings.trueBlack = !settings.trueBlack;
+    persistSettings();
+    applyTheme();
+  });
+  var settingsModal = document.getElementById("settings-modal");
+  function closeSettings() { settingsModal.classList.remove("open"); }
+  document.getElementById("settings-btn").addEventListener("click", function () {
+    closeSidebar();
+    applyTheme();
+    settingsModal.classList.add("open");
+  });
+  document.getElementById("settings-done").addEventListener("click", closeSettings);
+  settingsModal.addEventListener("click", function (e) { if (e.target === settingsModal) closeSettings(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && settingsModal.classList.contains("open")) closeSettings();
+  });
+
   // ---------- init ----------
   loadAll();
   if (state.songs.length) {
     state.activeId = state.songs.slice().sort(function(a,b){return b.lastEditedAt-a.lastEditedAt;})[0].id;
   }
+  applyTheme();
+  openInBasic();
   renderAll();
 })();
 </script>

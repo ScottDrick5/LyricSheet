@@ -39,7 +39,7 @@ function buildMenu() {
         cmd("New Folder", "Shift+CmdOrCtrl+N", "new-folder"),
         cmd("Duplicate Song", "CmdOrCtrl+D", "duplicate-song"),
         { type: "separator" },
-        cmd("Paste a Song…", "Shift+CmdOrCtrl+V", "paste-song"),
+        cmd("Import New Lyrics…", "Shift+CmdOrCtrl+V", "paste-song"),
         cmd("Copy Lyrics", "Shift+CmdOrCtrl+C", "copy-lyrics"),
         { type: "separator" },
         cmd("Sync Now", "Shift+CmdOrCtrl+S", "sync-now"),

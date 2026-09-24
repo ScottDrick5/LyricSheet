@@ -180,6 +180,10 @@
   }
   .folder-item .fmore:hover { opacity: 1; background: var(--tint-2); color: var(--shell-text); }
   .folder-item.all-songs { font-weight: 500; }
+  .folder-item.trash-row .folder-ico { color: var(--shell-text-dim); }
+  .trash-note { margin-bottom: 6px; }
+  .song-item.trashed .name { color: var(--shell-text-dim); }
+  .nav-add.empty-trash { width: 100%; margin-top: 10px; color: #d9534f; }
   .folder-divider { height: 1px; background: var(--shell-border); margin: 4px 6px; }
   .folder-input {
     flex: 1; min-width: 0;
@@ -1521,7 +1525,7 @@
           <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
           <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
         </div>
-        <button id="paste-btn">Paste a song</button>
+        <button id="paste-btn">Import New Lyrics</button>
         <button id="history-toggle">Version history</button>
         <div class="timestamps" id="timestamps"></div>
       </div>
@@ -1547,7 +1551,7 @@
 
 <div id="paste-modal" role="dialog" aria-modal="true" aria-labelledby="paste-title">
   <div id="paste-panel">
-    <h2 id="paste-title">Paste a song</h2>
+    <h2 id="paste-title">Import New Lyrics</h2>
     <p class="hint">Paste lyrics you've already written. A title on its own line at the top fills in the song title. Headers like [Verse 1], [Chorus] or Bridge: start a new section, and everything under a header stays together until the next one, including stanza breaks. A note after a header, like [Chorus] (stripped back), is kept as the section's note.</p>
     <textarea id="paste-text" placeholder="Paste your lyrics here…"></textarea>
     <label id="paste-title-row"><input type="checkbox" id="paste-use-title"> <span>Use <strong id="paste-title-name"></strong> as the song title</span></label>
@@ -1778,6 +1782,7 @@
   }
 
   function deleteSong(song) {
+    moveToTrash(song);
     state.songs = state.songs.filter(function (s) { return s.id !== song.id; });
     recordDeletion(song.id);
     if (state.activeId === song.id) {
@@ -1786,6 +1791,107 @@
     }
     persistSongs();
     renderAll();
+  }
+
+  // ---------- Recycle Bin ----------
+  // Deleted songs wait here for TRASH_DAYS days before they're gone for good. The bin is kept on each
+  // device (a delete still syncs, and every synced device puts its copy of the song in its own bin).
+  var TRASH_KEY = "lyricapp_trash_v1", TRASH_DAYS = 30, DAY_MS = 24 * 60 * 60 * 1000;
+  var trash = [];   // [{ song, deletedAt }]
+  var TRASH_SVG = '<svg class="folder-ico" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3.5 5.5h13M8 5.5V3.8c0-.5.4-.8.8-.8h2.4c.5 0 .8.4.8.8v1.7M5 5.5l.8 10.8c.1.9.8 1.7 1.7 1.7h5c.9 0 1.7-.8 1.7-1.7L15 5.5M8.3 8.5v6M11.7 8.5v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function loadTrash() {
+    try { trash = JSON.parse(localStorage.getItem(TRASH_KEY) || "[]") || []; } catch (e) { trash = []; }
+    purgeTrash();
+  }
+  function saveTrash() {
+    try { localStorage.setItem(TRASH_KEY, JSON.stringify(trash)); } catch (e) { console.warn("Save failed", e); }
+  }
+  function purgeTrash() {
+    var cutoff = Date.now() - TRASH_DAYS * DAY_MS;
+    var kept = trash.filter(function (t) { return t && t.song && t.deletedAt > cutoff; });
+    if (kept.length !== trash.length) { trash = kept; saveTrash(); }
+  }
+  function moveToTrash(song) {
+    trash = trash.filter(function (t) { return t.song.id !== song.id; });
+    trash.push({ song: JSON.parse(JSON.stringify(song)), deletedAt: Date.now() });
+    saveTrash();
+  }
+  function trashDaysLeft(t) { return Math.max(1, Math.ceil((t.deletedAt + TRASH_DAYS * DAY_MS - Date.now()) / DAY_MS)); }
+  function restoreSong(id) {
+    var t = trash.filter(function (x) { return x.song.id === id; })[0];
+    if (!t) return;
+    trash = trash.filter(function (x) { return x !== t; });
+    saveTrash();
+    var song = t.song;
+    song.lastEditedAt = Date.now();   // newer than the delete, so sync brings it back on other devices too
+    delete sync.deleted[song.id];
+    saveSync();
+    state.songs = state.songs.filter(function (s) { return s.id !== song.id; });
+    state.songs.push(song);
+    persistSongs();
+    setNav("songs", "all");
+    openSong(song.id);
+  }
+  function deleteForever(id) {
+    trash = trash.filter(function (x) { return x.song.id !== id; });
+    saveTrash();
+    renderSidebar();
+  }
+  function trashMenu(t) {
+    var title = t.song.title || "Untitled song";
+    showSheet(title, [
+      { label: "Restore song", fn: function () { restoreSong(t.song.id); closeSidebar(); } },
+      { label: "Delete forever", danger: true, fn: function () {
+        askConfirm('Permanently delete "' + title + '"? This can\'t be undone.', "Delete forever", true, function () { deleteForever(t.song.id); });
+      } }
+    ]);
+  }
+  function renderTrashList(list, q) {
+    purgeTrash();
+    var items = trash.slice().sort(function (a, b) { return b.deletedAt - a.deletedAt; });
+    if (q) items = items.filter(function (t) { return songSearchText(t.song).indexOf(q) !== -1; });
+    var note = document.createElement("p");
+    note.className = "no-match trash-note";
+    note.textContent = items.length || q
+      ? "Songs are permanently deleted " + TRASH_DAYS + " days after they're moved here."
+      : "The Recycle Bin is empty. Deleted songs stay here for " + TRASH_DAYS + " days.";
+    list.appendChild(note);
+    if (!items.length) {
+      if (q) { var none = document.createElement("p"); none.className = "no-match"; none.textContent = "No deleted songs match \u201C" + q + "\u201D."; list.appendChild(none); }
+      return;
+    }
+    items.forEach(function (t) {
+      var item = document.createElement("div");
+      item.className = "song-item trashed";
+      var info = document.createElement("div");
+      info.className = "info";
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = t.song.title || "Untitled song";
+      var sub = document.createElement("span");
+      sub.className = "sub";
+      var left = trashDaysLeft(t);
+      sub.textContent = left + (left === 1 ? " day" : " days") + " left \u00B7 deleted " + fmtShort(t.deletedAt);
+      info.appendChild(name); info.appendChild(sub);
+      var more = document.createElement("button");
+      more.className = "del more";
+      more.textContent = "\u22EF";
+      more.title = "Restore or delete";
+      more.setAttribute("aria-label", "Options for " + (t.song.title || "Untitled song"));
+      more.addEventListener("click", function (e) { e.stopPropagation(); trashMenu(t); });
+      item.appendChild(info); item.appendChild(more);
+      item.addEventListener("click", function () { trashMenu(t); });
+      list.appendChild(item);
+    });
+    var empty = document.createElement("button");
+    empty.className = "nav-add empty-trash";
+    empty.textContent = "Empty Recycle Bin";
+    empty.addEventListener("click", function () {
+      askConfirm("Permanently delete all " + trash.length + (trash.length === 1 ? " song" : " songs") + " in the Recycle Bin? This can't be undone.", "Empty Recycle Bin", true, function () {
+        trash = []; saveTrash(); renderSidebar();
+      });
+    });
+    list.appendChild(empty);
   }
 
   // ---------- folders (like Apple Notes) ----------
@@ -1908,7 +2014,7 @@
       { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
       { label: "Delete song", danger: true, fn: function () {
-        askConfirm('Delete "' + title + '"? This can\'t be undone.', "Delete song", true, function () { deleteSong(song); });
+        askConfirm('Move "' + title + '" to the Recycle Bin? You can restore it for ' + TRASH_DAYS + ' days.', "Move to Recycle Bin", true, function () { deleteSong(song); });
       } }
     ]);
   }
@@ -1971,6 +2077,9 @@
       more.addEventListener("click", function (e) { e.stopPropagation(); folderMenu(f, r); });
       r.appendChild(more);
     });
+    purgeTrash();
+    var d2 = document.createElement("div"); d2.className = "folder-divider"; list.appendChild(d2);
+    row(TRASH_SVG, "Recycle Bin", trash.length, "trash-row", function () { setNav("songs", "trash"); });
   }
 
   document.getElementById("new-folder-btn").addEventListener("click", function () {
@@ -1991,17 +2100,19 @@
     // don't redraw under someone who is naming a folder
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains("folder-input")) return;
-    if (nav.folder !== "all" && !folderById(nav.folder)) nav.folder = "all";
+    if (nav.folder !== "all" && nav.folder !== "trash" && !folderById(nav.folder)) nav.folder = "all";
     document.getElementById("folders-view").hidden = nav.view !== "folders";
     document.getElementById("songs-view").hidden = nav.view === "folders";
     if (nav.view === "folders") { renderFolderList(); return; }
 
-    var folder = nav.folder === "all" ? null : folderById(nav.folder);
-    document.getElementById("folder-title").textContent = folder ? folder.name : "All Songs";
+    var inTrash = nav.folder === "trash";
+    var folder = nav.folder === "all" || inTrash ? null : folderById(nav.folder);
+    document.getElementById("folder-title").textContent = inTrash ? "Recycle Bin" : folder ? folder.name : "All Songs";
 
     var list = document.getElementById("song-list");
     list.innerHTML = "";
     var q = (document.getElementById("song-search").value || "").trim().toLowerCase();
+    if (inTrash) { renderTrashList(list, q); return; }
     var sorted = state.songs.slice().sort(function(a,b){ return b.lastEditedAt - a.lastEditedAt; });
     if (folder) sorted = sorted.filter(function (s) { return s.folderId === folder.id; });
     if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
@@ -3371,6 +3482,7 @@
     maybeSnapshotOnLeave();
     var song = newSong();
     if (nav.folder !== "all" && folderById(nav.folder)) song.folderId = nav.folder;
+    if (nav.folder === "trash") nav.folder = "all";
     state.songs.push(song);
     state.activeId = song.id;
     settings.lastOpenId = song.id;
@@ -3718,7 +3830,11 @@
       var newest = Math.max(L ? L.lastEditedAt : 0, R ? R.lastEditedAt : 0);
       if (deleted[id] && deleted[id] >= newest) {
         if (R) { patch["song-" + id + ".json"] = null; patchCount++; }
-        if (L) { localChanged = true; if (id === state.activeId) activeGone = true; }
+        if (L) {
+          if (!trash.some(function (t) { return t.song.id === id; })) moveToTrash(L);
+          localChanged = true;
+          if (id === state.activeId) activeGone = true;
+        }
         return;
       }
       if (deleted[id]) delete deleted[id]; // edited again after a delete elsewhere: keep it
@@ -4189,7 +4305,9 @@
   // ---------- init ----------
   loadAll();
   loadFolders();
-  nav.folder = settings.navFolder && (settings.navFolder === "all" || folderById(settings.navFolder)) ? settings.navFolder : "all";
+  loadTrash();
+  setInterval(function () { var n = trash.length; purgeTrash(); if (trash.length !== n) renderSidebar(); }, 60 * 60 * 1000);
+  nav.folder = settings.navFolder && (settings.navFolder === "all" || settings.navFolder === "trash" || folderById(settings.navFolder)) ? settings.navFolder : "all";
   if (state.songs.length) {
     var reopen = state.songs.filter(function (s) { return s.id === settings.lastOpenId; })[0];
     state.activeId = reopen ? reopen.id : state.songs.slice().sort(function(a,b){return b.lastEditedAt-a.lastEditedAt;})[0].id;

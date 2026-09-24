@@ -1692,6 +1692,27 @@
   .mb-controls button:active { background: var(--shell-hover); }
   .mb-play .ico-pause, .mb-play.playing .ico-play { display: none; }
   .mb-play.playing .ico-pause { display: block; }
+  .mb-handle {
+    position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px; background: var(--shell-border);
+  }
+  #music-bar { touch-action: pan-x; }
+  /* hidden player: a small round button in the bottom-left corner */
+  #music-pill {
+    position: fixed;
+    left: calc(22px + env(safe-area-inset-left, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 41;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: 1px solid var(--shell-border);
+    background: var(--bg-raised); color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    touch-action: none;
+  }
+  #music-pill[hidden] { display: none; }
+  #music-pill.playing { color: var(--accent); border-color: var(--accent-dim); }
+  body.is-typing #music-pill { display: none; }
   .mb-hide {
     flex-shrink: 0; width: 30px; height: 30px; margin-left: -4px; border-radius: 50%;
     border: none; background: var(--tint-2); color: var(--shell-text-dim);
@@ -1714,6 +1735,7 @@
 <div id="app">
   <div id="sidebar-backdrop"></div>
   <div id="music-bar" role="region" aria-label="Apple Music" hidden>
+    <div class="mb-handle" aria-hidden="true"></div>
     <div class="mb-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg></div>
     <div class="mb-info"><span class="mb-title"></span><span class="mb-artist"></span></div>
     <button class="mb-connect" hidden>Connect</button>
@@ -1722,8 +1744,9 @@
       <button data-music="toggle" class="mb-play" aria-label="Play"><svg class="ico-play" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7 4.5v15L19.5 12z" fill="currentColor"/></svg><svg class="ico-pause" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/></svg></button>
       <button data-music="next" aria-label="Next"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M5 5.5v13L15 12z" fill="currentColor"/></svg></button>
     </div>
-    <button class="mb-hide" aria-label="Hide music controls" title="Hide (turn back on in Settings)"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="mb-hide" aria-label="Hide music controls" title="Hide (tap the music button to bring it back)"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
+  <button id="music-pill" aria-label="Show music controls" title="Show music controls" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg></button>
   <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
     <div class="sidebar-head">
@@ -5417,11 +5440,22 @@
   var musicBar = document.getElementById("music-bar");
   function musicCall(method, opts) { return window.Capacitor.nativePromise("MusicControl", method, opts || {}); }
   function musicWanted() { return music.available && settings.musicBar === true; }   // off until turned on in Settings
+  var musicPill = document.getElementById("music-pill");
   function showMusicBar() {
     var on = musicWanted() && !appEl.classList.contains("sidebar-open") && !!getActiveSong();
-    musicBar.hidden = !on;
-    document.body.classList.toggle("music-on", on);
+    var collapsed = settings.musicCollapsed === true;
+    musicBar.hidden = !on || collapsed;
+    musicPill.hidden = !on || !collapsed;
+    document.body.classList.toggle("music-on", on && !collapsed);
     return on;
+  }
+  // Swipe the player down (or tap its hide button) to shrink it to the round music button;
+  // tap that button (or swipe it up) to bring the player back.
+  function setMusicCollapsed(c) {
+    settings.musicCollapsed = c;
+    persistSettings();
+    showMusicBar();
+    refreshMusic();
   }
   function renderMusic(st) {
     var title = musicBar.querySelector(".mb-title"), artist = musicBar.querySelector(".mb-artist");
@@ -5448,6 +5482,8 @@
     }
     var playing = !!(st && st.playing);
     play.classList.toggle("playing", playing);
+    musicPill.classList.toggle("playing", playing);
+    musicPill.setAttribute("aria-label", "Show music controls" + (st && st.id && st.title ? " (" + st.title + ")" : ""));
     play.setAttribute("aria-label", playing ? "Pause" : "Play");
     if (!(st && st.id)) { art.style.backgroundImage = ""; art.classList.remove("has-art"); music.artId = null; }
   }
@@ -5495,7 +5531,21 @@
       refreshMusic();
     }
     document.getElementById("music-switch").addEventListener("click", function () { setMusicBar(settings.musicBar !== true); });
-    musicBar.querySelector(".mb-hide").addEventListener("click", function () { setMusicBar(false); });
+    musicBar.querySelector(".mb-hide").addEventListener("click", function () { setMusicCollapsed(true); });
+    musicPill.addEventListener("click", function () { setMusicCollapsed(false); });
+    (function () {
+      var y0 = null;
+      musicBar.addEventListener("touchstart", function (e) { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+      musicBar.addEventListener("touchmove", function (e) {
+        if (y0 !== null && e.touches[0].clientY - y0 > 40) { y0 = null; setMusicCollapsed(true); }
+      }, { passive: true });
+      musicBar.addEventListener("touchend", function () { y0 = null; }, { passive: true });
+      var p0 = null;
+      musicPill.addEventListener("touchstart", function (e) { p0 = e.touches[0].clientY; }, { passive: true });
+      musicPill.addEventListener("touchmove", function (e) {
+        if (p0 !== null && p0 - e.touches[0].clientY > 30) { p0 = null; setMusicCollapsed(false); }
+      }, { passive: true });
+    })();
     // keep it current while it's on screen (what's playing can change from the Lock Screen, AirPods, etc.)
     music.timer = setInterval(refreshMusic, 1500);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshMusic(); });

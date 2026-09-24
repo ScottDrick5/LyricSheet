@@ -2343,6 +2343,38 @@
     return d;
   }
 
+  // Replace the selection in the Basic editor with text (which may contain line breaks), then redraw the
+  // lines so each gets its own styling: headers stay headers, and new lines start plain.
+  function insertIntoEditor(song, ed, text) {
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
+    var w = walkEditor(ed, pts);
+    if (pts[0].index == null || pts[1].index == null) return;
+    var a = Math.min(pts[0].index, pts[1].index), b = Math.max(pts[0].index, pts[1].index);
+    var S = w.text.slice(0, a) + text + w.text.slice(b);
+    var keys = w.keys.slice(0, a).concat(text.split("").map(function () { return PLAIN; }), w.keys.slice(b));
+    var lines = [], start = 0;
+    S.split("\n").forEach(function (t) {
+      lines.push({ text: t, runs: runsFromKeys(keys.slice(start, start + t.length)) });
+      start += t.length + 1;
+    });
+    ed.innerHTML = "";
+    lines.forEach(function (l) { ed.appendChild(readLineEl(l.text, l.runs)); });
+    ed.classList.toggle("is-empty", !S.trim());
+    var pt = editorPointAt(ed, a + text.length);
+    var nr = document.createRange();
+    nr.setStart(pt.node, pt.offset);
+    nr.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+    // keep the caret in view (e.g. pressing Return at the bottom of the screen)
+    var el = pt.node.nodeType === 1 ? pt.node : pt.node.parentNode;
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+    readEdited(song, ed);
+  }
+
   function fillReadEditor(el, lineObjs) {
     el.innerHTML = "";
     if (!lineObjs.some(function (l) { return l.text.trim(); })) { el.classList.add("is-empty"); return; }
@@ -2500,7 +2532,16 @@
       if (!cd) return;
       e.preventDefault();
       var text = cd.getData("text").replace(/\r\n?/g, "\n");
-      document.execCommand("insertText", false, text);
+      if (text.indexOf("\n") !== -1) insertIntoEditor(song, ed, text);   // several lines: split them properly
+      else document.execCommand("insertText", false, text);
+    });
+    // Return starts a real new line. Left to the browser, it puts a line break inside whatever styled
+    // piece the cursor is in (a [Verse] header, a dimmed "(ooh)"), and everything typed after it keeps that look.
+    ed.addEventListener("beforeinput", function (e) {
+      if (e.inputType === "insertParagraph" || e.inputType === "insertLineBreak") {
+        e.preventDefault();
+        insertIntoEditor(song, ed, "\n");
+      }
     });
     ed.addEventListener("blur", function () {
       flushReadSync();

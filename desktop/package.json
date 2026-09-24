@@ -1,6 +1,6 @@
 {
   "name": "lyric-sheet-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Lyric Sheet desktop prototype",
   "main": "main.js",
@@ -13,6 +13,7 @@
     "productName": "Lyric Sheet",
     "files": [
       "main.js",
+      "preload.js",
       "app/**/*"
     ],
     "directories": {

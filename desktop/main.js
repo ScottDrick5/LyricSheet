@@ -1,6 +1,160 @@
 // Lyric Sheet — Mac desktop wrapper. The whole app is app/index.html (copied from www/index.html at build time).
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, Menu, shell } = require("electron");
 const path = require("path");
+
+const isMac = process.platform === "darwin";
+
+function send(command) {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  if (win) win.webContents.send("menu-command", command);
+}
+const cmd = (label, accelerator, command, extra) =>
+  Object.assign({ label, accelerator, click: () => send(command) }, extra || {});
+
+// ---------- menu bar with standard Mac shortcuts ----------
+function buildMenu() {
+  const template = [
+    ...(isMac
+      ? [{
+          label: app.name,
+          submenu: [
+            { role: "about" },
+            { type: "separator" },
+            cmd("Settings…", "CmdOrCtrl+,", "settings"),
+            { type: "separator" },
+            { role: "services" },
+            { type: "separator" },
+            { role: "hide" },
+            { role: "hideOthers" },
+            { role: "unhide" },
+            { type: "separator" },
+            { role: "quit" },
+          ],
+        }]
+      : []),
+    {
+      label: "File",
+      submenu: [
+        cmd("New Song", "CmdOrCtrl+N", "new-song"),
+        cmd("New Folder", "Shift+CmdOrCtrl+N", "new-folder"),
+        cmd("Duplicate Song", "CmdOrCtrl+D", "duplicate-song"),
+        { type: "separator" },
+        cmd("Paste a Song…", "Shift+CmdOrCtrl+V", "paste-song"),
+        cmd("Copy Lyrics", "Shift+CmdOrCtrl+C", "copy-lyrics"),
+        { type: "separator" },
+        cmd("Sync Now", "Shift+CmdOrCtrl+S", "sync-now"),
+        { type: "separator" },
+        isMac ? { role: "close" } : { role: "quit" },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "pasteAndMatchStyle" },
+        { role: "delete" },
+        { role: "selectAll" },
+        { type: "separator" },
+        cmd("Find Song…", "CmdOrCtrl+F", "find"),
+        ...(isMac
+          ? [
+              { type: "separator" },
+              { label: "Speech", submenu: [{ role: "startSpeaking" }, { role: "stopSpeaking" }] },
+            ]
+          : []),
+      ],
+    },
+    {
+      label: "Format",
+      submenu: [
+        cmd("Bigger", "CmdOrCtrl+=", "text-bigger"),
+        cmd("Bigger", "CmdOrCtrl+Plus", "text-bigger", { visible: false, acceleratorWorksWhenHidden: true }),
+        cmd("Smaller", "CmdOrCtrl+-", "text-smaller"),
+        cmd("Normal Size", "CmdOrCtrl+0", "text-reset"),
+        { type: "separator" },
+        { label: "Select words first to resize just those words; otherwise the whole sheet changes.", enabled: false },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        cmd("Basic", "CmdOrCtrl+1", "mode-basic"),
+        cmd("Advanced", "CmdOrCtrl+2", "mode-advanced"),
+        { type: "separator" },
+        cmd("Show / Hide Top Bar", "Shift+CmdOrCtrl+H", "toggle-bar"),
+        cmd("Version History", "CmdOrCtrl+Y", "history"),
+        { type: "separator" },
+        { role: "togglefullscreen" },
+        { type: "separator" },
+        { role: "toggleDevTools", label: "Developer Tools" },
+      ],
+    },
+    { role: "windowMenu" },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+// ---------- right-click menu ----------
+function attachContextMenu(win) {
+  win.webContents.on("context-menu", (_event, p) => {
+    const items = [];
+    const hasSelection = !!(p.selectionText && p.selectionText.trim());
+
+    if (p.misspelledWord) {
+      const guesses = (p.dictionarySuggestions || []).slice(0, 6);
+      if (guesses.length) {
+        guesses.forEach((g) => items.push({ label: g, click: () => win.webContents.replaceMisspelling(g) }));
+      } else {
+        items.push({ label: "No Guesses Found", enabled: false });
+      }
+      items.push({ label: "Learn Spelling", click: () => win.webContents.session.addWordToSpellCheckerDictionary(p.misspelledWord) });
+      items.push({ type: "separator" });
+    }
+
+    if (hasSelection) {
+      const shown = p.selectionText.trim().length > 24 ? p.selectionText.trim().slice(0, 24) + "…" : p.selectionText.trim();
+      if (isMac) items.push({ label: `Look Up “${shown}”`, click: () => win.webContents.showDefinitionForSelection() });
+      items.push({ label: "Search with Google", click: () => shell.openExternal("https://www.google.com/search?q=" + encodeURIComponent(p.selectionText.trim())) });
+      items.push({ type: "separator" });
+    }
+
+    if (p.isEditable) {
+      items.push(
+        { role: "cut", enabled: p.editFlags.canCut },
+        { role: "copy", enabled: p.editFlags.canCopy },
+        { role: "paste", enabled: p.editFlags.canPaste },
+        { role: "pasteAndMatchStyle", enabled: p.editFlags.canPaste },
+        { role: "selectAll", enabled: p.editFlags.canSelectAll }
+      );
+      if (hasSelection) {
+        items.push({ type: "separator" });
+        items.push({
+          label: "Text Size",
+          submenu: [
+            { label: "Bigger", accelerator: "CmdOrCtrl+=", click: () => send("text-bigger") },
+            { label: "Smaller", accelerator: "CmdOrCtrl+-", click: () => send("text-smaller") },
+            { label: "Normal Size", accelerator: "CmdOrCtrl+0", click: () => send("text-reset") },
+          ],
+        });
+      }
+      if (isMac && hasSelection) {
+        items.push({ type: "separator" });
+        items.push({ label: "Speech", submenu: [{ role: "startSpeaking" }, { role: "stopSpeaking" }] });
+      }
+    } else if (hasSelection) {
+      items.push({ role: "copy" }, { role: "selectAll" });
+    } else {
+      items.push({ role: "selectAll" });
+    }
+
+    Menu.buildFromTemplate(items).popup({ window: win });
+  });
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -11,6 +165,7 @@ function createWindow() {
     title: "Lyric Sheet",
     backgroundColor: "#16181C",
     webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: true,
@@ -22,9 +177,11 @@ function createWindow() {
     shell.openExternal(url);
     return { action: "deny" };
   });
+  attachContextMenu(win);
 }
 
 app.whenReady().then(() => {
+  buildMenu();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -32,5 +189,5 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (!isMac) app.quit();
 });

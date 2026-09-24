@@ -1692,6 +1692,11 @@
   .mb-controls button:active { background: var(--shell-hover); }
   .mb-play .ico-pause, .mb-play.playing .ico-play { display: none; }
   .mb-play.playing .ico-pause { display: block; }
+  .mb-hide {
+    flex-shrink: 0; width: 30px; height: 30px; margin-left: -4px; border-radius: 50%;
+    border: none; background: var(--tint-2); color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  }
   .mb-connect {
     flex-shrink: 0; border: none; border-radius: 18px; padding: 8px 16px;
     background: var(--accent); color: var(--on-accent);
@@ -1717,6 +1722,7 @@
       <button data-music="toggle" class="mb-play" aria-label="Play"><svg class="ico-play" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7 4.5v15L19.5 12z" fill="currentColor"/></svg><svg class="ico-pause" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/></svg></button>
       <button data-music="next" aria-label="Next"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M5 5.5v13L15 12z" fill="currentColor"/></svg></button>
     </div>
+    <button class="mb-hide" aria-label="Hide music controls" title="Hide (turn back on in Settings)"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
   <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
@@ -1877,9 +1883,9 @@
     <div class="setting-row switch-row" id="music-setting" hidden>
       <div>
         <span class="setting-label" id="music-label">Apple Music controls</span>
-        <p class="setting-help">Play, pause and skip what the Music app is playing, from a bar at the bottom of the sheet.</p>
+        <p class="setting-help">Show a bar at the bottom of the sheet to play, pause and skip what the Music app is playing. Off until you turn it on.</p>
       </div>
-      <button id="music-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="music-label"><span></span></button>
+      <button id="music-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="music-label"><span></span></button>
     </div>
     <div class="setting-row sync-row">
       <span class="setting-label">Sync between devices</span>
@@ -5410,7 +5416,7 @@
   };
   var musicBar = document.getElementById("music-bar");
   function musicCall(method, opts) { return window.Capacitor.nativePromise("MusicControl", method, opts || {}); }
-  function musicWanted() { return music.available && settings.musicBar !== false; }
+  function musicWanted() { return music.available && settings.musicBar === true; }   // off until turned on in Settings
   function showMusicBar() {
     var on = musicWanted() && !appEl.classList.contains("sidebar-open") && !!getActiveSong();
     musicBar.hidden = !on;
@@ -5481,14 +5487,15 @@
     musicBar.querySelector(".mb-connect").addEventListener("click", function () {
       musicCall("requestAccess").then(function () { refreshMusic(); });
     });
-    document.getElementById("music-switch").addEventListener("click", function () {
-      settings.musicBar = settings.musicBar === false;
+    function setMusicBar(on) {
+      settings.musicBar = on;
       persistSettings();
-      this.setAttribute("aria-checked", String(settings.musicBar !== false));
-      refreshMusic();
+      document.getElementById("music-switch").setAttribute("aria-checked", String(on));
       showMusicBar();
-    });
-    document.getElementById("music-switch").setAttribute("aria-checked", String(settings.musicBar !== false));
+      refreshMusic();
+    }
+    document.getElementById("music-switch").addEventListener("click", function () { setMusicBar(settings.musicBar !== true); });
+    musicBar.querySelector(".mb-hide").addEventListener("click", function () { setMusicBar(false); });
     // keep it current while it's on screen (what's playing can change from the Lock Screen, AirPods, etc.)
     music.timer = setInterval(refreshMusic, 1500);
     document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshMusic(); });
@@ -5513,7 +5520,10 @@
   loadSync();
   setSyncState(sync.token ? "ok" : "off");
   if (sync.token) syncNow();
-  if (music.available) refreshMusic();
+  if (music.available) {
+    document.getElementById("music-switch").setAttribute("aria-checked", String(settings.musicBar === true));
+    refreshMusic();
+  }
 })();
 </script>
 </body>

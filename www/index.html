@@ -1461,12 +1461,39 @@
       z-index: 29;
     }
   }
+  /* New song: round button in the bottom-right corner of every screen */
+  #new-fab {
+    position: fixed;
+    right: calc(22px + env(safe-area-inset-right, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 42;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: var(--on-accent);
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    transition: transform 0.12s ease, opacity 0.15s ease;
+  }
+  #new-fab:hover { transform: scale(1.05); }
+  #new-fab:active { transform: scale(0.94); }
+  #new-fab:focus-visible { outline: 3px solid var(--accent-dim); outline-offset: 3px; }
+  body.history-open #new-fab { opacity: 0; pointer-events: none; }
+  /* on phones, get out of the way while the keyboard is up */
+  @media (pointer: coarse) { body.is-typing #new-fab { opacity: 0; pointer-events: none; } }
+  @media (prefers-reduced-motion: reduce) { #new-fab { transition: none; } }
+  /* room to scroll the last lines clear of the button */
+  #canvas-wrap { padding-bottom: 96px !important; }
 </style>
 </head>
 <body>
 
 <div id="app">
   <div id="sidebar-backdrop"></div>
+  <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
     <div>
       <h1>Lyric Sheet</h1>
@@ -3689,6 +3716,18 @@
     document.getElementById("title-input").focus();
   });
 
+  document.getElementById("new-fab").addEventListener("click", function () {
+    document.getElementById("new-song-btn").click();
+    closeSidebar();
+  });
+  function isTypingTarget(el) {
+    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.nodeName));
+  }
+  document.addEventListener("focusin", function (e) { document.body.classList.toggle("is-typing", isTypingTarget(e.target)); });
+  document.addEventListener("focusout", function () {
+    setTimeout(function () { document.body.classList.toggle("is-typing", isTypingTarget(document.activeElement)); }, 0);
+  });
+
   document.getElementById("title-input").addEventListener("input", function (e) {
     var song = getActiveSong();
     if (!song) return;
@@ -3751,6 +3790,7 @@
     historyOpen = open;
     document.getElementById("history-drawer").classList.toggle("open", open);
     document.getElementById("editor").classList.toggle("history-open", open);
+    document.body.classList.toggle("history-open", open);
     var song = getActiveSong();
     if (song && open) renderVersions(song);
   }

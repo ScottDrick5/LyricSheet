@@ -108,6 +108,7 @@ function buildMenu() {
         cmd("Songs as Gallery", "Alt+CmdOrCtrl+2", "view-gallery"),
         { type: "separator" },
         cmd("Show / Hide Top Bar", "Shift+CmdOrCtrl+H", "toggle-bar"),
+        cmd("Customize Top Bar…", undefined, "customize-bar"),
         cmd("Version History", "CmdOrCtrl+Y", "history"),
         { type: "separator" },
         { role: "togglefullscreen" },

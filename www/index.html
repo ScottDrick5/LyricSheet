@@ -519,7 +519,10 @@
   .hud-icon:hover { color: var(--shell-text); background: var(--shell-hover); }
   .hud-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   #hud-hide { z-index: 1; }
-  #meta-bar { padding-right: 52px !important; }
+  #meta-bar { padding-right: 92px !important; }
+  #hud-customize { right: 50px; z-index: 1; }
+  #meta-bar .hud-off { display: none !important; }
+  .meta-readout { font-size: 0.85rem; color: var(--shell-text); padding: 6px 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #hud-show {
     z-index: 11;
     background: var(--bg-raised);
@@ -853,7 +856,7 @@
     text-align: left;
   }
   #settings-btn:hover { color: var(--shell-text); border-color: var(--accent-dim); }
-  #settings-modal, #details-modal {
+  #settings-modal, #details-modal, #hudcfg-modal {
     position: fixed; inset: 0;
     background: var(--overlay);
     display: none;
@@ -861,8 +864,8 @@
     padding: 20px;
     z-index: 55;
   }
-  #settings-modal.open, #details-modal.open { display: flex; }
-  #settings-panel, #details-panel {
+  #settings-modal.open, #details-modal.open, #hudcfg-modal.open { display: flex; }
+  #settings-panel, #details-panel, #hudcfg-panel {
     background: var(--bg-raised);
     border: 1px solid var(--shell-border);
     border-radius: var(--radius-md);
@@ -870,7 +873,7 @@
     padding: 18px 20px;
     color: var(--shell-text);
   }
-  #settings-panel h2, #details-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
+  #settings-panel h2, #details-panel h2, #hudcfg-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
   .setting-row { margin-bottom: 18px; }
   .setting-label { font-size: 0.85rem; margin-bottom: 8px; display: block; }
   .seg { display: flex; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); overflow: hidden; }
@@ -947,7 +950,31 @@
   #details-list dd { margin: 0; }
   #details-list .sub { display: block; font-size: 0.74rem; color: var(--shell-text-dim); }
   #details-note { margin-bottom: 14px; }
-  #settings-done, #details-done {
+  #hudcfg-panel { max-height: 100%; overflow-y: auto; }
+  #hudcfg-modal { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  #hudcfg-panel h2 { margin-bottom: 4px; }
+  #hudcfg-for { margin-bottom: 12px; }
+  #hudcfg-list { list-style: none; margin: 0 0 12px; padding: 0; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); }
+  #hudcfg-list li { display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 12px; font-size: 0.86rem; }
+  #hudcfg-list li + li { border-top: 1px solid var(--shell-border); }
+  #hudcfg-list li.off .hc-name { color: var(--shell-text-dim); }
+  #hudcfg-list .hc-name { flex: 1; }
+  #hudcfg-list .hc-move {
+    background: none; border: 1px solid var(--shell-border); color: var(--shell-text);
+    width: 30px; height: 28px; border-radius: 6px; cursor: pointer; padding: 0; font-size: 0.8rem;
+  }
+  #hudcfg-list .hc-move:disabled { opacity: 0.3; cursor: default; }
+  #hudcfg-list .switch { width: 42px; height: 26px; }
+  #hudcfg-list .switch span { width: 18px; height: 18px; }
+  #hudcfg-list .switch[aria-checked="true"] span { transform: translateX(16px); }
+  #hudcfg-status { margin-bottom: 12px; }
+  .hudcfg-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .hudcfg-actions button {
+    flex: 1; background: none; border: 1px solid var(--shell-border); color: var(--shell-text);
+    font-family: var(--font-ui); font-size: 0.8rem; padding: 9px 8px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .hudcfg-actions button:disabled { opacity: 0.4; cursor: default; }
+  #settings-done, #details-done, #hudcfg-done {
     width: 100%;
     background: var(--accent); border: none; color: var(--on-accent);
     font-weight: 600; font-family: var(--font-ui); font-size: 0.85rem;
@@ -1605,15 +1632,16 @@
         <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button id="gallery-back" hidden>‹ Gallery</button>
         <button id="songs-toggle">☰ Songs</button>
-        <div class="meta-field" style="min-width:200px;">
+        <button id="hud-customize" class="hud-icon" aria-label="Customize top bar" title="Customize top bar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M3 5.5h8M15 5.5h2M3 10h2M9 10h8M3 14.5h6M13 14.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="13" cy="5.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="11" cy="14.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <div class="meta-field" data-hud="title" style="min-width:200px;">
           <label>Title</label>
           <input id="title-input" type="text" placeholder="Untitled song">
         </div>
-        <div class="meta-field">
+        <div class="meta-field" data-hud="bpm">
           <label>BPM</label>
           <input id="bpm-input" class="small-input" type="number" min="1" max="400" placeholder="—">
         </div>
-        <div class="meta-field">
+        <div class="meta-field" data-hud="key">
           <label>Key</label>
           <div class="key-controls">
             <select id="key-input" class="small-input" aria-label="Key"></select>
@@ -1623,7 +1651,11 @@
             </select>
           </div>
         </div>
-        <div class="meta-field">
+        <div class="meta-field" data-hud="timesig">
+          <label for="timesig-input">Time sig</label>
+          <select id="timesig-input" class="small-input" aria-label="Time signature"></select>
+        </div>
+        <div class="meta-field" data-hud="textsize">
           <label>Text size</label>
           <div class="font-controls">
             <button id="font-dec" title="Smaller">A−</button>
@@ -1631,18 +1663,21 @@
             <button id="font-inc" title="Larger">A+</button>
           </div>
         </div>
-        <div class="spacer"></div>
-        <div id="undo-bar" class="undo-group" role="group" aria-label="Undo and redo">
+        <div class="meta-field" data-hud="wordcount">
+          <label>Word count</label>
+          <span id="wordcount-val" class="meta-readout">0 words</span>
+        </div>
+        <div id="undo-bar" class="undo-group" data-hud="undo" role="group" aria-label="Undo and redo">
           <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
           <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
-        <div id="view-toggle" role="group" aria-label="View">
+        <div id="view-toggle" data-hud="view" role="group" aria-label="View">
           <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
           <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
         </div>
-        <button id="paste-btn">Import New Lyrics</button>
-        <button id="history-toggle">Version history</button>
-        <button id="details-btn" title="Dates and other details for this song">Details</button>
+        <button id="paste-btn" data-hud="import">Import New Lyrics</button>
+        <button id="history-toggle" data-hud="history">Version history</button>
+        <button id="details-btn" data-hud="details" title="Dates and other details for this song">Details</button>
       </div>
 
       <div id="body-row">
@@ -1718,6 +1753,20 @@
       </div>
     </div>
     <button id="settings-done">Done</button>
+  </div>
+</div>
+
+<div id="hudcfg-modal" role="dialog" aria-modal="true" aria-labelledby="hudcfg-title">
+  <div id="hudcfg-panel">
+    <h2 id="hudcfg-title">Customize Top Bar</h2>
+    <p id="hudcfg-for" class="setting-help"></p>
+    <ul id="hudcfg-list"></ul>
+    <p id="hudcfg-status" class="setting-help"></p>
+    <div class="hudcfg-actions">
+      <button id="hudcfg-default" class="hudcfg-secondary">Use Default</button>
+      <button id="hudcfg-save">Save as Default for New Songs</button>
+    </div>
+    <button id="hudcfg-done">Done</button>
   </div>
 </div>
 
@@ -2507,6 +2556,9 @@
     document.getElementById("title-input").value = song.title;
     document.getElementById("bpm-input").value = song.bpm || "";
     setKeyControls(song.key);
+    timeSigSelect.value = song.timeSig || "\u2014";
+    applyHud(song);
+    updateWordCount(song);
     refreshDetails();
 
     document.documentElement.style.setProperty("--lyric-size-val", settings.fontSize + "px");
@@ -3609,7 +3661,7 @@
   var undo = { id: null, stack: [], redo: [], cur: null, lastAt: 0, stepAt: 0, boundary: false, restoring: false };
   function undoSnap(song) {
     return JSON.stringify({
-      title: song.title, bpm: song.bpm, key: song.key,
+      title: song.title, bpm: song.bpm, key: song.key, timeSig: song.timeSig || null,
       // the written date travels with the import it came from (undoing the import removes it; redo puts the same one back)
       writtenOn: song.writtenOn || null, writtenOnSetAt: song.writtenOnSetAt || null,
       sections: song.sections.map(function (sec) {
@@ -3644,6 +3696,7 @@
   function applyUndoSnap(song, snap) {
     var d = JSON.parse(snap);
     song.title = d.title; song.bpm = d.bpm; song.key = d.key;
+    if (d.timeSig) song.timeSig = d.timeSig; else delete song.timeSig;
     if (d.writtenOn) { song.writtenOn = d.writtenOn; song.writtenOnSetAt = d.writtenOnSetAt; }
     else { delete song.writtenOn; delete song.writtenOnSetAt; }
     song.sections = d.sections.map(function (sec) { sec.id = newSectionId(); return sec; });
@@ -3685,6 +3738,146 @@
     var p = iso.split("-");
     return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   }
+  // ---------- customizable top bar ----------
+  // Each song can show its own set of tools in its own order; songs without one use the default
+  // layout, which "Save as Default" replaces (new songs start with it).
+  var HUD_TOOLS = [
+    { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
+    { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Text Size" }, { id: "wordcount", name: "Word Count" },
+    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Basic / Advanced" }, { id: "import", name: "Import New Lyrics" },
+    { id: "history", name: "Version History" }, { id: "details", name: "Details" }
+  ];
+  var HUD_BUILTIN = ["title", "bpm", "key", "textsize", "undo", "view", "import", "history", "details"];
+  var TIME_SIGS = ["\u2014", "4/4", "3/4", "2/4", "6/8", "12/8", "5/4", "7/8", "9/8", "7/4"];
+  function validLayout(l) {
+    if (!Array.isArray(l)) return null;
+    var ids = HUD_TOOLS.map(function (t) { return t.id; });
+    var out = l.filter(function (id, i) { return ids.indexOf(id) !== -1 && l.indexOf(id) === i; });
+    return out;
+  }
+  function defaultLayout() { return validLayout(settings.hudDefault) || HUD_BUILTIN.slice(); }
+  function songLayout(song) { return (song && validLayout(song.hud)) || defaultLayout(); }
+  function sameLayout(a, b) { return a.join(",") === b.join(","); }
+  function applyHud(song) {
+    var layout = songLayout(song);
+    Array.prototype.forEach.call(document.querySelectorAll("#meta-bar [data-hud]"), function (el) {
+      var i = layout.indexOf(el.getAttribute("data-hud"));
+      el.classList.toggle("hud-off", i === -1);
+      el.style.order = i === -1 ? "" : String(10 + i);
+    });
+  }
+  function updateWordCount(song) {
+    var lines = 0, words = 0;
+    song.sections.forEach(function (sec) {
+      sec.lines.forEach(function (l) { if (l.trim()) { lines++; words += l.trim().split(/\s+/).length; } });
+    });
+    document.getElementById("wordcount-val").textContent =
+      words + (words === 1 ? " word" : " words") + " \u00B7 " + lines + (lines === 1 ? " line" : " lines");
+  }
+  var timeSigSelect = document.getElementById("timesig-input");
+  TIME_SIGS.forEach(function (t) { var o = document.createElement("option"); o.value = t; o.textContent = t; timeSigSelect.appendChild(o); });
+  timeSigSelect.addEventListener("change", function () {
+    var song = getActiveSong();
+    if (!song) return;
+    if (timeSigSelect.value === "\u2014") delete song.timeSig; else song.timeSig = timeSigSelect.value;
+    markEdited(song);
+  });
+
+  var hudModal = document.getElementById("hudcfg-modal");
+  function hudSong() { return getActiveSong(); }
+  function setSongLayout(song, layout) {
+    if (sameLayout(layout, defaultLayout())) delete song.hud; else song.hud = layout.slice();
+    persistSongs();
+    applyHud(song);
+    renderHudPanel();
+  }
+  function renderHudPanel() {
+    var song = hudSong();
+    if (!song) return;
+    var layout = songLayout(song);
+    document.getElementById("hudcfg-for").textContent = "For \u201C" + (song.title || "Untitled song") + "\u201D. Turn tools on or off and use the arrows to change their order.";
+    var list = document.getElementById("hudcfg-list");
+    list.innerHTML = "";
+    var order = layout.concat(HUD_TOOLS.map(function (t) { return t.id; }).filter(function (id) { return layout.indexOf(id) === -1; }));
+    order.forEach(function (id) {
+      var tool = HUD_TOOLS.filter(function (t) { return t.id === id; })[0];
+      var on = layout.indexOf(id) !== -1, pos = layout.indexOf(id);
+      var li = document.createElement("li");
+      if (!on) li.className = "off";
+      var sw = document.createElement("button");
+      sw.className = "switch";
+      sw.setAttribute("role", "switch");
+      sw.setAttribute("aria-checked", String(on));
+      sw.setAttribute("aria-label", "Show " + tool.name);
+      sw.appendChild(document.createElement("span"));
+      sw.addEventListener("click", function () {
+        var l = songLayout(song).slice();
+        if (on) l.splice(l.indexOf(id), 1); else l.push(id);
+        setSongLayout(song, l);
+      });
+      var name = document.createElement("span");
+      name.className = "hc-name";
+      name.textContent = tool.name;
+      function mover(label, dir, disabled) {
+        var b = document.createElement("button");
+        b.className = "hc-move";
+        b.textContent = label;
+        b.setAttribute("aria-label", "Move " + tool.name + (dir < 0 ? " earlier" : " later"));
+        b.disabled = disabled;
+        b.addEventListener("click", function () {
+          var l = songLayout(song).slice(), i = l.indexOf(id);
+          l.splice(i, 1); l.splice(i + dir, 0, id);
+          setSongLayout(song, l);
+          var again = list.querySelector('[data-tool="' + id + '"] .hc-move[data-dir="' + dir + '"]');
+          if (again && !again.disabled) again.focus();
+        });
+        b.setAttribute("data-dir", String(dir));
+        return b;
+      }
+      li.setAttribute("data-tool", id);
+      li.appendChild(sw); li.appendChild(name);
+      li.appendChild(mover("\u2191", -1, !on || pos === 0));
+      li.appendChild(mover("\u2193", 1, !on || pos === layout.length - 1));
+      list.appendChild(li);
+    });
+    var custom = !!validLayout(song.hud);
+    document.getElementById("hudcfg-status").textContent = custom
+      ? "This song has its own layout. New songs start with your default layout."
+      : "This song uses your default layout. Changes you make here apply to this song only, until you save them as the default.";
+    document.getElementById("hudcfg-default").disabled = !custom;
+    document.getElementById("hudcfg-save").disabled = !custom;
+  }
+  function openHudPanel() {
+    if (!hudSong()) return;
+    renderHudPanel();
+    hudModal.classList.add("open");
+  }
+  function closeHudPanel() { hudModal.classList.remove("open"); }
+  document.getElementById("hud-customize").addEventListener("click", openHudPanel);
+  document.getElementById("hudcfg-done").addEventListener("click", closeHudPanel);
+  document.getElementById("hudcfg-default").addEventListener("click", function () {
+    var song = hudSong(); if (!song) return;
+    setSongLayout(song, defaultLayout());
+  });
+  document.getElementById("hudcfg-save").addEventListener("click", function () {
+    var song = hudSong(); if (!song) return;
+    settings.hudDefault = songLayout(song).slice();
+    persistSettings();
+    delete song.hud;          // it's the default now
+    persistSongs();
+    applyHud(song);
+    renderHudPanel();
+    document.getElementById("hudcfg-status").textContent = "Saved. New songs, and songs without their own layout, now use this layout.";
+  });
+  hudModal.addEventListener("click", function (e) { if (e.target === hudModal) closeHudPanel(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && hudModal.classList.contains("open")) closeHudPanel(); });
+  // right-click the top bar to customize it (like Logic's control bar)
+  document.getElementById("meta-bar").addEventListener("contextmenu", function (e) {
+    if (e.target.closest("input, select, textarea")) return;
+    e.preventDefault();
+    openHudPanel();
+  });
+
   // ---------- Details window (dates and other facts about a song) ----------
   var detailsModal = document.getElementById("details-modal");
   var detailsSongId = null;
@@ -3744,6 +3937,7 @@
     song.lastEditedAt = Date.now();
     lastEditAt = song.lastEditedAt;
     if (!lightweight) refreshDetails();
+    if (song.id === state.activeId) updateWordCount(song);
     scheduleSave();
     renderSidebarSoon();
     scheduleVersionCheck(song);
@@ -4732,6 +4926,7 @@
       case "duplicate-song": if (song) duplicateSong(song); break;
       case "mode-basic": setViewMode("read"); break;
       case "view-list": setSongView("list"); break;
+      case "customize-bar": openHudPanel(); break;
       case "view-gallery": setSongView("gallery"); break;
       case "mode-advanced": setViewMode("edit"); break;
       case "toggle-bar": document.getElementById(hud.hidden ? "hud-show" : "hud-hide").click(); break;

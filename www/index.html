@@ -150,6 +150,7 @@
     margin-bottom: -6px;
     cursor: pointer;
   }
+  #trash-slot { border-top: 1px solid var(--shell-border); padding-top: 8px; }
   #folder-list, #song-list {
     display: flex;
     flex-direction: column;
@@ -1458,6 +1459,7 @@
       <h2 class="nav-title">Folders</h2>
       <div id="folder-list"></div>
       <button id="new-folder-btn" class="nav-add">+ New folder</button>
+      <div id="trash-slot"></div>
     </div>
     <div id="songs-view" class="nav-view">
       <button id="folders-back" class="folders-back">‹ Folders</button>
@@ -1793,7 +1795,7 @@
     renderAll();
   }
 
-  // ---------- Recycle Bin ----------
+  // ---------- Recently Deleted (recycle bin) ----------
   // Deleted songs wait here for TRASH_DAYS days before they're gone for good. The bin is kept on each
   // device (a delete still syncs, and every synced device puts its copy of the song in its own bin).
   var TRASH_KEY = "lyricapp_trash_v1", TRASH_DAYS = 30, DAY_MS = 24 * 60 * 60 * 1000;
@@ -1854,7 +1856,7 @@
     note.className = "no-match trash-note";
     note.textContent = items.length || q
       ? "Songs are permanently deleted " + TRASH_DAYS + " days after they're moved here."
-      : "The Recycle Bin is empty. Deleted songs stay here for " + TRASH_DAYS + " days.";
+      : "No recently deleted songs. Deleted songs stay here for " + TRASH_DAYS + " days.";
     list.appendChild(note);
     if (!items.length) {
       if (q) { var none = document.createElement("p"); none.className = "no-match"; none.textContent = "No deleted songs match \u201C" + q + "\u201D."; list.appendChild(none); }
@@ -1885,9 +1887,9 @@
     });
     var empty = document.createElement("button");
     empty.className = "nav-add empty-trash";
-    empty.textContent = "Empty Recycle Bin";
+    empty.textContent = "Delete All";
     empty.addEventListener("click", function () {
-      askConfirm("Permanently delete all " + trash.length + (trash.length === 1 ? " song" : " songs") + " in the Recycle Bin? This can't be undone.", "Empty Recycle Bin", true, function () {
+      askConfirm("Permanently delete all " + trash.length + (trash.length === 1 ? " song" : " songs") + " in Recently Deleted? This can't be undone.", "Delete All", true, function () {
         trash = []; saveTrash(); renderSidebar();
       });
     });
@@ -2014,7 +2016,7 @@
       { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
       { label: "Delete song", danger: true, fn: function () {
-        askConfirm('Move "' + title + '" to the Recycle Bin? You can restore it for ' + TRASH_DAYS + ' days.', "Move to Recycle Bin", true, function () { deleteSong(song); });
+        askConfirm('Move "' + title + '" to Recently Deleted? You can restore it for ' + TRASH_DAYS + ' days.', "Delete song", true, function () { deleteSong(song); });
       } }
     ]);
   }
@@ -2077,9 +2079,11 @@
       more.addEventListener("click", function (e) { e.stopPropagation(); folderMenu(f, r); });
       r.appendChild(more);
     });
+    // Recently Deleted sits on its own at the bottom of the Folders page
     purgeTrash();
-    var d2 = document.createElement("div"); d2.className = "folder-divider"; list.appendChild(d2);
-    row(TRASH_SVG, "Recycle Bin", trash.length, "trash-row", function () { setNav("songs", "trash"); });
+    var slot = document.getElementById("trash-slot");
+    slot.innerHTML = "";
+    slot.appendChild(row(TRASH_SVG, "Recently Deleted", trash.length, "trash-row", function () { setNav("songs", "trash"); }));
   }
 
   document.getElementById("new-folder-btn").addEventListener("click", function () {
@@ -2107,7 +2111,7 @@
 
     var inTrash = nav.folder === "trash";
     var folder = nav.folder === "all" || inTrash ? null : folderById(nav.folder);
-    document.getElementById("folder-title").textContent = inTrash ? "Recycle Bin" : folder ? folder.name : "All Songs";
+    document.getElementById("folder-title").textContent = inTrash ? "Recently Deleted" : folder ? folder.name : "All Songs";
 
     var list = document.getElementById("song-list");
     list.innerHTML = "";

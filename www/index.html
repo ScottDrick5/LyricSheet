@@ -903,6 +903,13 @@
   .seg button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
   .switch-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .switch-row .setting-label { margin-bottom: 2px; }
+  .setting-row[hidden] { display: none; }
+  .setting-btn {
+    flex-shrink: 0; align-self: center;
+    background: none; border: 1px solid var(--shell-border); color: var(--accent);
+    font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600;
+    padding: 7px 14px; border-radius: var(--radius-sm); cursor: pointer;
+  }
   .setting-help { margin: 0; font-size: 0.74rem; color: var(--shell-text-dim); line-height: 1.45; }
   .switch {
     flex-shrink: 0;
@@ -1964,6 +1971,13 @@
       </div>
       <button id="black-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="black-label"><span></span></button>
     </div>
+    <div class="setting-row switch-row">
+      <div>
+        <span class="setting-label">Welcome song</span>
+        <p class="setting-help">A song whose lyrics show how Lyric Sheet works. Adds it back if you deleted it.</p>
+      </div>
+      <button id="welcome-btn" class="setting-btn">Show</button>
+    </div>
     <div class="setting-row switch-row" id="music-setting" hidden>
       <div>
         <span class="setting-label" id="music-label">Apple Music controls</span>
@@ -2198,6 +2212,22 @@
       ])
     ];
     return song;
+  }
+
+  // Settings > Welcome song: open it, or add a fresh copy if it's gone
+  function showWelcomeSong() {
+    var song = state.songs.filter(function (s) { return s.id === settings.welcomeId; })[0];
+    if (!song) {
+      song = makeWelcomeSong();
+      state.songs.push(song);
+      settings.welcomeId = song.id;
+      persistSettings();
+      persistSongs();
+    }
+    closeSettings();
+    if (nav.folder === "trash" || (song.folderId !== nav.folder && nav.folder !== "all")) setNav("songs", "all");
+    openSong(song.id);
+    closeSidebar();
   }
 
   function getActiveSong() {
@@ -4714,6 +4744,7 @@
     settingsModal.classList.add("open");
   });
   document.getElementById("settings-done").addEventListener("click", closeSettings);
+  document.getElementById("welcome-btn").addEventListener("click", showWelcomeSong);
   settingsModal.addEventListener("click", function (e) { if (e.target === settingsModal) closeSettings(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && settingsModal.classList.contains("open")) closeSettings();
@@ -5785,6 +5816,7 @@
       var welcome = makeWelcomeSong();
       state.songs.push(welcome);
       settings.lastOpenId = welcome.id;
+      settings.welcomeId = welcome.id;
       persistSongs();
     }
     settings.welcomed = true;

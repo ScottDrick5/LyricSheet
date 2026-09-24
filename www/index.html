@@ -1175,6 +1175,12 @@
     color: var(--shell-text);
   }
   #paste-title-row.show { display: flex; }
+  #paste-written-row { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 10px; font-size: 0.82rem; color: var(--shell-text); }
+  #paste-written-row[hidden] { display: none; }
+  #paste-written-row .opt { color: var(--shell-text-dim); }
+  #paste-written-row input { width: auto; justify-self: start; }
+  #paste-written-row .hint { grid-column: 1 / -1; margin: 0; }
+  .read-written { margin: -6px 0 14px; font-family: var(--font-ui); font-size: 0.78rem; color: var(--ink-dim); }
   #paste-title-row strong { font-family: var(--font-lyric); font-weight: 600; }
 
   /* Custom headers */
@@ -1566,6 +1572,11 @@
     <p class="hint">Paste lyrics you've already written. A title on its own line at the top fills in the song title. Headers like [Verse 1], [Chorus] or Bridge: start a new section, and everything under a header stays together until the next one, including stanza breaks. A note after a header, like [Chorus] (stripped back), is kept as the section's note.</p>
     <textarea id="paste-text" placeholder="Paste your lyrics here…"></textarea>
     <label id="paste-title-row"><input type="checkbox" id="paste-use-title"> <span>Use <strong id="paste-title-name"></strong> as the song title</span></label>
+    <div id="paste-written-row" hidden>
+      <label for="paste-written">Written on <span class="opt">(optional)</span></label>
+      <input type="date" id="paste-written" class="small-input">
+      <p class="hint">For lyrics you wrote before today. You can only set this now, while importing into an empty song, and it can't be changed afterwards. It's saved as a date you entered: Lyric Sheet's dates come from your device and aren't a legal record of authorship.</p>
+    </div>
     <div id="paste-preview"></div>
     <div id="paste-actions">
       <button id="paste-cancel">Cancel</button>
@@ -2213,8 +2224,7 @@
     document.getElementById("title-input").value = song.title;
     document.getElementById("bpm-input").value = song.bpm || "";
     setKeyControls(song.key);
-    document.getElementById("timestamps").innerHTML =
-      "Created " + fmtDateTime(song.createdAt) + "<br>Edited " + fmtDateTime(song.lastEditedAt);
+    renderTimestamps(song);
 
     document.documentElement.style.setProperty("--lyric-size-val", settings.fontSize + "px");
     renderCanvas(song);
@@ -2456,6 +2466,12 @@
       t.className = "read-title";
       t.textContent = song.title;
       sheet.appendChild(t);
+    }
+    if (song.writtenOn) {
+      var w = document.createElement("p");
+      w.className = "read-written";
+      w.textContent = writtenOnText(song);
+      sheet.appendChild(w);
     }
 
     var ed = document.createElement("div");
@@ -3120,8 +3136,19 @@
   var titleRow = document.getElementById("paste-title-row");
   var useTitleBox = document.getElementById("paste-use-title");
 
+  // "Written on" can only be given while importing into an empty song that doesn't have one yet
+  var writtenRow = document.getElementById("paste-written-row");
+  var writtenInput = document.getElementById("paste-written");
+  function canSetWritten(song) { return !!song && !song.writtenOn && isEmptySong(song); }
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
   function openPasteModal() {
     var song = getActiveSong();
+    writtenRow.hidden = !canSetWritten(song);
+    writtenInput.value = "";
+    writtenInput.max = todayISO();
     pasteText.value = "";
     useTitleBox.checked = !(song && song.title.trim());
     updatePastePreview();
@@ -3157,6 +3184,11 @@
     if (!song) return;
     var result = currentPasteResult();
     var parsed = stripParseFlags(result.sections);
+    var written = writtenInput.value;
+    if (parsed.length && canSetWritten(song) && /^\d{4}-\d{2}-\d{2}$/.test(written) && written <= todayISO()) {
+      song.writtenOn = written;          // permanent from here on
+      song.writtenOnSetAt = Date.now();  // when it was entered, shown next to it
+    }
     maybeSnapshotOnLeave(); // keep what was there as a restorable version
     if (useTitleBox.checked && result.title) song.title = result.title;
     if (parsed.length) {
@@ -3230,6 +3262,8 @@
   function undoSnap(song) {
     return JSON.stringify({
       title: song.title, bpm: song.bpm, key: song.key,
+      // the written date travels with the import it came from (undoing the import removes it; redo puts the same one back)
+      writtenOn: song.writtenOn || null, writtenOnSetAt: song.writtenOnSetAt || null,
       sections: song.sections.map(function (sec) {
         var o = { type: sec.type, note: sec.note || "", lines: sec.lines };
         if (sec.fmt) o.fmt = sec.fmt;
@@ -3262,6 +3296,8 @@
   function applyUndoSnap(song, snap) {
     var d = JSON.parse(snap);
     song.title = d.title; song.bpm = d.bpm; song.key = d.key;
+    if (d.writtenOn) { song.writtenOn = d.writtenOn; song.writtenOnSetAt = d.writtenOnSetAt; }
+    else { delete song.writtenOn; delete song.writtenOnSetAt; }
     song.sections = d.sections.map(function (sec) { sec.id = newSectionId(); return sec; });
     var wrap = document.getElementById("canvas-wrap"), top = wrap.scrollTop;
     undo.restoring = true;
@@ -3297,14 +3333,30 @@
     return !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.nodeName) && !a.closest("#canvas"));
   }
 
+  function fmtWrittenOn(iso) {
+    var p = iso.split("-");
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  }
+  function writtenOnText(song) {
+    return "Written on " + fmtWrittenOn(song.writtenOn) + " (entered by you" +
+      (song.writtenOnSetAt ? " on " + new Date(song.writtenOnSetAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "") + ")";
+  }
+  function renderTimestamps(song) {
+    var el = document.getElementById("timestamps");
+    el.innerHTML = "";
+    var lines = ["Created " + fmtDateTime(song.createdAt), "Edited " + fmtDateTime(song.lastEditedAt)];
+    if (song.writtenOn) lines.push(writtenOnText(song));
+    lines.forEach(function (t, i) { if (i) el.appendChild(document.createElement("br")); el.appendChild(document.createTextNode(t)); });
+    el.title = "Created and Edited are set automatically from this device's clock and can't be changed." +
+      (song.writtenOn ? " The written date was entered by you when the lyrics were imported." : "") +
+      " These dates aren't a legal record of authorship.";
+  }
+
   function markEdited(song, lightweight) {
     recordUndo(song);
     song.lastEditedAt = Date.now();
     lastEditAt = song.lastEditedAt;
-    if (!lightweight) {
-      document.getElementById("timestamps").innerHTML =
-        "Created " + fmtDateTime(song.createdAt) + "<br>Edited " + fmtDateTime(song.lastEditedAt);
-    }
+    if (!lightweight) renderTimestamps(song);
     scheduleSave();
     renderSidebarSoon();
     scheduleVersionCheck(song);
@@ -3825,6 +3877,10 @@
     all = all.filter(function (v) { var k = versionKey(v); var keep = k !== prevKey; prevKey = k; return keep; });
     m.versions = all.slice(-MAX_VERSIONS).map(function (v) { return { timestamp: v.timestamp, snapshot: v.snapshot }; });
     m.createdAt = Math.min(L.createdAt || m.createdAt, R.createdAt || m.createdAt);
+    // the written date is set once and never changes: keep whichever device has it (the first entered wins)
+    var wd = [L, R].filter(function (x) { return x.writtenOn; })
+      .sort(function (a, b) { return (a.writtenOnSetAt || 0) - (b.writtenOnSetAt || 0); })[0];
+    if (wd) { m.writtenOn = wd.writtenOn; m.writtenOnSetAt = wd.writtenOnSetAt; }
     return m;
   }
 

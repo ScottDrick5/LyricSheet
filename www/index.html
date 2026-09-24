@@ -519,7 +519,10 @@
   .hud-icon:hover { color: var(--shell-text); background: var(--shell-hover); }
   .hud-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   #hud-hide { z-index: 1; }
-  #meta-bar { padding-right: 52px !important; }
+  #meta-bar { padding-right: 92px !important; }
+  #hud-customize { right: 50px; z-index: 1; }
+  #meta-bar .hud-off { display: none !important; }
+  .meta-readout { font-size: 0.85rem; color: var(--shell-text); padding: 6px 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #hud-show {
     z-index: 11;
     background: var(--bg-raised);
@@ -853,7 +856,7 @@
     text-align: left;
   }
   #settings-btn:hover { color: var(--shell-text); border-color: var(--accent-dim); }
-  #settings-modal, #details-modal {
+  #settings-modal, #details-modal, #hudcfg-modal {
     position: fixed; inset: 0;
     background: var(--overlay);
     display: none;
@@ -861,8 +864,8 @@
     padding: 20px;
     z-index: 55;
   }
-  #settings-modal.open, #details-modal.open { display: flex; }
-  #settings-panel, #details-panel {
+  #settings-modal.open, #details-modal.open, #hudcfg-modal.open { display: flex; }
+  #settings-panel, #details-panel, #hudcfg-panel {
     background: var(--bg-raised);
     border: 1px solid var(--shell-border);
     border-radius: var(--radius-md);
@@ -870,7 +873,7 @@
     padding: 18px 20px;
     color: var(--shell-text);
   }
-  #settings-panel h2, #details-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
+  #settings-panel h2, #details-panel h2, #hudcfg-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
   .setting-row { margin-bottom: 18px; }
   .setting-label { font-size: 0.85rem; margin-bottom: 8px; display: block; }
   .seg { display: flex; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); overflow: hidden; }
@@ -947,7 +950,31 @@
   #details-list dd { margin: 0; }
   #details-list .sub { display: block; font-size: 0.74rem; color: var(--shell-text-dim); }
   #details-note { margin-bottom: 14px; }
-  #settings-done, #details-done {
+  #hudcfg-panel { max-height: 100%; overflow-y: auto; }
+  #hudcfg-modal { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  #hudcfg-panel h2 { margin-bottom: 4px; }
+  #hudcfg-for { margin-bottom: 12px; }
+  #hudcfg-list { list-style: none; margin: 0 0 12px; padding: 0; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); }
+  #hudcfg-list li { display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 12px; font-size: 0.86rem; }
+  #hudcfg-list li + li { border-top: 1px solid var(--shell-border); }
+  #hudcfg-list li.off .hc-name { color: var(--shell-text-dim); }
+  #hudcfg-list .hc-name { flex: 1; }
+  #hudcfg-list .hc-move {
+    background: none; border: 1px solid var(--shell-border); color: var(--shell-text);
+    width: 30px; height: 28px; border-radius: 6px; cursor: pointer; padding: 0; font-size: 0.8rem;
+  }
+  #hudcfg-list .hc-move:disabled { opacity: 0.3; cursor: default; }
+  #hudcfg-list .switch { width: 42px; height: 26px; }
+  #hudcfg-list .switch span { width: 18px; height: 18px; }
+  #hudcfg-list .switch[aria-checked="true"] span { transform: translateX(16px); }
+  #hudcfg-status { margin-bottom: 12px; }
+  .hudcfg-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .hudcfg-actions button {
+    flex: 1; background: none; border: 1px solid var(--shell-border); color: var(--shell-text);
+    font-family: var(--font-ui); font-size: 0.8rem; padding: 9px 8px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .hudcfg-actions button:disabled { opacity: 0.4; cursor: default; }
+  #settings-done, #details-done, #hudcfg-done {
     width: 100%;
     background: var(--accent); border: none; color: var(--on-accent);
     font-weight: 600; font-family: var(--font-ui); font-size: 0.85rem;
@@ -1487,6 +1514,67 @@
   @media (prefers-reduced-motion: reduce) { #new-fab { transition: none; } }
   /* room to scroll the last lines clear of the button */
   #canvas-wrap { padding-bottom: 96px !important; }
+  /* Search matches in the open song */
+  ::highlight(search-hit) { background-color: var(--hl-yellow); color: #1D1B16; }
+  ::highlight(search-line) { background-color: rgba(255, 214, 0, 0.14); }
+  #canvas .line-row.search-line { background: rgba(255, 214, 0, 0.14); border-radius: 6px; }
+  /* List / gallery switch (wide screens and the Mac app) */
+  .songs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+  #view-style { display: none; flex-shrink: 0; border: 1px solid var(--shell-border); border-radius: 8px; overflow: hidden; }
+  #view-style button {
+    background: none; border: none; color: var(--shell-text-dim);
+    width: 30px; height: 26px; padding: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #view-style button + button { border-left: 1px solid var(--shell-border); }
+  #view-style button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
+  @media (min-width: 900px) { #view-style { display: flex; } }
+  #gallery-back {
+    background: none; border: 1px solid var(--shell-border); color: var(--accent);
+    font-family: var(--font-ui); font-size: 0.8rem; border-radius: var(--radius-sm);
+    padding: 6px 10px; cursor: pointer; align-self: center;
+  }
+  #gallery-back[hidden] { display: none; }
+  /* Gallery: a grid of sheet previews in the main area */
+  #gallery { flex: 1; overflow-y: auto; padding: 26px 30px 110px; }
+  #gallery[hidden] { display: none; }
+  #gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 20px; }
+  .gallery-group {
+    grid-column: 1 / -1; margin: 10px 2px -8px;
+    font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--shell-text-dim);
+  }
+  .gallery-group:first-child { margin-top: 0; }
+  .g-card { position: relative; cursor: pointer; min-width: 0; outline: none; }
+  .g-thumb {
+    aspect-ratio: 3 / 4;
+    background: var(--paper);
+    border: 1px solid var(--shell-border);
+    border-radius: 10px;
+    padding: 12px 12px 0;
+    overflow: hidden;
+    color: var(--ink);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    transition: transform 0.12s ease, border-color 0.12s ease;
+    -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent);
+    mask-image: linear-gradient(to bottom, #000 78%, transparent);
+  }
+  .g-card:hover .g-thumb, .g-card:focus-visible .g-thumb { transform: translateY(-2px); border-color: var(--accent-dim); }
+  .g-card.active .g-thumb { border: 2px solid var(--accent); }
+  .g-thumb .g-title { font-family: var(--font-lyric); font-weight: 600; font-size: 12px; margin: 0 0 6px; }
+  .g-thumb .g-lines { font-family: var(--font-lyric); font-size: 9px; line-height: 1.45; pointer-events: none; --lyric-px: 9px; }
+  .g-thumb .g-lines > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.45em; }
+  .g-name { margin: 8px 2px 0; font-size: 0.85rem; color: var(--shell-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .g-date { margin: 2px 2px 0; font-size: 0.72rem; color: var(--shell-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .g-more {
+    position: absolute; top: 6px; right: 6px;
+    width: 28px; height: 24px; border-radius: 6px; border: none;
+    background: var(--bg-raised); color: var(--shell-text); opacity: 0; cursor: pointer;
+    font-size: 1rem; letter-spacing: 1px; line-height: 1;
+  }
+  .g-card:hover .g-more, .g-more:focus-visible { opacity: 0.9; }
+  .gallery-empty { grid-column: 1 / -1; color: var(--shell-text-dim); font-size: 0.9rem; }
+  @media (prefers-reduced-motion: reduce) { .g-thumb { transition: none; } }
 </style>
 </head>
 <body>
@@ -1507,7 +1595,13 @@
     </div>
     <div id="songs-view" class="nav-view">
       <button id="folders-back" class="folders-back">‹ Folders</button>
-      <h2 id="folder-title" class="nav-title">All Songs</h2>
+      <div class="songs-head">
+        <h2 id="folder-title" class="nav-title">All Songs</h2>
+        <div id="view-style" role="group" aria-label="Show songs as">
+          <button data-style="list" aria-label="List" title="List"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg></button>
+          <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+        </div>
+      </div>
       <input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off">
       <div id="song-list"></div>
       <button id="new-song-btn">+ New song</button>
@@ -1522,6 +1616,7 @@
       <p><button id="empty-new-btn" class="add-section-btn" style="color:var(--shell-text);border-color:var(--shell-border);background:none;">+ New song</button></p>
     </div>
 
+    <div id="gallery" hidden><div id="gallery-grid"></div></div>
     <div id="editor">
       <button id="songs-fab" aria-label="Songs">☰ Songs</button>
       <div id="mode-fab" role="group" aria-label="View">
@@ -1535,16 +1630,18 @@
       <button id="hud-show" class="hud-icon" aria-label="Show top bar" title="Show top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 6l4.5 4.5 4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div id="meta-bar">
         <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="gallery-back" hidden>‹ Gallery</button>
         <button id="songs-toggle">☰ Songs</button>
-        <div class="meta-field" style="min-width:200px;">
+        <button id="hud-customize" class="hud-icon" aria-label="Customize top bar" title="Customize top bar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M3 5.5h8M15 5.5h2M3 10h2M9 10h8M3 14.5h6M13 14.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="13" cy="5.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="11" cy="14.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        <div class="meta-field" data-hud="title" style="min-width:200px;">
           <label>Title</label>
           <input id="title-input" type="text" placeholder="Untitled song">
         </div>
-        <div class="meta-field">
+        <div class="meta-field" data-hud="bpm">
           <label>BPM</label>
           <input id="bpm-input" class="small-input" type="number" min="1" max="400" placeholder="—">
         </div>
-        <div class="meta-field">
+        <div class="meta-field" data-hud="key">
           <label>Key</label>
           <div class="key-controls">
             <select id="key-input" class="small-input" aria-label="Key"></select>
@@ -1554,7 +1651,11 @@
             </select>
           </div>
         </div>
-        <div class="meta-field">
+        <div class="meta-field" data-hud="timesig">
+          <label for="timesig-input">Time sig</label>
+          <select id="timesig-input" class="small-input" aria-label="Time signature"></select>
+        </div>
+        <div class="meta-field" data-hud="textsize">
           <label>Text size</label>
           <div class="font-controls">
             <button id="font-dec" title="Smaller">A−</button>
@@ -1562,18 +1663,21 @@
             <button id="font-inc" title="Larger">A+</button>
           </div>
         </div>
-        <div class="spacer"></div>
-        <div id="undo-bar" class="undo-group" role="group" aria-label="Undo and redo">
+        <div class="meta-field" data-hud="wordcount">
+          <label>Word count</label>
+          <span id="wordcount-val" class="meta-readout">0 words</span>
+        </div>
+        <div id="undo-bar" class="undo-group" data-hud="undo" role="group" aria-label="Undo and redo">
           <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
           <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
-        <div id="view-toggle" role="group" aria-label="View">
+        <div id="view-toggle" data-hud="view" role="group" aria-label="View">
           <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
           <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
         </div>
-        <button id="paste-btn">Import New Lyrics</button>
-        <button id="history-toggle">Version history</button>
-        <button id="details-btn" title="Dates and other details for this song">Details</button>
+        <button id="paste-btn" data-hud="import">Import New Lyrics</button>
+        <button id="history-toggle" data-hud="history">Version history</button>
+        <button id="details-btn" data-hud="details" title="Dates and other details for this song">Details</button>
       </div>
 
       <div id="body-row">
@@ -1649,6 +1753,20 @@
       </div>
     </div>
     <button id="settings-done">Done</button>
+  </div>
+</div>
+
+<div id="hudcfg-modal" role="dialog" aria-modal="true" aria-labelledby="hudcfg-title">
+  <div id="hudcfg-panel">
+    <h2 id="hudcfg-title">Customize Top Bar</h2>
+    <p id="hudcfg-for" class="setting-help"></p>
+    <ul id="hudcfg-list"></ul>
+    <p id="hudcfg-status" class="setting-help"></p>
+    <div class="hudcfg-actions">
+      <button id="hudcfg-default" class="hudcfg-secondary">Use Default</button>
+      <button id="hudcfg-save">Save as Default for New Songs</button>
+    </div>
+    <button id="hudcfg-done">Done</button>
   </div>
 </div>
 
@@ -1819,6 +1937,8 @@
 
   function openSong(id) {
     maybeSnapshotOnLeave();
+    searchScrollPending = true;
+    galleryOpen = false;
     state.activeId = id;
     settings.lastOpenId = id;
     persistSettings();
@@ -1987,6 +2107,7 @@
     settings.navFolder = nav.folder;
     persistSettings();
     document.getElementById("song-search").value = "";
+    if (folder !== undefined && galleryWanted()) { flushReadSync(); galleryOpen = true; renderSidebar(); renderEditor(); return; }
     renderSidebar();
   }
 
@@ -2170,6 +2291,108 @@
     return String(d.getFullYear());
   }
 
+  // The songs shown for the current folder and search, newest first
+  function navSongs() {
+    var folder = nav.folder === "all" || nav.folder === "trash" ? null : folderById(nav.folder);
+    var q = searchQuery();
+    var sorted = state.songs.slice().sort(function (a, b) { return b.lastEditedAt - a.lastEditedAt; });
+    if (folder) sorted = sorted.filter(function (s) { return s.folderId === folder.id; });
+    if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
+    return sorted;
+  }
+
+  // ---------- gallery view (wide screens and the Mac app) ----------
+  // Songs show as a grid of sheet previews in the main area; clicking one opens it, and
+  // "‹ Gallery" goes back to the grid.
+  var galleryOpen = false;
+  var wideQuery = window.matchMedia ? window.matchMedia("(min-width: 900px)") : null;
+  function galleryWanted() {
+    return settings.songView === "gallery" && !!(wideQuery && wideQuery.matches) && nav.folder !== "trash";
+  }
+  function updateViewStyleButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll("#view-style button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-style") === (settings.songView || "list")));
+    });
+  }
+  function setSongView(style) {
+    settings.songView = style;
+    persistSettings();
+    flushReadSync();
+    galleryOpen = style === "gallery";
+    renderAll();
+  }
+  function renderGallery(songs, q, folder) {
+    var grid = document.getElementById("gallery-grid");
+    grid.innerHTML = "";
+    if (!songs.length) {
+      var none = document.createElement("p");
+      none.className = "gallery-empty";
+      none.textContent = q ? "No songs match \u201C" + q + "\u201D." : folder ? "No songs in this folder yet." : "No songs yet.";
+      grid.appendChild(none);
+      return;
+    }
+    var lastGroup = null, now = new Date();
+    songs.forEach(function (song) {
+      var group = editGroup(song.lastEditedAt, now);
+      if (group !== lastGroup) {
+        var gh = document.createElement("h3");
+        gh.className = "gallery-group";
+        gh.textContent = group;
+        grid.appendChild(gh);
+        lastGroup = group;
+      }
+      var card = document.createElement("div");
+      card.className = "g-card" + (song.id === state.activeId ? " active" : "");
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", "Open " + (song.title || "Untitled song"));
+      var thumb = document.createElement("div");
+      thumb.className = "g-thumb";
+      if (song.title.trim()) {
+        var t = document.createElement("p");
+        t.className = "g-title";
+        t.textContent = song.title;
+        thumb.appendChild(t);
+      }
+      var lines = document.createElement("div");
+      lines.className = "read-editor pv-sheet g-lines";
+      sectionsAsLines(song).slice(0, 24).forEach(function (l) { lines.appendChild(readLineEl(l.text, l.runs)); });
+      thumb.appendChild(lines);
+      var name = document.createElement("div");
+      name.className = "g-name";
+      name.textContent = song.title || "Untitled song";
+      var date = document.createElement("div");
+      date.className = "g-date";
+      var bits = [fmtShort(song.lastEditedAt)];
+      if (song.key && song.key !== "\u2014") bits.push(song.key);
+      if (song.bpm) bits.push(song.bpm + " BPM");
+      date.textContent = bits.join(" \u00B7 ");
+      var more = document.createElement("button");
+      more.className = "g-more";
+      more.textContent = "\u22EF";
+      more.title = "Song options";
+      more.setAttribute("aria-label", "Options for " + (song.title || "Untitled song"));
+      more.addEventListener("click", function (e) { e.stopPropagation(); songMenu(song); });
+      card.appendChild(thumb); card.appendChild(name); card.appendChild(date); card.appendChild(more);
+      card.addEventListener("click", function () { openSong(song.id); });
+      card.addEventListener("keydown", function (e) { if ((e.key === "Enter" || e.key === " ") && e.target === card) { e.preventDefault(); openSong(song.id); } });
+      grid.appendChild(card);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#view-style button"), function (b) {
+    b.addEventListener("click", function () { setSongView(b.getAttribute("data-style")); });
+  });
+  document.getElementById("gallery-back").addEventListener("click", function () {
+    flushReadSync();
+    maybeSnapshotOnLeave();
+    galleryOpen = true;
+    renderAll();
+  });
+  if (wideQuery) {
+    var onWide = function () { if (settings.songView === "gallery") renderAll(); };
+    if (wideQuery.addEventListener) wideQuery.addEventListener("change", onWide); else if (wideQuery.addListener) wideQuery.addListener(onWide);
+  }
+
   function renderSidebar() {
     // don't redraw under someone who is naming a folder
     var ae = document.activeElement;
@@ -2186,10 +2409,11 @@
     var list = document.getElementById("song-list");
     list.innerHTML = "";
     var q = (document.getElementById("song-search").value || "").trim().toLowerCase();
+    updateViewStyleButtons();
+    list.hidden = false;
     if (inTrash) { renderTrashList(list, q); return; }
-    var sorted = state.songs.slice().sort(function(a,b){ return b.lastEditedAt - a.lastEditedAt; });
-    if (folder) sorted = sorted.filter(function (s) { return s.folderId === folder.id; });
-    if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
+    var sorted = navSongs();
+    if (galleryWanted()) { list.hidden = true; renderGallery(sorted, q, folder); return; }
     if (!sorted.length) {
       var none = document.createElement("p");
       none.className = "no-match";
@@ -2244,7 +2468,66 @@
       list.appendChild(item);
     });
   }
-  document.getElementById("song-search").addEventListener("input", renderSidebar);
+  document.getElementById("song-search").addEventListener("input", function () {
+    if (galleryWanted() && !galleryOpen) { flushReadSync(); galleryOpen = true; renderEditor(); }
+    renderSidebar();
+    searchScrollPending = true;
+    applySearchHighlight();
+  });
+
+  // ---------- search highlighting in the open song ----------
+  // Matches of the sidebar search are highlighted in the sheet (their line gets a soft tint too),
+  // and opening a song from the results scrolls to the first one. Basic view uses the CSS Custom
+  // Highlight API so the lyrics' own markup is never touched; Advanced view tints the matching lines.
+  var searchScrollPending = false;
+  var canHighlight = !!(window.CSS && CSS.highlights && typeof Highlight === "function");
+  function searchQuery() { return (document.getElementById("song-search").value || "").trim().toLowerCase(); }
+  function rangeInEl(el, start, end) {
+    var tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), n, pos = 0, r = document.createRange(), started = false;
+    while ((n = tw.nextNode())) {
+      var len = n.data.length;
+      if (!started && start < pos + len) { r.setStart(n, start - pos); started = true; }
+      if (started && end <= pos + len) { r.setEnd(n, end - pos); return r; }
+      pos += len;
+    }
+    return null;
+  }
+  function applySearchHighlight() {
+    var scroll = searchScrollPending;
+    searchScrollPending = false;
+    var q = searchQuery();
+    if (canHighlight) { CSS.highlights.delete("search-hit"); CSS.highlights.delete("search-line"); }
+    Array.prototype.forEach.call(document.querySelectorAll("#canvas .search-line"), function (r) { r.classList.remove("search-line"); });
+    if (!q) return;
+    var first = null;
+    // Advanced view: one text box per line
+    Array.prototype.forEach.call(document.querySelectorAll("#canvas .line-row"), function (row) {
+      var box = row.querySelector(".line-input");
+      if (box && box.value.toLowerCase().indexOf(q) !== -1) { row.classList.add("search-line"); first = first || row; }
+    });
+    // Basic view: highlight each match and its line
+    var hits = [], lines = [];
+    Array.prototype.forEach.call(document.querySelectorAll("#canvas .read-title, #canvas .read-editor:not(.pv-sheet) > div"), function (el) {
+      var t = el.textContent.toLowerCase(), i = t.indexOf(q), found = false;
+      while (i !== -1) {
+        var r = rangeInEl(el, i, i + q.length);
+        if (r) { hits.push(r); found = true; }
+        i = t.indexOf(q, i + q.length);
+      }
+      if (found) {
+        first = first || el;
+        if (el.classList.contains("read-title")) return;
+        var lr = document.createRange(); lr.selectNodeContents(el); lines.push(lr);
+      }
+    });
+    if (canHighlight && hits.length) {
+      var hl = new Highlight(); hits.forEach(function (r) { hl.add(r); }); hl.priority = 2;
+      var ll = new Highlight(); lines.forEach(function (r) { ll.add(r); }); ll.priority = 1;
+      CSS.highlights.set("search-hit", hl);
+      CSS.highlights.set("search-line", ll);
+    }
+    if (scroll && first) first.scrollIntoView({ block: "center" });
+  }
 
   // ---------- rendering: editor ----------
   function renderEditor() {
@@ -2252,6 +2535,15 @@
     var editorEl = document.getElementById("editor");
     var emptyEl = document.getElementById("empty-state");
     if (song && undo.id !== song.id) resetUndo(song);
+
+    var showGallery = galleryWanted() && galleryOpen;
+    document.getElementById("gallery").hidden = !showGallery;
+    document.getElementById("gallery-back").hidden = !galleryWanted() || showGallery;
+    if (showGallery) {
+      editorEl.classList.remove("visible");
+      emptyEl.style.display = "none";
+      return;
+    }
 
     if (!song) {
       editorEl.classList.remove("visible");
@@ -2264,6 +2556,9 @@
     document.getElementById("title-input").value = song.title;
     document.getElementById("bpm-input").value = song.bpm || "";
     setKeyControls(song.key);
+    timeSigSelect.value = song.timeSig || "\u2014";
+    applyHud(song);
+    updateWordCount(song);
     refreshDetails();
 
     document.documentElement.style.setProperty("--lyric-size-val", settings.fontSize + "px");
@@ -2380,6 +2675,7 @@
     var w = walkEditor(ed, pts);
     if (pts[0].index == null || pts[1].index == null) return;
     var a = Math.min(pts[0].index, pts[1].index), b = Math.max(pts[0].index, pts[1].index);
+    if (text === "\n" && a === b && promoteTitleLine(song, w.text, a)) return;
     var S = w.text.slice(0, a) + text + w.text.slice(b);
     var keys = w.keys.slice(0, a).concat(text.split("").map(function () { return PLAIN; }), w.keys.slice(b));
     var lines = [], start = 0;
@@ -2415,7 +2711,7 @@
     var w = walkEditor(div);
     if (w.lines.length !== 1) return;
     var fresh = readLineEl(w.lines[0].text, w.lines[0].runs);
-    if (fresh.innerHTML !== div.innerHTML) ed.replaceChild(fresh, div);
+    if (fresh.innerHTML !== div.innerHTML) { ed.replaceChild(fresh, div); if (searchQuery()) applySearchHighlight(); }
   }
   document.addEventListener("selectionchange", function () {
     var sel = window.getSelection();
@@ -2426,11 +2722,43 @@
     caretLine = line;
   });
 
+  // On an untitled song, typing a line at the top and pressing Return twice makes that line the title
+  // (like a title at the top of a note): it moves out of the lyrics and the cursor goes to the lyrics.
+  function promoteTitleLine(song, text, caret) {
+    if (song.title.trim()) return false;
+    var nl = text.indexOf("\n");
+    if (nl === -1 || caret !== nl + 1) return false;          // caret on the blank line right under the first line
+    if (text.slice(caret).trim()) return false;                // nothing written below yet
+    var line = text.slice(0, nl).trim();
+    if (!line || line.length > 60 || detectHeader(line)) return false;
+    flushReadSync();                // so undo can put the line back into the lyrics
+    undo.boundary = true;
+    song.title = line;
+    song.sections = [{ id: newSectionId(), type: "Verse", note: "", lines: [""] }];
+    markEdited(song);
+    undo.boundary = true;           // and the lyrics typed next are their own step
+    document.getElementById("title-input").value = song.title;
+    renderSidebarSoon();
+    renderCanvas(song);
+    var ed = document.querySelector("#canvas .read-editor");
+    if (ed) {
+      ed.focus();
+      var r = document.createRange();
+      r.setStart(ed, 0);
+      r.collapse(true);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    return true;
+  }
+
   function fillReadEditor(el, lineObjs) {
     el.innerHTML = "";
     if (!lineObjs.some(function (l) { return l.text.trim(); })) { el.classList.add("is-empty"); return; }
     el.classList.remove("is-empty");
     lineObjs.forEach(function (l) { el.appendChild(readLineEl(l.text, l.runs)); });
+    if (el.isConnected && searchQuery()) applySearchHighlight();
   }
 
   // Read the Basic editor back into text + per-character styles.
@@ -2520,6 +2848,7 @@
 
   function readEdited(song, ed) {
     ed.classList.toggle("is-empty", !readEditorText(ed).trim());
+    if (searchQuery()) applySearchHighlight();
     readSync.song = song; readSync.el = ed;
     clearTimeout(readSync.timer);
     readSync.timer = setTimeout(function () {
@@ -2629,6 +2958,10 @@
   }
 
   function renderCanvas(song) {
+    drawCanvas(song);
+    applySearchHighlight();
+  }
+  function drawCanvas(song) {
     document.getElementById("font-size-val").textContent = settings.fontSize;
     if (settings.viewMode === "read") { renderReading(song); return; }
     var canvas = document.getElementById("canvas");
@@ -3360,7 +3693,7 @@
   var undo = { id: null, stack: [], redo: [], cur: null, lastAt: 0, stepAt: 0, boundary: false, restoring: false };
   function undoSnap(song) {
     return JSON.stringify({
-      title: song.title, bpm: song.bpm, key: song.key,
+      title: song.title, bpm: song.bpm, key: song.key, timeSig: song.timeSig || null,
       // the written date travels with the import it came from (undoing the import removes it; redo puts the same one back)
       writtenOn: song.writtenOn || null, writtenOnSetAt: song.writtenOnSetAt || null,
       sections: song.sections.map(function (sec) {
@@ -3395,6 +3728,7 @@
   function applyUndoSnap(song, snap) {
     var d = JSON.parse(snap);
     song.title = d.title; song.bpm = d.bpm; song.key = d.key;
+    if (d.timeSig) song.timeSig = d.timeSig; else delete song.timeSig;
     if (d.writtenOn) { song.writtenOn = d.writtenOn; song.writtenOnSetAt = d.writtenOnSetAt; }
     else { delete song.writtenOn; delete song.writtenOnSetAt; }
     song.sections = d.sections.map(function (sec) { sec.id = newSectionId(); return sec; });
@@ -3436,6 +3770,146 @@
     var p = iso.split("-");
     return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   }
+  // ---------- customizable top bar ----------
+  // Each song can show its own set of tools in its own order; songs without one use the default
+  // layout, which "Save as Default" replaces (new songs start with it).
+  var HUD_TOOLS = [
+    { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
+    { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Text Size" }, { id: "wordcount", name: "Word Count" },
+    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Basic / Advanced" }, { id: "import", name: "Import New Lyrics" },
+    { id: "history", name: "Version History" }, { id: "details", name: "Details" }
+  ];
+  var HUD_BUILTIN = ["title", "bpm", "key", "textsize", "undo", "view", "import", "history", "details"];
+  var TIME_SIGS = ["\u2014", "4/4", "3/4", "2/4", "6/8", "12/8", "5/4", "7/8", "9/8", "7/4"];
+  function validLayout(l) {
+    if (!Array.isArray(l)) return null;
+    var ids = HUD_TOOLS.map(function (t) { return t.id; });
+    var out = l.filter(function (id, i) { return ids.indexOf(id) !== -1 && l.indexOf(id) === i; });
+    return out;
+  }
+  function defaultLayout() { return validLayout(settings.hudDefault) || HUD_BUILTIN.slice(); }
+  function songLayout(song) { return (song && validLayout(song.hud)) || defaultLayout(); }
+  function sameLayout(a, b) { return a.join(",") === b.join(","); }
+  function applyHud(song) {
+    var layout = songLayout(song);
+    Array.prototype.forEach.call(document.querySelectorAll("#meta-bar [data-hud]"), function (el) {
+      var i = layout.indexOf(el.getAttribute("data-hud"));
+      el.classList.toggle("hud-off", i === -1);
+      el.style.order = i === -1 ? "" : String(10 + i);
+    });
+  }
+  function updateWordCount(song) {
+    var lines = 0, words = 0;
+    song.sections.forEach(function (sec) {
+      sec.lines.forEach(function (l) { if (l.trim()) { lines++; words += l.trim().split(/\s+/).length; } });
+    });
+    document.getElementById("wordcount-val").textContent =
+      words + (words === 1 ? " word" : " words") + " \u00B7 " + lines + (lines === 1 ? " line" : " lines");
+  }
+  var timeSigSelect = document.getElementById("timesig-input");
+  TIME_SIGS.forEach(function (t) { var o = document.createElement("option"); o.value = t; o.textContent = t; timeSigSelect.appendChild(o); });
+  timeSigSelect.addEventListener("change", function () {
+    var song = getActiveSong();
+    if (!song) return;
+    if (timeSigSelect.value === "\u2014") delete song.timeSig; else song.timeSig = timeSigSelect.value;
+    markEdited(song);
+  });
+
+  var hudModal = document.getElementById("hudcfg-modal");
+  function hudSong() { return getActiveSong(); }
+  function setSongLayout(song, layout) {
+    if (sameLayout(layout, defaultLayout())) delete song.hud; else song.hud = layout.slice();
+    persistSongs();
+    applyHud(song);
+    renderHudPanel();
+  }
+  function renderHudPanel() {
+    var song = hudSong();
+    if (!song) return;
+    var layout = songLayout(song);
+    document.getElementById("hudcfg-for").textContent = "For \u201C" + (song.title || "Untitled song") + "\u201D. Turn tools on or off and use the arrows to change their order.";
+    var list = document.getElementById("hudcfg-list");
+    list.innerHTML = "";
+    var order = layout.concat(HUD_TOOLS.map(function (t) { return t.id; }).filter(function (id) { return layout.indexOf(id) === -1; }));
+    order.forEach(function (id) {
+      var tool = HUD_TOOLS.filter(function (t) { return t.id === id; })[0];
+      var on = layout.indexOf(id) !== -1, pos = layout.indexOf(id);
+      var li = document.createElement("li");
+      if (!on) li.className = "off";
+      var sw = document.createElement("button");
+      sw.className = "switch";
+      sw.setAttribute("role", "switch");
+      sw.setAttribute("aria-checked", String(on));
+      sw.setAttribute("aria-label", "Show " + tool.name);
+      sw.appendChild(document.createElement("span"));
+      sw.addEventListener("click", function () {
+        var l = songLayout(song).slice();
+        if (on) l.splice(l.indexOf(id), 1); else l.push(id);
+        setSongLayout(song, l);
+      });
+      var name = document.createElement("span");
+      name.className = "hc-name";
+      name.textContent = tool.name;
+      function mover(label, dir, disabled) {
+        var b = document.createElement("button");
+        b.className = "hc-move";
+        b.textContent = label;
+        b.setAttribute("aria-label", "Move " + tool.name + (dir < 0 ? " earlier" : " later"));
+        b.disabled = disabled;
+        b.addEventListener("click", function () {
+          var l = songLayout(song).slice(), i = l.indexOf(id);
+          l.splice(i, 1); l.splice(i + dir, 0, id);
+          setSongLayout(song, l);
+          var again = list.querySelector('[data-tool="' + id + '"] .hc-move[data-dir="' + dir + '"]');
+          if (again && !again.disabled) again.focus();
+        });
+        b.setAttribute("data-dir", String(dir));
+        return b;
+      }
+      li.setAttribute("data-tool", id);
+      li.appendChild(sw); li.appendChild(name);
+      li.appendChild(mover("\u2191", -1, !on || pos === 0));
+      li.appendChild(mover("\u2193", 1, !on || pos === layout.length - 1));
+      list.appendChild(li);
+    });
+    var custom = !!validLayout(song.hud);
+    document.getElementById("hudcfg-status").textContent = custom
+      ? "This song has its own layout. New songs start with your default layout."
+      : "This song uses your default layout. Changes you make here apply to this song only, until you save them as the default.";
+    document.getElementById("hudcfg-default").disabled = !custom;
+    document.getElementById("hudcfg-save").disabled = !custom;
+  }
+  function openHudPanel() {
+    if (!hudSong()) return;
+    renderHudPanel();
+    hudModal.classList.add("open");
+  }
+  function closeHudPanel() { hudModal.classList.remove("open"); }
+  document.getElementById("hud-customize").addEventListener("click", openHudPanel);
+  document.getElementById("hudcfg-done").addEventListener("click", closeHudPanel);
+  document.getElementById("hudcfg-default").addEventListener("click", function () {
+    var song = hudSong(); if (!song) return;
+    setSongLayout(song, defaultLayout());
+  });
+  document.getElementById("hudcfg-save").addEventListener("click", function () {
+    var song = hudSong(); if (!song) return;
+    settings.hudDefault = songLayout(song).slice();
+    persistSettings();
+    delete song.hud;          // it's the default now
+    persistSongs();
+    applyHud(song);
+    renderHudPanel();
+    document.getElementById("hudcfg-status").textContent = "Saved. New songs, and songs without their own layout, now use this layout.";
+  });
+  hudModal.addEventListener("click", function (e) { if (e.target === hudModal) closeHudPanel(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && hudModal.classList.contains("open")) closeHudPanel(); });
+  // right-click the top bar to customize it (like Logic's control bar)
+  document.getElementById("meta-bar").addEventListener("contextmenu", function (e) {
+    if (e.target.closest("input, select, textarea")) return;
+    e.preventDefault();
+    openHudPanel();
+  });
+
   // ---------- Details window (dates and other facts about a song) ----------
   var detailsModal = document.getElementById("details-modal");
   var detailsSongId = null;
@@ -3495,6 +3969,7 @@
     song.lastEditedAt = Date.now();
     lastEditAt = song.lastEditedAt;
     if (!lightweight) refreshDetails();
+    if (song.id === state.activeId) updateWordCount(song);
     scheduleSave();
     renderSidebarSoon();
     scheduleVersionCheck(song);
@@ -3705,6 +4180,7 @@
     var song = newSong();
     if (nav.folder !== "all" && folderById(nav.folder)) song.folderId = nav.folder;
     if (nav.folder === "trash") nav.folder = "all";
+    galleryOpen = false;
     state.songs.push(song);
     state.activeId = song.id;
     settings.lastOpenId = song.id;
@@ -4236,6 +4712,9 @@
     placeSizeBar(r);
     refreshSizeBarState();
   });
+  document.getElementById("canvas").addEventListener("input", function (e) {
+    if (e.target.classList && e.target.classList.contains("line-input") && searchQuery()) applySearchHighlight();
+  });
   document.getElementById("canvas-wrap").addEventListener("scroll", function () {
     if (!sizeBar.hidden && sizeSaved) placeSizeBar(sizeSaved);
     if (!fmtMenu.hidden && fmtMenuKind) placeFmtMenu(document.getElementById(fmtMenuKind === "size" ? "size-pick" : "hl-pick"));
@@ -4478,6 +4957,9 @@
       case "copy-lyrics": if (song) { flushReadSync(); copyText(songAsText(song), { textContent: "" }); } break;
       case "duplicate-song": if (song) duplicateSong(song); break;
       case "mode-basic": setViewMode("read"); break;
+      case "view-list": setSongView("list"); break;
+      case "customize-bar": openHudPanel(); break;
+      case "view-gallery": setSongView("gallery"); break;
       case "mode-advanced": setViewMode("edit"); break;
       case "toggle-bar": document.getElementById(hud.hidden ? "hud-show" : "hud-hide").click(); break;
       case "history": if (song) setHistoryOpen(!historyOpen); break;
@@ -4551,6 +5033,7 @@
     var reopen = state.songs.filter(function (s) { return s.id === settings.lastOpenId; })[0];
     state.activeId = reopen ? reopen.id : state.songs.slice().sort(function(a,b){return b.lastEditedAt-a.lastEditedAt;})[0].id;
   }
+  galleryOpen = settings.songView === "gallery";
   applyTheme();
   openInBasic();
   measureHud();

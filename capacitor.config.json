@@ -1,0 +1,9 @@
+{
+  "appId": "com.lyricsheet.prototype",
+  "appName": "Lyric Sheet",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#1B1D22"
+  }
+}

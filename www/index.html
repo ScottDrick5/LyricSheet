@@ -1663,12 +1663,61 @@
     /* song count at the bottom of the list, like "3 Notes" */
     #song-count { display: block; }
   }
+  /* Apple Music mini player (iPhone app) */
+  #music-bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    z-index: 41;
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px calc(14px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+    background: var(--bg-raised);
+    border-top: 1px solid var(--shell-border);
+    box-shadow: 0 -4px 14px rgba(0,0,0,0.2);
+  }
+  #music-bar[hidden], .mb-connect[hidden], .mb-controls[hidden] { display: none; }
+  .mb-art {
+    width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0;
+    background: var(--tint-2) center / cover no-repeat;
+    color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mb-art.has-art svg { display: none; }
+  .mb-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .mb-title { font-size: 0.85rem; color: var(--shell-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-artist { font-size: 0.72rem; color: var(--shell-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .mb-controls button {
+    width: 44px; height: 44px; border: none; background: none; color: var(--shell-text);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; border-radius: 50%;
+  }
+  .mb-controls button:active { background: var(--shell-hover); }
+  .mb-play .ico-pause, .mb-play.playing .ico-play { display: none; }
+  .mb-play.playing .ico-pause { display: block; }
+  .mb-connect {
+    flex-shrink: 0; border: none; border-radius: 18px; padding: 8px 16px;
+    background: var(--accent); color: var(--on-accent);
+    font-family: var(--font-ui); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+  /* make room for the bar */
+  body.music-on #new-fab { bottom: calc(22px + 64px + env(safe-area-inset-bottom, 0px)); }
+  body.music-on #canvas-wrap { padding-bottom: 170px !important; }
+  /* out of the way while typing (the keyboard covers the bottom of the screen) */
+  body.is-typing #music-bar { display: none; }
 </style>
 </head>
 <body>
 
 <div id="app">
   <div id="sidebar-backdrop"></div>
+  <div id="music-bar" role="region" aria-label="Apple Music" hidden>
+    <div class="mb-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg></div>
+    <div class="mb-info"><span class="mb-title"></span><span class="mb-artist"></span></div>
+    <button class="mb-connect" hidden>Connect</button>
+    <div class="mb-controls">
+      <button data-music="previous" aria-label="Previous"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5.5v13L9 12z" fill="currentColor"/></svg></button>
+      <button data-music="toggle" class="mb-play" aria-label="Play"><svg class="ico-play" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7 4.5v15L19.5 12z" fill="currentColor"/></svg><svg class="ico-pause" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/></svg></button>
+      <button data-music="next" aria-label="Next"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M5 5.5v13L15 12z" fill="currentColor"/></svg></button>
+    </div>
+  </div>
   <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
     <div class="sidebar-head">
@@ -1824,6 +1873,13 @@
         <p class="setting-help">Pure black background for OLED screens. Used whenever the app is dark.</p>
       </div>
       <button id="black-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="black-label"><span></span></button>
+    </div>
+    <div class="setting-row switch-row" id="music-setting" hidden>
+      <div>
+        <span class="setting-label" id="music-label">Apple Music controls</span>
+        <p class="setting-help">Play, pause and skip what the Music app is playing, from a bar at the bottom of the sheet.</p>
+      </div>
+      <button id="music-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="music-label"><span></span></button>
     </div>
     <div class="setting-row sync-row">
       <span class="setting-label">Sync between devices</span>
@@ -5343,6 +5399,102 @@
   applyPhoneTextSize();
   document.addEventListener("visibilitychange", function () { if (!document.hidden) applyPhoneTextSize(); });
 
+  // ---------- Apple Music controls (iPhone app) ----------
+  // A mini player at the bottom of the sheet for what the Music app is playing (the same player as
+  // the Lock Screen / Control Center for Apple Music). Uses the app's MusicControl native add-on;
+  // iOS doesn't let apps control other music apps, so it's Apple Music only.
+  var music = {
+    available: !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() &&
+                  Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.nativePromise),
+    state: null, artId: null, timer: null, busy: false
+  };
+  var musicBar = document.getElementById("music-bar");
+  function musicCall(method, opts) { return window.Capacitor.nativePromise("MusicControl", method, opts || {}); }
+  function musicWanted() { return music.available && settings.musicBar !== false; }
+  function showMusicBar() {
+    var on = musicWanted() && !appEl.classList.contains("sidebar-open") && !!getActiveSong();
+    musicBar.hidden = !on;
+    document.body.classList.toggle("music-on", on);
+    return on;
+  }
+  function renderMusic(st) {
+    var title = musicBar.querySelector(".mb-title"), artist = musicBar.querySelector(".mb-artist");
+    var connect = musicBar.querySelector(".mb-connect"), controls = musicBar.querySelector(".mb-controls");
+    var art = musicBar.querySelector(".mb-art"), play = musicBar.querySelector(".mb-play");
+    var access = st && st.access;
+    connect.hidden = access !== "notDetermined";
+    controls.hidden = access !== "authorized";
+    if (access === "notDetermined") {
+      title.textContent = "Control Apple Music from here";
+      artist.textContent = "Play, pause and skip while you write";
+    } else if (access === "denied" || access === "restricted") {
+      title.textContent = "Apple Music access is off";
+      artist.textContent = "Turn on Media & Apple Music for Lyric Sheet in the Settings app";
+    } else if (access === "authorized" && st.id) {
+      title.textContent = st.title || "Unknown song";
+      artist.textContent = [st.artist, st.album].filter(Boolean).join(" \u2014 ");
+    } else if (access === "authorized") {
+      title.textContent = "Nothing playing in Music";
+      artist.textContent = "Press play to resume Apple Music";
+    } else {
+      title.textContent = "Apple Music";
+      artist.textContent = "";
+    }
+    var playing = !!(st && st.playing);
+    play.classList.toggle("playing", playing);
+    play.setAttribute("aria-label", playing ? "Pause" : "Play");
+    if (!(st && st.id)) { art.style.backgroundImage = ""; art.classList.remove("has-art"); music.artId = null; }
+  }
+  function refreshMusic() {
+    if (!showMusicBar() || document.hidden || music.busy) return;
+    music.busy = true;
+    var needArt = false;
+    musicCall("getState", { artwork: false }).then(function (st) {
+      music.state = st;
+      renderMusic(st);
+      needArt = st.access === "authorized" && st.id && st.id !== music.artId;
+      if (!needArt) return;
+      return musicCall("getState", { artwork: true }).then(function (full) {
+        var art = musicBar.querySelector(".mb-art");
+        music.artId = full.id;
+        if (full.artwork) { art.style.backgroundImage = "url(" + full.artwork + ")"; art.classList.add("has-art"); }
+        else { art.style.backgroundImage = ""; art.classList.remove("has-art"); }
+      });
+    }).catch(function () {
+      // the native add-on isn't there (an older build): hide the bar
+      music.available = false;
+      showMusicBar();
+    }).then(function () { music.busy = false; });
+  }
+  function musicCommand(which) {
+    var st = music.state || {};
+    var method = which === "toggle" ? (st.playing ? "pause" : "play") : which;
+    if (which === "toggle") {   // flip the button right away; the next refresh confirms it
+      st.playing = !st.playing;
+      renderMusic(st);
+    }
+    musicCall(method).catch(function (err) { showFmtError(err); }).then(function () { setTimeout(refreshMusic, 350); });
+  }
+  if (music.available) {
+    document.getElementById("music-setting").hidden = false;
+    onPress(musicBar.querySelector(".mb-controls"), function (b) { musicCommand(b.getAttribute("data-music")); });
+    musicBar.querySelector(".mb-connect").addEventListener("click", function () {
+      musicCall("requestAccess").then(function () { refreshMusic(); });
+    });
+    document.getElementById("music-switch").addEventListener("click", function () {
+      settings.musicBar = settings.musicBar === false;
+      persistSettings();
+      this.setAttribute("aria-checked", String(settings.musicBar !== false));
+      refreshMusic();
+      showMusicBar();
+    });
+    document.getElementById("music-switch").setAttribute("aria-checked", String(settings.musicBar !== false));
+    // keep it current while it's on screen (what's playing can change from the Lock Screen, AirPods, etc.)
+    music.timer = setInterval(refreshMusic, 1500);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshMusic(); });
+    new MutationObserver(function () { showMusicBar(); }).observe(appEl, { attributes: true, attributeFilter: ["class"] });
+  }
+
   // ---------- init ----------
   loadAll();
   loadFolders();
@@ -5361,6 +5513,7 @@
   loadSync();
   setSyncState(sync.token ? "ok" : "off");
   if (sync.token) syncNow();
+  if (music.available) refreshMusic();
 })();
 </script>
 </body>

@@ -1,75 +1,82 @@
 #!/usr/bin/env python3
-"""Writes the app icon SVGs (design/*.svg). Render them to PNG with design/render-icons.js."""
+"""Builds the app icons from design/icon-source.jpg (the notepad icon on a light background).
+
+Cuts the notepad out of its background, then writes:
+  iOS  AppIcon-512@2x.png  - the icon on a light background
+       AppIcon-dark.png    - the same colored icon on black (iPhone dark mode)
+       AppIcon-tinted.png  - a grayscale version on black (iPhone tinted mode)
+  Mac  desktop/build/icon.png - the notepad shape itself, transparent around it, with a soft shadow
+Needs Pillow:  pip install pillow && python3 design/make-icons.py
+"""
 import os
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.join(HERE, "..")
+IOS = os.path.join(ROOT, "ios/App/App/Assets.xcassets/AppIcon.appiconset")
+SIZE = 1024
+LIGHT_BG = (234, 238, 242)
 
-def artwork(dark=False):
-    """The notepad and pencil, drawn on a 1024x1024 canvas."""
-    paper = "#EEE5D0" if dark else "#FAF3E1"
-    header = "#2A64AB"
-    ring, ring_hole = "#2DD0BE", "#1D4C8A"
-    line = "#2F6DB5"
-    rings = "".join(
-        f'<circle cx="{cx}" cy="262" r="36" fill="{ring_hole}"/>'
-        f'<rect x="{cx-24}" y="150" width="48" height="126" rx="24" fill="{ring}"/>'
-        for cx in (342, 504, 663))
-    lines = "".join(
-        f'<line x1="302" y1="{y}" x2="{x2}" y2="{y}" stroke="{line}" stroke-width="13" stroke-linecap="round"/>'
-        for y, x2 in ((457, 703), (550, 700), (638, 640)))
-    # pencil drawn pointing left along the x axis, then turned to point down-left
-    pencil = f'''<g transform="translate(537 804) rotate(-47.4)">
-      <polygon points="0,0 120,-64 120,64" fill="#F4D6A0"/>
-      <polygon points="0,0 40,-21.3 40,21.3" fill="#2B5BA6"/>
-      <rect x="118" y="-64" width="372" height="64" fill="#FBCB4A"/>
-      <rect x="118" y="0" width="372" height="64" fill="#F2AE35"/>
-      <rect x="488" y="-64" width="36" height="128" fill="#E3E6EC"/>
-      <rect x="500" y="-64" width="6" height="128" fill="#C9CED8"/>
-      <path d="M522 -64 H566 a26 26 0 0 1 26 26 V38 a26 26 0 0 1 -26 26 H522 Z" fill="#F2698A"/>
-    </g>'''
-    notepad = f'''
-      <path d="M220 230 a26 26 0 0 1 26 -26 H761 a26 26 0 0 1 26 26 V351 H220 Z" fill="{header}"/>
-      <path d="M220 351 H787 V841 a26 26 0 0 1 -26 26 H246 a26 26 0 0 1 -26 -26 Z" fill="{paper}"/>'''
-    return notepad + rings + lines + pencil
 
-def background(kind):
-    if kind == "dark":
-        return ('<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">'
-                '<stop offset="0" stop-color="#14304C"/><stop offset="1" stop-color="#08121F"/></linearGradient>')
-    return ('<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">'
-            '<stop offset="0" stop-color="#17C6C4"/><stop offset="1" stop-color="#0A84F2"/></linearGradient>')
+def cut_out(src):
+    """Return the notepad as an RGBA image, cropped to its edges."""
+    w, h = src.size
+    # background = light, grayish pixels (includes the pale blue glow around the icon)
+    cand = Image.new("L", src.size, 0)
+    px, cp = src.load(), cand.load()
+    for y in range(h):
+        for x in range(w):
+            r, g, b = px[x, y]
+            hi, lo = max(r, g, b), min(r, g, b)
+            if hi > 175 and (hi - lo) / hi < 0.3:
+                cp[x, y] = 255
+    # only what's connected to the outside counts (the cream paper is inside the blue border)
+    for corner in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)):
+        if cand.getpixel(corner) == 255:
+            ImageDraw.floodfill(cand, corner, 128)
+    mask = cand.point(lambda v: 0 if v == 128 else 255)
+    mask = mask.filter(ImageFilter.MinFilter(3))  # drop the light fringe around the edge
+    box = mask.getbbox()
+    icon = src.convert("RGBA")
+    icon.putalpha(mask.filter(ImageFilter.GaussianBlur(0.8)))  # soften the cut edge
+    return icon.crop(box)
 
-def ios(kind):
-    """Full-bleed square: iOS rounds the corners itself."""
-    if kind == "tinted":
-        # grayscale artwork on black; iOS colors it with the user's tint
-        return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs><filter id="g"><feColorMatrix type="saturate" values="0"/></filter></defs>
-  <rect width="1024" height="1024" fill="#000"/>
-  <g filter="url(#g)">{artwork()}</g>
-</svg>'''
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>{background(kind)}</defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  {artwork(dark=kind == "dark")}
-</svg>'''
 
-def mac():
-    """macOS doesn't round icons, so draw the rounded square (with margin and shadow) ourselves."""
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <defs>{background("light")}
-    <clipPath id="sq"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
-    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/></filter>
-  </defs>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="#0A84F2" filter="url(#sh)"/>
-  <g clip-path="url(#sq)">
-    <rect x="100" y="100" width="824" height="824" fill="url(#bg)"/>
-    <g transform="translate(100 100) scale({824/1024})">{artwork()}</g>
-  </g>
-</svg>'''
+def fit(icon, height):
+    scale = height / icon.height
+    return icon.resize((round(icon.width * scale), round(icon.height * scale)), Image.LANCZOS)
 
-for name, svg in (("icon-ios.svg", ios("light")), ("icon-ios-dark.svg", ios("dark")),
-                  ("icon-ios-tinted.svg", ios("tinted")), ("icon-mac.svg", mac())):
-    with open(os.path.join(HERE, name), "w") as f:
-        f.write(svg)
-    print("wrote", name)
+
+def place(canvas, icon):
+    canvas.alpha_composite(icon, ((SIZE - icon.width) // 2, (SIZE - icon.height) // 2))
+    return canvas
+
+
+def with_shadow(canvas, icon, color, blur, offset, opacity):
+    pad = blur * 3
+    sh = Image.new("RGBA", (icon.width + pad * 2, icon.height + pad * 2), color + (0,))
+    a = Image.new("L", sh.size, 0)
+    a.paste(icon.getchannel("A").point(lambda v: int(v * opacity)), (pad, pad + offset))
+    sh.putalpha(a.filter(ImageFilter.GaussianBlur(blur)))
+    canvas.alpha_composite(sh, ((SIZE - icon.width) // 2 - pad, (SIZE - icon.height) // 2 - pad))
+    return place(canvas, icon)
+
+
+src = Image.open(os.path.join(HERE, "icon-source.jpg")).convert("RGB")
+icon = cut_out(src)
+ios_icon = fit(icon, 800)  # iOS rounds the square's corners itself, so leave a margin
+
+light = with_shadow(Image.new("RGBA", (SIZE, SIZE), LIGHT_BG + (255,)), ios_icon, (30, 136, 229), 28, 10, 0.35)
+light.convert("RGB").save(os.path.join(IOS, "AppIcon-512@2x.png"), optimize=True)
+
+dark = place(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255)), ios_icon)
+dark.convert("RGB").save(os.path.join(IOS, "AppIcon-dark.png"), optimize=True)
+
+gray = ImageOps.grayscale(ios_icon.convert("RGB")).convert("RGBA")
+gray.putalpha(ios_icon.getchannel("A"))
+tinted = place(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255)), gray)
+tinted.convert("RGB").save(os.path.join(IOS, "AppIcon-tinted.png"), optimize=True)
+
+mac = with_shadow(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0)), fit(icon, 840), (0, 0, 0), 18, 12, 0.3)
+mac.save(os.path.join(ROOT, "desktop/build/icon.png"), optimize=True)
+print("icon cut out at", icon.size, "- wrote iOS light/dark/tinted and Mac icons")

@@ -1126,6 +1126,34 @@
   #size-bar.header-mode > * { display: none; }
   #size-bar.header-mode > #swap-pick { display: block; }
   #fmt-menu.swap-menu { grid-template-columns: repeat(2, 140px); }
+  /* On phones: the section names as a strip just above the keyboard, swiped sideways */
+  #swap-strip {
+    position: fixed; left: 0; right: 0; top: 0;
+    z-index: 47;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-raised);
+    border-top: 1px solid var(--shell-border);
+    box-shadow: 0 -4px 14px rgba(0,0,0,0.25);
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  #swap-strip[hidden] { display: none; }
+  #swap-strip.kb-up { padding-bottom: 8px; }
+  #swap-strip .swap-scroll { flex: 1; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  #swap-strip .swap-scroll::-webkit-scrollbar { display: none; }
+  #swap-strip .swap-scroll button {
+    flex-shrink: 0; white-space: nowrap;
+    background: var(--bg); color: var(--shell-text);
+    border: 1px solid var(--shell-border); border-radius: 18px;
+    padding: 0 16px; height: 36px;
+    font-family: var(--font-ui); font-size: 0.9rem; cursor: pointer;
+  }
+  #swap-strip .swap-close {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    border: none; background: var(--tint-2); color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  }
   #fmt-menu.swap-menu button { text-align: left; padding: 0 12px; white-space: nowrap; }
   #hl-pick { position: relative; }
   #hl-pick svg { display: block; margin: 0 auto 3px; }
@@ -1852,6 +1880,10 @@
   <button id="hl-pick" aria-haspopup="true" aria-expanded="false" aria-label="Highlight color" title="Highlight"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M15.2 3.6l5.2 5.2-8.9 8.9H6.3v-5.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.3 17.7l-2.6 2.6h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span id="hl-bar"></span></button>
 </div>
 <div id="fmt-menu" role="menu" hidden></div>
+<div id="swap-strip" role="menu" aria-label="Swap section" hidden>
+  <button class="swap-close" aria-label="Close" title="Close"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <div class="swap-scroll"></div>
+</div>
 
 <div id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
   <div id="confirm-panel">
@@ -4830,6 +4862,81 @@
     });
     return { ed: ed, w: w, a: a, b: b, idx: idx, header: header };
   }
+  // ---------- Swap strip (phones) ----------
+  // A row of section names pinned just above the keyboard. It scrolls by following your finger
+  // (native scrolling would need the touch, which would clear the text selection) and only
+  // counts a tap if the finger barely moved.
+  var swapStrip = document.getElementById("swap-strip");
+  var swapScroll = swapStrip.querySelector(".swap-scroll");
+  var coarseQuery = window.matchMedia ? window.matchMedia("(pointer: coarse)") : null;
+  function swapStripWanted() { return !!(coarseQuery && coarseQuery.matches); }
+  function swapChoices() {
+    var info = selectionInfo(true);
+    var current = info && info.header ? info.header.name.toLowerCase() : "";
+    return SWAP_NAMES.concat(settings.savedHeaders || []).filter(function (n) { return n.toLowerCase() !== current; });
+  }
+  function placeSwapStrip() {
+    if (swapStrip.hidden) return;
+    var vv = window.visualViewport;
+    var bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    swapStrip.classList.toggle("kb-up", !!vv && vv.height < window.innerHeight - 80);   // keyboard is showing
+    swapStrip.style.top = Math.round(bottom - swapStrip.offsetHeight) + "px";
+  }
+  function openSwapStrip() {
+    swapScroll.innerHTML = "";
+    swapChoices().forEach(function (n) {
+      var b = document.createElement("button");
+      b.setAttribute("role", "menuitem");
+      b.setAttribute("data-swap", n);
+      b.textContent = n;
+      swapScroll.appendChild(b);
+    });
+    swapScroll.scrollLeft = 0;
+    swapStrip.hidden = false;
+    fmtMenuKind = "swap";
+    document.getElementById("swap-pick").setAttribute("aria-expanded", "true");
+    placeSwapStrip();
+  }
+  function closeSwapStrip() { swapStrip.hidden = true; }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", placeSwapStrip);
+    window.visualViewport.addEventListener("scroll", placeSwapStrip);
+  }
+  (function () {
+    var drag = null;
+    ["touchstart", "mousedown"].forEach(function (ev) {
+      swapStrip.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });   // keep the selection
+    });
+    swapStrip.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      drag = { x: e.clientX, left: swapScroll.scrollLeft, moved: false, btn: e.target.closest("button") };
+      try { swapStrip.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    swapStrip.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      var dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 8) drag.moved = true;
+      if (drag.moved) swapScroll.scrollLeft = drag.left - dx;
+    });
+    function end() {
+      var d = drag;
+      drag = null;
+      if (!d || d.moved || !d.btn) return;
+      if (d.btn.classList.contains("swap-close")) { closeFmtMenu(); return; }
+      try { swapHeader(d.btn.getAttribute("data-swap")); } catch (err) { showFmtError(err); }
+      clearTimeout(fmtCloseTimer);
+      fmtCloseTimer = setTimeout(closeFmtMenu, 300);
+    }
+    swapStrip.addEventListener("pointerup", end);
+    swapStrip.addEventListener("pointercancel", function () { drag = null; });
+    // keyboard / assistive tech
+    swapStrip.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b || e.detail !== 0) return;
+      if (b.classList.contains("swap-close")) closeFmtMenu(); else swapHeader(b.getAttribute("data-swap"));
+    });
+  })();
+
   // ---------- Swap a section header for another ----------
   var SWAP_NAMES = ["Intro", "Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Hook", "Bridge", "Breakdown", "Refrain", "Interlude", "Outro"];
   // New text for a header line with its name replaced, keeping its brackets, colon and note
@@ -5015,6 +5122,7 @@
     document.getElementById("hl-pick").setAttribute("aria-expanded", "false");
     document.getElementById("swap-pick").setAttribute("aria-expanded", "false");
     fmtMenu.classList.remove("swap-menu");
+    closeSwapStrip();
   }
   function menuBtn(label, attrs) {
     var b = document.createElement("button");
@@ -5040,6 +5148,7 @@
     fmtMenuKind = kind;
     fmtMenu.innerHTML = "";
     var anchor = document.getElementById(kind === "size" ? "size-pick" : kind === "hl" ? "hl-pick" : "swap-pick");
+    if (kind === "swap" && swapStripWanted()) { openSwapStrip(); return; }
     if (kind === "swap") {
       var info = selectionInfo(true);
       var current = info && info.header ? info.header.name.toLowerCase() : "";

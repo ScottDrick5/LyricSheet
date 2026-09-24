@@ -1575,6 +1575,23 @@
   .g-card:hover .g-more, .g-more:focus-visible { opacity: 0.9; }
   .gallery-empty { grid-column: 1 / -1; color: var(--shell-text-dim); font-size: 0.9rem; }
   @media (prefers-reduced-motion: reduce) { .g-thumb { transition: none; } }
+  /* iPhone sizing: match iOS's standard text sizes (17pt list items and buttons, 34pt headings,
+     44pt rows) and follow the phone's Text Size setting. Every rem size on the phone scales from
+     --phone-root, which the script sets from the iPhone's text size (19.3px at the default size). */
+  @media (max-width: 640px) {
+    html { font-size: var(--phone-root, 19.3px); }
+    .nav-title { font-size: 1.76rem; font-weight: 700; }
+    .song-item, .folder-item { min-height: 44px; }
+    .song-item .sub { font-size: 0.78rem; }
+    .song-group { font-size: 0.68rem; }
+    #songs-toggle, #paste-btn, #history-toggle, #details-btn, #view-toggle button, #gallery-back, .read-copy,
+    #new-song-btn, #settings-btn, .nav-add, #sheet-actions button, #sheet-cancel { font-size: 0.88rem; }
+    #songs-toggle, #paste-btn, #history-toggle, #details-btn, #view-toggle button { min-height: 36px; }
+    #sheet-actions button, #sheet-cancel { min-height: 44px; }
+    .read-hint { font-size: 0.7rem; }
+    /* form fields: at least 16px, or iOS zooms in when you tap them */
+    input, select, textarea:not(.line-input) { font-size: max(16px, 0.88rem) !important; }
+  }
 </style>
 </head>
 <body>
@@ -5022,6 +5039,23 @@
     e.preventDefault();
     stepUndo(dir);
   });
+
+  // iPhone: scale the interface with the phone's Text Size setting (Settings > Display & Brightness),
+  // the way Notes does. WebKit exposes it as the size of the system "body" font (17px by default).
+  function applyPhoneTextSize() {
+    var body = 17;
+    if (window.CSS && CSS.supports && CSS.supports("font", "-apple-system-body")) {
+      var probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;visibility:hidden;font:-apple-system-body";
+      document.body.appendChild(probe);
+      body = parseFloat(getComputedStyle(probe).fontSize) || 17;
+      document.body.removeChild(probe);
+    }
+    var scale = Math.max(0.85, Math.min(1.6, body / 17));   // the largest accessibility sizes would break the layout
+    document.documentElement.style.setProperty("--phone-root", (19.3 * scale).toFixed(2) + "px");
+  }
+  applyPhoneTextSize();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) applyPhoneTextSize(); });
 
   // ---------- init ----------
   loadAll();

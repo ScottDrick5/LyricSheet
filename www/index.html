@@ -1729,7 +1729,7 @@
   }
   #music-pill[hidden] { display: none; }
   #music-pill.playing { color: var(--accent); border-color: var(--accent-dim); }
-  body.is-typing #music-pill { display: none; }
+  @media (pointer: coarse) { body.is-typing #music-pill { display: none; } }
   .mb-hide {
     flex-shrink: 0; width: 30px; height: 30px; margin-left: -4px; border-radius: 50%;
     border: none; background: var(--tint-2); color: var(--shell-text-dim);
@@ -1744,7 +1744,11 @@
   body.music-on #new-fab { bottom: calc(22px + 64px + env(safe-area-inset-bottom, 0px)); }
   body.music-on #canvas-wrap { padding-bottom: 170px !important; }
   /* out of the way while typing (the keyboard covers the bottom of the screen) */
-  body.is-typing #music-bar { display: none; }
+  @media (pointer: coarse) { body.is-typing #music-bar { display: none; } }
+  @media (min-width: 641px) {
+    #music-bar { left: 230px; }
+    #music-pill { left: calc(230px + 22px); }
+  }
   /* "More" (⋯): the top-bar tools that aren't shown in the bar */
   #hud-more {
     order: 900; align-self: center;
@@ -5625,13 +5629,18 @@
   // A mini player at the bottom of the sheet for what the Music app is playing (the same player as
   // the Lock Screen / Control Center for Apple Music). Uses the app's MusicControl native add-on;
   // iOS doesn't let apps control other music apps, so it's Apple Music only.
+  // iPhone app: the MusicControl add-on (Apple Music). Mac app: Music or Spotify through AppleScript (desktop/music.js).
+  var musicOnMac = !!(window.lyricDesktop && window.lyricDesktop.music && window.lyricDesktop.platform === "darwin");
   var music = {
-    available: !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() &&
+    available: musicOnMac || !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() &&
                   Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.nativePromise),
     state: null, artId: null, timer: null, busy: false
   };
   var musicBar = document.getElementById("music-bar");
-  function musicCall(method, opts) { return window.Capacitor.nativePromise("MusicControl", method, opts || {}); }
+  function musicCall(method, opts) {
+    if (musicOnMac) return window.lyricDesktop.music(method, opts || {});
+    return window.Capacitor.nativePromise("MusicControl", method, opts || {});
+  }
   function musicWanted() { return music.available && settings.musicBar === true; }   // off until turned on in Settings
   var musicPill = document.getElementById("music-pill");
   function showMusicBar() {
@@ -5661,14 +5670,15 @@
       title.textContent = "Control Apple Music from here";
       artist.textContent = "Play, pause and skip while you write";
     } else if (access === "denied" || access === "restricted") {
-      title.textContent = "Apple Music access is off";
-      artist.textContent = "Turn on Media & Apple Music for Lyric Sheet in the Settings app";
+      title.textContent = musicOnMac ? "Lyric Sheet can't control " + (st.app || "Music") : "Apple Music access is off";
+      artist.textContent = musicOnMac ? "Allow it in System Settings \u203A Privacy & Security \u203A Automation"
+                                      : "Turn on Media & Apple Music for Lyric Sheet in the Settings app";
     } else if (access === "authorized" && st.id) {
       title.textContent = st.title || "Unknown song";
-      artist.textContent = [st.artist, st.album].filter(Boolean).join(" \u2014 ");
+      artist.textContent = [st.artist, st.album].filter(Boolean).join(" \u2014 ") + (musicOnMac && st.app === "Spotify" ? " \u00B7 Spotify" : "");
     } else if (access === "authorized") {
-      title.textContent = "Nothing playing in Music";
-      artist.textContent = "Press play to resume Apple Music";
+      title.textContent = musicOnMac ? "Nothing playing" : "Nothing playing in Music";
+      artist.textContent = musicOnMac ? "Press play to start Apple Music, or play something in Spotify" : "Press play to resume Apple Music";
     } else {
       title.textContent = "Apple Music";
       artist.textContent = "";
@@ -5697,6 +5707,7 @@
         else { art.style.backgroundImage = ""; art.classList.remove("has-art"); }
       });
     }).catch(function () {
+      if (musicOnMac) return;   // a slow or failed reply on the Mac: just try again next time
       // the native add-on isn't there (an older build): hide the bar
       music.available = false;
       showMusicBar();
@@ -5766,6 +5777,12 @@
   }
   if (music.available) {
     document.getElementById("music-setting").hidden = false;
+    if (musicOnMac) {
+      document.getElementById("music-label").textContent = "Music & Spotify controls";
+      document.querySelector("#music-setting .setting-help").textContent =
+        "Show a bar at the bottom of the sheet to play, pause, skip and scrub what Music or Spotify is playing. Off until you turn it on.";
+      musicBar.setAttribute("aria-label", "Music player");
+    }
     onPress(musicBar.querySelector(".mb-controls"), function (b) { musicCommand(b.getAttribute("data-music")); });
     musicBar.querySelector(".mb-connect").addEventListener("click", function () {
       musicCall("requestAccess").then(function () { refreshMusic(); });

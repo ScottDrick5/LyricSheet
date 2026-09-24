@@ -1,6 +1,7 @@
 // Lyric Sheet — Mac desktop wrapper. The whole app is app/index.html (copied from www/index.html at build time).
-const { app, BrowserWindow, Menu, shell } = require("electron");
+const { app, BrowserWindow, Menu, shell, ipcMain } = require("electron");
 const path = require("path");
+const music = require("./music");
 
 const isMac = process.platform === "darwin";
 
@@ -222,6 +223,14 @@ function createWindow() {
   });
   attachContextMenu(win);
 }
+
+// Music / Spotify controls for the page (Mac only; see music.js)
+ipcMain.handle("music", (_event, method, options) => {
+  if (!isMac) throw new Error("Music controls are only available on the Mac");
+  const allowed = ["getState", "requestAccess", "play", "pause", "next", "previous", "seek"];
+  if (allowed.indexOf(method) === -1) throw new Error("Unknown music command");
+  return music.call(method, options);
+});
 
 app.whenReady().then(() => {
   buildMenu();

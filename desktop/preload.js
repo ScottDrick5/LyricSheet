@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld("lyricDesktop", {
   },
   platform: process.platform,
   music: (method, options) => ipcRenderer.invoke("music", method, options || {}),
+  updates: (action) => ipcRenderer.invoke("updates", action),
 });

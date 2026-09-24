@@ -904,6 +904,8 @@
   .switch-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .switch-row .setting-label { margin-bottom: 2px; }
   .setting-row[hidden] { display: none; }
+  .updates-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #updates-more a { color: var(--accent); }
   .setting-btn {
     flex-shrink: 0; align-self: center;
     background: none; border: 1px solid var(--shell-border); color: var(--accent);
@@ -1988,6 +1990,14 @@
         <p class="setting-help">Show a bar at the bottom of the sheet to play, pause and skip what the Music app is playing. Off until you turn it on.</p>
       </div>
       <button id="music-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="music-label"><span></span></button>
+    </div>
+    <div class="setting-row" id="updates-setting" hidden>
+      <span class="setting-label">Updates</span>
+      <div class="updates-row">
+        <p class="setting-help" id="updates-status">Version —</p>
+        <button id="updates-btn" class="setting-btn">Check for updates</button>
+      </div>
+      <p class="setting-help" id="updates-more" hidden></p>
     </div>
     <div class="setting-row sync-row">
       <span class="setting-label">Sync between devices</span>
@@ -5822,6 +5832,62 @@
     document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshMusic(); });
     new MutationObserver(function () { showMusicBar(); }).observe(appEl, { attributes: true, attributeFilter: ["class"] });
   }
+
+  // ---------- Settings > Updates (Mac app) ----------
+  // Checks the latest GitHub Release; if it's newer, "Download & Install" swaps in the new version
+  // and reopens the app (desktop/updater.js).
+  (function () {
+    var desk = window.lyricDesktop;
+    if (!desk || !desk.updates) return;
+    var row = document.getElementById("updates-setting"), status = document.getElementById("updates-status");
+    var btn = document.getElementById("updates-btn"), more = document.getElementById("updates-more");
+    var found = null;
+    row.hidden = false;
+    desk.updates("version").then(function (v) { status.textContent = "Version " + v; });
+    function say(text, detail, link) {
+      status.textContent = text;
+      more.hidden = !detail && !link;
+      more.textContent = detail || "";
+      if (link) {
+        var a = document.createElement("a");
+        a.href = link; a.target = "_blank"; a.rel = "noopener";
+        a.textContent = "What's new";
+        if (detail) more.appendChild(document.createTextNode(" "));
+        more.appendChild(a);
+      }
+    }
+    btn.addEventListener("click", function () {
+      if (found) {   // install
+        btn.disabled = true;
+        btn.textContent = "Installing\u2026";
+        say("Downloading version " + found.latest + "\u2026", "Lyric Sheet will close and reopen on its own when it's done.");
+        desk.updates("install").catch(function (err) {
+          btn.disabled = false;
+          btn.textContent = "Download & Install";
+          say("Couldn't install the update", String(err && err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ""), found.page);
+        });
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Checking\u2026";
+      desk.updates("check").then(function (r) {
+        btn.disabled = false;
+        if (r.available) {
+          found = r;
+          btn.textContent = "Download & Install";
+          say("Version " + r.latest + " is available", "You have " + r.current + ".", r.page);
+        } else {
+          btn.textContent = "Check for updates";
+          say("You're up to date", "Version " + r.current + " is the newest.");
+        }
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = "Check for updates";
+        var msg = String(err && err.message || err);
+        say("Couldn't check for updates", /404/.test(msg) ? "No releases have been published yet." : "Check your internet connection and try again.");
+      });
+    });
+  })();
 
   // ---------- init ----------
   loadAll();

@@ -2,6 +2,7 @@
 const { app, BrowserWindow, Menu, shell, ipcMain } = require("electron");
 const path = require("path");
 const music = require("./music");
+const updater = require("./updater");
 
 const isMac = process.platform === "darwin";
 
@@ -230,6 +231,14 @@ ipcMain.handle("music", (_event, method, options) => {
   const allowed = ["getState", "requestAccess", "play", "pause", "next", "previous", "seek"];
   if (allowed.indexOf(method) === -1) throw new Error("Unknown music command");
   return music.call(method, options);
+});
+
+// Settings > Updates (see updater.js)
+ipcMain.handle("updates", (_event, action) => {
+  if (action === "version") return app.getVersion();
+  if (action === "check") return updater.check();
+  if (action === "install") return updater.install();
+  throw new Error("Unknown update action");
 });
 
 app.whenReady().then(() => {

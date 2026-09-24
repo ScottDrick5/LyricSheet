@@ -1638,20 +1638,24 @@
     input, select, textarea:not(.line-input) { font-size: max(16px, 0.88rem) !important; }
   }
   /* Phones: the Songs menu covers the whole screen, with a close button */
-  #sidebar-close { display: none; }
+  #song-count { display: none; margin: 0; text-align: center; font-size: 0.72rem; color: var(--shell-text-dim); }
   .sidebar-head { position: relative; }
   @media (max-width: 640px) {
     #sidebar { width: 100% !important; border-right: none; padding-left: calc(18px + env(safe-area-inset-left, 0px)); padding-right: calc(18px + env(safe-area-inset-right, 0px)); }
     /* the round new-song button covers this corner: skip the duplicate "+ New song" and keep the rest clear of it */
     #new-song-btn { display: none; }
     #settings-btn, #sidebar .nav-add { margin-right: 76px; }
-    #sidebar-close {
-      display: flex; align-items: center; justify-content: center;
-      position: absolute; top: 0; right: 0;
-      width: 36px; height: 36px; border-radius: 50%;
-      border: 1px solid var(--shell-border); background: var(--bg); color: var(--shell-text);
-      cursor: pointer; padding: 0;
+    /* iOS-style back button: "‹ All Songs" in the accent color */
+    #songs-toggle {
+      border: none; background: none; color: var(--accent);
+      padding: 6px 4px 6px 0; margin-left: -2px;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.95rem !important;
     }
+    #songs-fab { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+    .back-chev { flex-shrink: 0; }
+    /* song count at the bottom of the list, like "3 Notes" */
+    #song-count { display: block; }
   }
 </style>
 </head>
@@ -1662,7 +1666,6 @@
   <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
     <div class="sidebar-head">
-      <button id="sidebar-close" aria-label="Close menu" title="Close"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       <h1>Lyric Sheet</h1>
       <p class="tagline">prototype · placeholder name</p>
       <button id="sync-status" class="sync-status" hidden></button>
@@ -1684,6 +1687,7 @@
       </div>
       <div class="search-wrap"><input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
       <div id="song-list"></div>
+      <p id="song-count"></p>
       <button id="new-song-btn">+ New song</button>
     </div>
     <button id="settings-btn">⚙︎ Settings</button>
@@ -1698,7 +1702,7 @@
 
     <div id="gallery" hidden><div id="gallery-grid"></div></div>
     <div id="editor">
-      <button id="songs-fab" aria-label="Songs">☰ Songs</button>
+      <button id="songs-fab" aria-label="Back to songs"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-label">All Songs</span></button>
       <div id="mode-fab" role="group" aria-label="View">
         <button data-mode="read" aria-pressed="true">Basic</button>
         <button data-mode="edit" aria-pressed="false">Advanced</button>
@@ -1711,7 +1715,7 @@
       <div id="meta-bar">
         <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button id="gallery-back" hidden>‹ Gallery</button>
-        <button id="songs-toggle">☰ Songs</button>
+        <button id="songs-toggle" aria-label="Back to songs"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-label">All Songs</span></button>
         <button id="hud-customize" class="hud-icon" aria-label="Customize top bar" title="Customize top bar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M3 5.5h8M15 5.5h2M3 10h2M9 10h8M3 14.5h6M13 14.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="13" cy="5.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="11" cy="14.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
         <div class="meta-field" data-hud="title" style="min-width:200px;">
           <label>Title</label>
@@ -2485,6 +2489,9 @@
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains("folder-input")) return;
     if (nav.folder !== "all" && nav.folder !== "trash" && !folderById(nav.folder)) nav.folder = "all";
+    var backTo = nav.view === "folders" ? "Folders" : nav.folder === "trash" ? "Recently Deleted"
+      : nav.folder !== "all" && folderById(nav.folder) ? folderById(nav.folder).name : "All Songs";
+    Array.prototype.forEach.call(document.querySelectorAll(".back-label"), function (el) { el.textContent = backTo; });
     document.getElementById("folders-view").hidden = nav.view !== "folders";
     document.getElementById("songs-view").hidden = nav.view === "folders";
     if (nav.view === "folders") { renderFolderList(); return; }
@@ -2498,8 +2505,9 @@
     var q = (document.getElementById("song-search").value || "").trim().toLowerCase();
     updateViewStyleButtons();
     list.hidden = false;
-    if (inTrash) { renderTrashList(list, q); return; }
+    if (inTrash) { document.getElementById("song-count").textContent = ""; renderTrashList(list, q); return; }
     var sorted = navSongs();
+    document.getElementById("song-count").textContent = sorted.length + (sorted.length === 1 ? " Song" : " Songs");
     if (galleryWanted()) { list.hidden = true; renderGallery(sorted, q, folder); return; }
     if (!sorted.length) {
       var none = document.createElement("p");
@@ -4399,7 +4407,7 @@
   // ---------- phone layout: slide-out song list ----------
   var appEl = document.getElementById("app");
   function closeSidebar() { appEl.classList.remove("sidebar-open"); }
-  document.getElementById("sidebar-close").addEventListener("click", closeSidebar);
+
   document.getElementById("songs-toggle").addEventListener("click", function () { appEl.classList.add("sidebar-open"); });
   document.getElementById("sidebar-backdrop").addEventListener("click", closeSidebar);
   document.getElementById("song-list").addEventListener("click", function (e) {
@@ -4517,6 +4525,29 @@
   document.getElementById("songs-fab").addEventListener("click", function () {
     document.getElementById("app").classList.add("sidebar-open");
   });
+  // Like iOS: swipe right from the left edge of a song to go back to the list
+  (function () {
+    var start = null;
+    var mainEl = document.getElementById("main");
+    mainEl.addEventListener("touchstart", function (e) {
+      start = null;
+      if (e.touches.length !== 1 || appEl.classList.contains("sidebar-open") || window.innerWidth > 640) return;
+      var t = e.touches[0];
+      if (t.clientX <= 24) start = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    mainEl.addEventListener("touchmove", function (e) {
+      if (!start) return;
+      var t = e.touches[0], dx = t.clientX - start.x, dy = Math.abs(t.clientY - start.y);
+      if (dy > 60) { start = null; return; }
+      if (dx > 70) {
+        start = null;
+        flushReadSync();
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        appEl.classList.add("sidebar-open");
+      }
+    }, { passive: true });
+    mainEl.addEventListener("touchend", function () { start = null; }, { passive: true });
+  })();
 
   // ---------- sync between devices (private GitHub Gist) ----------
   var SYNC_KEY = "lyricapp_sync_v1";

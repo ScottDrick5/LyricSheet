@@ -140,7 +140,9 @@
     color: var(--shell-text);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .folders-back .back-chev { width: 7px; height: 12px; }
   .folders-back {
+    display: inline-flex; align-items: center; gap: 3px;
     align-self: flex-start;
     background: none; border: none;
     color: var(--accent);
@@ -1653,6 +1655,8 @@
       font-size: 0.95rem !important;
     }
     #songs-fab { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+    .folders-back { font-size: 0.95rem !important; gap: 4px; padding: 6px 4px 6px 0; margin: 0 0 -4px -2px; min-height: 44px; }
+    .folders-back .back-chev { width: 11px; height: 18px; }
     .back-chev { flex-shrink: 0; }
     /* song count at the bottom of the list, like "3 Notes" */
     #song-count { display: block; }
@@ -1677,7 +1681,7 @@
       <button id="new-folder-btn" class="nav-add">+ New folder</button>
     </div>
     <div id="songs-view" class="nav-view">
-      <button id="folders-back" class="folders-back">‹ Folders</button>
+      <button id="folders-back" class="folders-back" aria-label="Back to folders"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Folders</span></button>
       <div class="songs-head">
         <h2 id="folder-title" class="nav-title">All Songs</h2>
         <div id="view-style" role="group" aria-label="Show songs as">

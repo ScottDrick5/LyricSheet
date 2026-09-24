@@ -217,12 +217,18 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    position: relative;
+    --hud-h: 0px;
   }
   #editor.visible { display: flex; }
 
   /* Top metadata bar */
   #meta-bar {
-    flex-shrink: 0;
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    transition: transform 0.22s ease;
+    will-change: transform;
     padding: 16px 26px 12px;
     border-bottom: 1px solid var(--shell-border);
     display: flex;
@@ -319,6 +325,34 @@
     flex: 1;
     overflow-y: auto;
     padding: 26px;
+    padding-top: calc(var(--hud-h) + 26px);
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Header bar slides away while reading down the song */
+  #editor.hud-hidden #meta-bar { transform: translateY(-100%); pointer-events: none; }
+  @media (min-width: 641px) {
+    #history-drawer { padding-top: var(--hud-h); transition: width 0.15s ease, padding-top 0.22s ease; }
+    #editor.hud-hidden #history-drawer { padding-top: 0; }
+  }
+  #songs-fab {
+    display: none;
+    position: absolute;
+    top: 10px; left: 12px;
+    z-index: 11;
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: 18px;
+    padding: 7px 13px;
+    font-size: 0.8rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #meta-bar, #songs-fab, #history-drawer { transition: none !important; }
   }
   #canvas {
     background: var(--paper);
@@ -979,7 +1013,9 @@
   @media (max-width: 720px) {
     #sidebar { width: 160px; }
     #meta-bar { padding: 14px 16px 10px; gap: 12px; }
-    #canvas-wrap { padding: 14px; }
+    #canvas-wrap { padding: 14px; padding-top: calc(var(--hud-h) + 14px); }
+    #songs-fab { display: block; pointer-events: none; }
+    #editor.hud-hidden #songs-fab { opacity: 1; pointer-events: auto; }
     #canvas { padding: 16px 16px 22px; }
     .timestamps { display: none; }
     #history-drawer.open { width: 200px; }
@@ -1010,6 +1046,7 @@
     </div>
 
     <div id="editor">
+      <button id="songs-fab" aria-label="Songs">☰ Songs</button>
       <div id="meta-bar">
         <button id="songs-toggle">☰ Songs</button>
         <div class="meta-field" style="min-width:200px;">
@@ -1457,6 +1494,7 @@
   }
   function openInBasic() {
     flushReadSync();
+    if (typeof showHud === "function") { showHud(); var sc = document.getElementById("canvas-wrap"); sc.scrollTop = 0; }
     settings.viewMode = "read";
     markViewButtons("read");
   }
@@ -2354,6 +2392,42 @@
     if (e.key === "Escape" && settingsModal.classList.contains("open")) closeSettings();
   });
 
+  // ---------- auto-hiding header bar ----------
+  var editorEl = document.getElementById("editor");
+  var metaBar = document.getElementById("meta-bar");
+  var scroller = document.getElementById("canvas-wrap");
+  var hud = { lastY: 0, travel: 0, hidden: false };
+
+  function measureHud() {
+    editorEl.style.setProperty("--hud-h", metaBar.offsetHeight + "px");
+  }
+  if (window.ResizeObserver) new ResizeObserver(measureHud).observe(metaBar);
+  window.addEventListener("resize", measureHud);
+
+  function setHudHidden(hide) {
+    if (hud.hidden === hide) return;
+    hud.hidden = hide;
+    editorEl.classList.toggle("hud-hidden", hide);
+    if (hide && metaBar.contains(document.activeElement)) document.activeElement.blur();
+  }
+  function showHud() { hud.travel = 0; setHudHidden(false); }
+
+  scroller.addEventListener("scroll", function () {
+    var y = scroller.scrollTop;
+    var dy = y - hud.lastY;
+    hud.lastY = y;
+    if (y <= 40) { showHud(); return; }           // near the top: always show
+    if (dy === 0) return;
+    // require a little travel in one direction so small jitters don't flicker it
+    hud.travel = (dy > 0) === (hud.travel > 0) ? hud.travel + dy : dy;
+    if (hud.travel > 28) setHudHidden(true);      // moving further into the song
+    else if (hud.travel < -28) setHudHidden(false); // heading back toward the top
+  }, { passive: true });
+
+  document.getElementById("songs-fab").addEventListener("click", function () {
+    document.getElementById("app").classList.add("sidebar-open");
+  });
+
   // ---------- init ----------
   loadAll();
   if (state.songs.length) {
@@ -2361,6 +2435,7 @@
   }
   applyTheme();
   openInBasic();
+  measureHud();
   renderAll();
 })();
 </script>

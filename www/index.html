@@ -2675,6 +2675,7 @@
     var w = walkEditor(ed, pts);
     if (pts[0].index == null || pts[1].index == null) return;
     var a = Math.min(pts[0].index, pts[1].index), b = Math.max(pts[0].index, pts[1].index);
+    if (text === "\n" && a === b && promoteTitleLine(song, w.text, a)) return;
     var S = w.text.slice(0, a) + text + w.text.slice(b);
     var keys = w.keys.slice(0, a).concat(text.split("").map(function () { return PLAIN; }), w.keys.slice(b));
     var lines = [], start = 0;
@@ -2720,6 +2721,37 @@
     if (caretLine && caretLine !== line && caretLine.parentNode) restyleLine(caretLine.parentNode, caretLine);
     caretLine = line;
   });
+
+  // On an untitled song, typing a line at the top and pressing Return twice makes that line the title
+  // (like a title at the top of a note): it moves out of the lyrics and the cursor goes to the lyrics.
+  function promoteTitleLine(song, text, caret) {
+    if (song.title.trim()) return false;
+    var nl = text.indexOf("\n");
+    if (nl === -1 || caret !== nl + 1) return false;          // caret on the blank line right under the first line
+    if (text.slice(caret).trim()) return false;                // nothing written below yet
+    var line = text.slice(0, nl).trim();
+    if (!line || line.length > 60 || detectHeader(line)) return false;
+    flushReadSync();                // so undo can put the line back into the lyrics
+    undo.boundary = true;
+    song.title = line;
+    song.sections = [{ id: newSectionId(), type: "Verse", note: "", lines: [""] }];
+    markEdited(song);
+    undo.boundary = true;           // and the lyrics typed next are their own step
+    document.getElementById("title-input").value = song.title;
+    renderSidebarSoon();
+    renderCanvas(song);
+    var ed = document.querySelector("#canvas .read-editor");
+    if (ed) {
+      ed.focus();
+      var r = document.createRange();
+      r.setStart(ed, 0);
+      r.collapse(true);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    return true;
+  }
 
   function fillReadEditor(el, lineObjs) {
     el.innerHTML = "";

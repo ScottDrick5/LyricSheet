@@ -3,7 +3,7 @@
 
 Cuts the notepad out of its background, then writes:
   iOS  AppIcon-512@2x.png  - the icon on a light background
-       AppIcon-dark.png    - the same colored icon on black (iPhone dark mode)
+       AppIcon-dark.png    - the same colored icon on the charcoal gradient iOS uses for dark icons
        AppIcon-tinted.png  - a grayscale version on black (iPhone tinted mode)
   Mac  desktop/build/icon.png - the notepad shape itself, transparent around it, with a soft shadow
 Needs Pillow:  pip install pillow && python3 design/make-icons.py
@@ -16,6 +16,8 @@ ROOT = os.path.join(HERE, "..")
 IOS = os.path.join(ROOT, "ios/App/App/Assets.xcassets/AppIcon.appiconset")
 SIZE = 1024
 LIGHT_BG = (234, 238, 242)
+# iOS dark-mode icons sit on a charcoal gradient, lighter at the top (Apple's dark icon template)
+DARK_TOP, DARK_BOTTOM = (50, 50, 50), (20, 20, 20)
 
 
 def cut_out(src):
@@ -47,6 +49,15 @@ def fit(icon, height):
     return icon.resize((round(icon.width * scale), round(icon.height * scale)), Image.LANCZOS)
 
 
+def vertical_gradient(top, bottom):
+    g = Image.new("RGBA", (SIZE, SIZE))
+    d = ImageDraw.Draw(g)
+    for y in range(SIZE):
+        t = y / (SIZE - 1)
+        d.line([(0, y), (SIZE, y)], fill=tuple(round(a + (b - a) * t) for a, b in zip(top, bottom)) + (255,))
+    return g
+
+
 def place(canvas, icon):
     canvas.alpha_composite(icon, ((SIZE - icon.width) // 2, (SIZE - icon.height) // 2))
     return canvas
@@ -69,7 +80,7 @@ ios_icon = fit(icon, 800)  # iOS rounds the square's corners itself, so leave a 
 light = with_shadow(Image.new("RGBA", (SIZE, SIZE), LIGHT_BG + (255,)), ios_icon, (30, 136, 229), 28, 10, 0.35)
 light.convert("RGB").save(os.path.join(IOS, "AppIcon-512@2x.png"), optimize=True)
 
-dark = place(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255)), ios_icon)
+dark = place(vertical_gradient(DARK_TOP, DARK_BOTTOM), ios_icon)
 dark.convert("RGB").save(os.path.join(IOS, "AppIcon-dark.png"), optimize=True)
 
 gray = ImageOps.grayscale(ios_icon.convert("RGB")).convert("RGBA")

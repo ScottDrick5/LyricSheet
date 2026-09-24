@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Lyric Sheet — Prototype</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* no double-tap zoom in the iPhone app (taps stay fast; text can still be selected) */
+  html, body { touch-action: manipulation; }
   :root {
     box-sizing: border-box;
     /* Dark theme (default) */
@@ -178,6 +180,10 @@
   }
   .folder-item .fmore:hover { opacity: 1; background: var(--tint-2); color: var(--shell-text); }
   .folder-item.all-songs { font-weight: 500; }
+  .folder-item.trash-row .folder-ico { color: var(--shell-text-dim); }
+  .trash-note { margin-bottom: 6px; }
+  .song-item.trashed .name { color: var(--shell-text-dim); }
+  .nav-add.empty-trash { width: 100%; margin-top: 10px; color: #d9534f; }
   .folder-divider { height: 1px; background: var(--shell-border); margin: 4px 6px; }
   .folder-input {
     flex: 1; min-width: 0;
@@ -303,6 +309,17 @@
   .song-item .info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .song-item .sub { font-size: 0.68rem; color: var(--shell-text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song-item .dup:hover { color: var(--accent) !important; }
+  .song-group {
+    margin: 10px 4px 2px;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--shell-text-dim);
+  }
+  .song-group:first-child { margin-top: 0; }
+  .song-group, #song-list .song-item { flex-shrink: 0; }
   .no-match { font-size: 0.8rem; color: var(--shell-text-dim); padding: 6px 4px; margin: 0; }
   .sync-status {
     display: block;
@@ -440,6 +457,7 @@
     align-items: center;
     gap: 4px;
   }
+  #font-size-val { min-width: 22px; text-align: center; font-size: 0.85rem; color: var(--shell-text); font-variant-numeric: tabular-nums; }
   .font-controls button {
     background: var(--bg-raised);
     border: 1px solid var(--shell-border);
@@ -452,14 +470,8 @@
   }
   .font-controls button:hover { color: var(--shell-text); border-color: var(--accent-dim); }
 
-  .timestamps {
-    font-size: 0.7rem;
-    color: var(--shell-text-dim);
-    text-align: right;
-    line-height: 1.5;
-  }
 
-  #history-toggle {
+  #details-btn, #history-toggle {
     background: none;
     border: 1px solid var(--shell-border);
     color: var(--shell-text-dim);
@@ -470,7 +482,7 @@
     font-family: var(--font-ui);
     white-space: nowrap;
   }
-  #history-toggle:hover { color: var(--shell-text); border-color: var(--accent-dim); }
+  #details-btn:hover, #history-toggle:hover { color: var(--shell-text); border-color: var(--accent-dim); }
 
   /* Body: paper canvas + optional history drawer */
   #body-row {
@@ -545,6 +557,38 @@
   #mode-fab button + button { border-left: 1px solid var(--shell-border); }
   #mode-fab button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
   #editor.hud-hidden #mode-fab { opacity: 1; pointer-events: auto; }
+  .undo-group {
+    display: inline-flex;
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .undo-group button {
+    background: none; border: none;
+    color: var(--shell-text);
+    width: 38px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+  .undo-group button + button { border-left: 1px solid var(--shell-border); }
+  .undo-group button:active:not(:disabled) { background: var(--shell-hover); }
+  .undo-group button:disabled { color: var(--shell-text-dim); opacity: 0.4; cursor: default; }
+  #undo-bar { align-self: center; }
+  /* floating copy, shown when the top bar has slid away */
+  #undo-fab {
+    position: absolute;
+    top: 10px; right: 52px;
+    z-index: 11;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  #undo-fab button { width: 34px; }
+  @media (max-width: 400px) { #undo-fab button { width: 30px; } #mode-fab { left: calc(50% - 8px); } }
+  #editor.hud-hidden #undo-fab { opacity: 1; pointer-events: auto; }
   /* Hidden by hand: let the sheet use the space the bar took up */
   #editor.hud-pinned #canvas-wrap { padding-top: 56px !important; }
   #editor.hud-pinned #history-drawer { padding-top: 0; }
@@ -566,7 +610,7 @@
     transition: opacity 0.18s ease;
   }
   @media (prefers-reduced-motion: reduce) {
-    #meta-bar, #songs-fab, #hud-show, #mode-fab, #history-drawer { transition: none !important; }
+    #meta-bar, #songs-fab, #hud-show, #mode-fab, #undo-fab, #history-drawer { transition: none !important; }
   }
   #canvas {
     background: var(--paper);
@@ -809,7 +853,7 @@
     text-align: left;
   }
   #settings-btn:hover { color: var(--shell-text); border-color: var(--accent-dim); }
-  #settings-modal {
+  #settings-modal, #details-modal {
     position: fixed; inset: 0;
     background: var(--overlay);
     display: none;
@@ -817,8 +861,8 @@
     padding: 20px;
     z-index: 55;
   }
-  #settings-modal.open { display: flex; }
-  #settings-panel {
+  #settings-modal.open, #details-modal.open { display: flex; }
+  #settings-panel, #details-panel {
     background: var(--bg-raised);
     border: 1px solid var(--shell-border);
     border-radius: var(--radius-md);
@@ -826,7 +870,7 @@
     padding: 18px 20px;
     color: var(--shell-text);
   }
-  #settings-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
+  #settings-panel h2, #details-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
   .setting-row { margin-bottom: 18px; }
   .setting-label { font-size: 0.85rem; margin-bottom: 8px; display: block; }
   .seg { display: flex; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); overflow: hidden; }
@@ -894,7 +938,16 @@
   .sync-detail { font-size: 0.78rem; line-height: 1.5; margin: 10px 0; color: var(--shell-text); }
   .sync-detail.error { color: var(--danger); }
   .sync-actions { display: flex; gap: 8px; }
-  #settings-done {
+  #details-panel { max-height: 100%; overflow-y: auto; }
+  #details-modal { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  #details-panel h2 { margin-bottom: 2px; }
+  #details-song { margin: 0 0 14px; font-family: var(--font-lyric); font-size: 1rem; color: var(--shell-text-dim); }
+  #details-list { margin: 0 0 14px; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 0.84rem; }
+  #details-list dt { color: var(--shell-text-dim); }
+  #details-list dd { margin: 0; }
+  #details-list .sub { display: block; font-size: 0.74rem; color: var(--shell-text-dim); }
+  #details-note { margin-bottom: 14px; }
+  #settings-done, #details-done {
     width: 100%;
     background: var(--accent); border: none; color: var(--on-accent);
     font-weight: 600; font-family: var(--font-ui); font-size: 0.85rem;
@@ -975,6 +1028,27 @@
 
   /* Resized words */
   .read-editor [data-s] { font-size: calc(var(--lyric-px, 17px) * var(--s, 1)); }
+  /* Bold / italic / underline / strikethrough words (data-f holds any of the letters b, i, u, s) */
+  .read-editor [data-f*="b"] { font-weight: 700; }
+  .read-editor [data-f*="i"] { font-style: italic; }
+  .read-editor [data-f*="u"] { text-decoration-line: underline; }
+  .read-editor [data-f*="s"] { text-decoration-line: line-through; }
+  .read-editor [data-f*="u"][data-f*="s"] { text-decoration-line: underline line-through; }
+  /* Highlighted words */
+  :root {
+    --hl-yellow: #FFE45C;
+    --hl-green: #92E3A5;
+    --hl-blue: #A3CCFF;
+    --hl-pink: #FFABD8;
+    --hl-orange: #FFC27A;
+  }
+  /* solid highlighter colors with dark text, so they read the same in light and dark themes */
+  .read-editor span[data-h] { color: #1D1B16; border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  [data-h="yellow"] { background-color: var(--hl-yellow); }
+  [data-h="green"] { background-color: var(--hl-green); }
+  [data-h="blue"] { background-color: var(--hl-blue); }
+  [data-h="pink"] { background-color: var(--hl-pink); }
+  [data-h="orange"] { background-color: var(--hl-orange); }
   #size-bar {
     position: fixed;
     z-index: 45;
@@ -994,15 +1068,73 @@
     color: var(--shell-text);
     font-family: var(--font-ui);
     font-size: 0.85rem;
-    min-width: 46px;
+    min-width: 40px;
     height: 38px;
-    padding: 0 10px;
+    padding: 0 8px;
     cursor: pointer;
   }
   #size-bar button + button { border-left: 1px solid var(--shell-border); }
   #size-bar button:active { background: var(--shell-hover); }
   #size-bar .big { font-size: 1.15em; font-weight: 600; }
   #size-bar .minus { font-size: 0.9em; }
+  #size-bar button[aria-pressed="true"] { background: var(--tint-2); color: var(--accent); }
+  #size-bar .fmt-sep { width: 6px; border-left: 1px solid var(--shell-border); }
+  #size-bar .fmt-sep + button { border-left: 1px solid var(--shell-border); }
+  #size-pick { min-width: 52px; font-variant-numeric: tabular-nums; }
+  #size-pick .caret, #hl-pick .caret { font-size: 0.7em; margin-left: 3px; color: var(--shell-text-dim); }
+  #size-bar button[aria-expanded="true"] { background: var(--tint-2); }
+  #hl-pick { position: relative; }
+  #hl-pick svg { display: block; margin: 0 auto 3px; }
+  #hl-bar {
+    position: absolute; left: 10px; right: 10px; bottom: 6px; height: 4px; border-radius: 2px;
+    box-shadow: inset 0 0 0 1px var(--shell-border);
+  }
+  #fmt-menu {
+    position: fixed;
+    z-index: 46;
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    padding: 6px;
+    display: grid;
+    grid-template-columns: repeat(5, 44px);
+    gap: 4px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #fmt-menu[hidden] { display: none; }
+  #fmt-error {
+    position: fixed; z-index: 60; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    background: #8a2b2b; color: #fff; border-radius: 10px; padding: 10px 14px;
+    font-family: var(--font-ui); font-size: 0.85rem; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+  #fmt-error[hidden] { display: none; }
+  #fmt-menu button {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--shell-text);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    height: 36px;
+    cursor: pointer;
+  }
+  #fmt-menu button:active { background: var(--shell-hover); }
+  #fmt-menu button[aria-checked="true"] { border-color: var(--accent); color: var(--accent); }
+  #fmt-menu .wide { grid-column: 1 / -1; font-size: 0.8rem; color: var(--shell-text-dim); }
+  #fmt-menu .swatch[data-h="yellow"] { background: var(--hl-yellow); }
+  #fmt-menu .swatch[data-h="green"] { background: var(--hl-green); }
+  #fmt-menu .swatch[data-h="blue"] { background: var(--hl-blue); }
+  #fmt-menu .swatch[data-h="pink"] { background: var(--hl-pink); }
+  #fmt-menu .swatch[data-h="orange"] { background: var(--hl-orange); }
+  #fmt-menu .swatch { border: 1px solid var(--shell-border); }
+  #fmt-menu .swatch[aria-checked="true"] { border: 2px solid var(--accent); }
+  #size-bar [data-fmt="b"] { font-weight: 700; }
+  #size-bar [data-fmt="i"] { font-style: italic; font-family: Georgia, serif; }
+  #size-bar [data-fmt="u"] { text-decoration: underline; }
+  #size-bar [data-fmt="s"] { text-decoration: line-through; }
 
   /* In-app confirmation */
   #confirm-modal {
@@ -1046,6 +1178,12 @@
     color: var(--shell-text);
   }
   #paste-title-row.show { display: flex; }
+  #paste-written-row { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 10px; font-size: 0.82rem; color: var(--shell-text); }
+  #paste-written-row[hidden] { display: none; }
+  #paste-written-row .opt { color: var(--shell-text-dim); }
+  #paste-written-row input { width: auto; justify-self: start; }
+  #paste-written-row .hint { grid-column: 1 / -1; margin: 0; }
+
   #paste-title-row strong { font-family: var(--font-lyric); font-weight: 600; }
 
   /* Custom headers */
@@ -1309,7 +1447,6 @@
     #songs-fab { display: block; pointer-events: none; }
     #editor.hud-hidden #songs-fab { opacity: 1; pointer-events: auto; }
     #canvas { padding: 16px 16px 22px; }
-    .timestamps { display: none; }
     #history-drawer.open { width: 200px; }
     #history-inner { width: 200px; }
   }
@@ -1324,12 +1461,39 @@
       z-index: 29;
     }
   }
+  /* New song: round button in the bottom-right corner of every screen */
+  #new-fab {
+    position: fixed;
+    right: calc(22px + env(safe-area-inset-right, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 42;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: var(--on-accent);
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    transition: transform 0.12s ease, opacity 0.15s ease;
+  }
+  #new-fab:hover { transform: scale(1.05); }
+  #new-fab:active { transform: scale(0.94); }
+  #new-fab:focus-visible { outline: 3px solid var(--accent-dim); outline-offset: 3px; }
+  body.history-open #new-fab { opacity: 0; pointer-events: none; }
+  /* on phones, get out of the way while the keyboard is up */
+  @media (pointer: coarse) { body.is-typing #new-fab { opacity: 0; pointer-events: none; } }
+  @media (prefers-reduced-motion: reduce) { #new-fab { transition: none; } }
+  /* room to scroll the last lines clear of the button */
+  #canvas-wrap { padding-bottom: 96px !important; }
 </style>
 </head>
 <body>
 
 <div id="app">
   <div id="sidebar-backdrop"></div>
+  <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
     <div>
       <h1>Lyric Sheet</h1>
@@ -1364,6 +1528,10 @@
         <button data-mode="read" aria-pressed="true">Basic</button>
         <button data-mode="edit" aria-pressed="false">Advanced</button>
       </div>
+      <div id="undo-fab" class="undo-group" role="group" aria-label="Undo and redo">
+        <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      </div>
       <button id="hud-show" class="hud-icon" aria-label="Show top bar" title="Show top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 6l4.5 4.5 4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div id="meta-bar">
         <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -1390,17 +1558,22 @@
           <label>Text size</label>
           <div class="font-controls">
             <button id="font-dec" title="Smaller">A−</button>
+            <span id="font-size-val" title="Text size of the whole sheet">17</span>
             <button id="font-inc" title="Larger">A+</button>
           </div>
         </div>
         <div class="spacer"></div>
+        <div id="undo-bar" class="undo-group" role="group" aria-label="Undo and redo">
+          <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        </div>
         <div id="view-toggle" role="group" aria-label="View">
           <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
           <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
         </div>
-        <button id="paste-btn">Paste a song</button>
+        <button id="paste-btn">Import New Lyrics</button>
         <button id="history-toggle">Version history</button>
-        <div class="timestamps" id="timestamps"></div>
+        <button id="details-btn" title="Dates and other details for this song">Details</button>
       </div>
 
       <div id="body-row">
@@ -1424,10 +1597,15 @@
 
 <div id="paste-modal" role="dialog" aria-modal="true" aria-labelledby="paste-title">
   <div id="paste-panel">
-    <h2 id="paste-title">Paste a song</h2>
+    <h2 id="paste-title">Import New Lyrics</h2>
     <p class="hint">Paste lyrics you've already written. A title on its own line at the top fills in the song title. Headers like [Verse 1], [Chorus] or Bridge: start a new section, and everything under a header stays together until the next one, including stanza breaks. A note after a header, like [Chorus] (stripped back), is kept as the section's note.</p>
     <textarea id="paste-text" placeholder="Paste your lyrics here…"></textarea>
     <label id="paste-title-row"><input type="checkbox" id="paste-use-title"> <span>Use <strong id="paste-title-name"></strong> as the song title</span></label>
+    <div id="paste-written-row" hidden>
+      <label for="paste-written">Written on <span class="opt">(optional)</span></label>
+      <input type="date" id="paste-written" class="small-input">
+      <p class="hint">For lyrics you wrote before today. You can only set this now, while importing into an empty song, and it can't be changed afterwards. It's saved as a date you entered: Lyric Sheet's dates come from your device and aren't a legal record of authorship.</p>
+    </div>
     <div id="paste-preview"></div>
     <div id="paste-actions">
       <button id="paste-cancel">Cancel</button>
@@ -1474,6 +1652,16 @@
   </div>
 </div>
 
+<div id="details-modal" role="dialog" aria-modal="true" aria-labelledby="details-title">
+  <div id="details-panel">
+    <h2 id="details-title">Details</h2>
+    <p id="details-song"></p>
+    <dl id="details-list"></dl>
+    <p class="setting-help" id="details-note"></p>
+    <button id="details-done">Done</button>
+  </div>
+</div>
+
 <div id="preview-modal" role="dialog" aria-modal="true" aria-labelledby="preview-date">
   <div id="preview-panel">
     <div id="preview-head">
@@ -1497,11 +1685,19 @@
   </div>
 </div>
 
-<div id="size-bar" role="toolbar" aria-label="Size of selected text" hidden>
+<div id="size-bar" role="toolbar" aria-label="Format selected text" hidden>
   <button data-size="-1" aria-label="Make selected text smaller" title="Smaller">A<span class="minus">−</span></button>
+  <button id="size-pick" aria-haspopup="true" aria-expanded="false" aria-label="Font size" title="Font size"><span id="size-label">17</span><span class="caret">▾</span></button>
   <button data-size="1" aria-label="Make selected text bigger" title="Bigger"><span class="big">A</span>+</button>
-  <button data-size="0" aria-label="Normal size" title="Normal size">Aa</button>
+  <span class="fmt-sep"></span>
+  <button data-fmt="b" aria-label="Bold" aria-pressed="false" title="Bold">B</button>
+  <button data-fmt="i" aria-label="Italic" aria-pressed="false" title="Italic">I</button>
+  <button data-fmt="u" aria-label="Underline" aria-pressed="false" title="Underline">U</button>
+  <button data-fmt="s" aria-label="Strikethrough" aria-pressed="false" title="Strikethrough">S</button>
+  <span class="fmt-sep"></span>
+  <button id="hl-pick" aria-haspopup="true" aria-expanded="false" aria-label="Highlight color" title="Highlight"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M15.2 3.6l5.2 5.2-8.9 8.9H6.3v-5.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.3 17.7l-2.6 2.6h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span id="hl-bar"></span></button>
 </div>
+<div id="fmt-menu" role="menu" hidden></div>
 
 <div id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
   <div id="confirm-panel">
@@ -1647,6 +1843,7 @@
   }
 
   function deleteSong(song) {
+    moveToTrash(song);
     state.songs = state.songs.filter(function (s) { return s.id !== song.id; });
     recordDeletion(song.id);
     if (state.activeId === song.id) {
@@ -1655,6 +1852,107 @@
     }
     persistSongs();
     renderAll();
+  }
+
+  // ---------- Recently Deleted (recycle bin) ----------
+  // Deleted songs wait here for TRASH_DAYS days before they're gone for good. The bin is kept on each
+  // device (a delete still syncs, and every synced device puts its copy of the song in its own bin).
+  var TRASH_KEY = "lyricapp_trash_v1", TRASH_DAYS = 30, DAY_MS = 24 * 60 * 60 * 1000;
+  var trash = [];   // [{ song, deletedAt }]
+  var TRASH_SVG = '<svg class="folder-ico" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3.5 5.5h13M8 5.5V3.8c0-.5.4-.8.8-.8h2.4c.5 0 .8.4.8.8v1.7M5 5.5l.8 10.8c.1.9.8 1.7 1.7 1.7h5c.9 0 1.7-.8 1.7-1.7L15 5.5M8.3 8.5v6M11.7 8.5v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function loadTrash() {
+    try { trash = JSON.parse(localStorage.getItem(TRASH_KEY) || "[]") || []; } catch (e) { trash = []; }
+    purgeTrash();
+  }
+  function saveTrash() {
+    try { localStorage.setItem(TRASH_KEY, JSON.stringify(trash)); } catch (e) { console.warn("Save failed", e); }
+  }
+  function purgeTrash() {
+    var cutoff = Date.now() - TRASH_DAYS * DAY_MS;
+    var kept = trash.filter(function (t) { return t && t.song && t.deletedAt > cutoff; });
+    if (kept.length !== trash.length) { trash = kept; saveTrash(); }
+  }
+  function moveToTrash(song) {
+    trash = trash.filter(function (t) { return t.song.id !== song.id; });
+    trash.push({ song: JSON.parse(JSON.stringify(song)), deletedAt: Date.now() });
+    saveTrash();
+  }
+  function trashDaysLeft(t) { return Math.max(1, Math.ceil((t.deletedAt + TRASH_DAYS * DAY_MS - Date.now()) / DAY_MS)); }
+  function restoreSong(id) {
+    var t = trash.filter(function (x) { return x.song.id === id; })[0];
+    if (!t) return;
+    trash = trash.filter(function (x) { return x !== t; });
+    saveTrash();
+    var song = t.song;
+    song.lastEditedAt = Date.now();   // newer than the delete, so sync brings it back on other devices too
+    delete sync.deleted[song.id];
+    saveSync();
+    state.songs = state.songs.filter(function (s) { return s.id !== song.id; });
+    state.songs.push(song);
+    persistSongs();
+    setNav("songs", "all");
+    openSong(song.id);
+  }
+  function deleteForever(id) {
+    trash = trash.filter(function (x) { return x.song.id !== id; });
+    saveTrash();
+    renderSidebar();
+  }
+  function trashMenu(t) {
+    var title = t.song.title || "Untitled song";
+    showSheet(title, [
+      { label: "Restore song", fn: function () { restoreSong(t.song.id); closeSidebar(); } },
+      { label: "Delete forever", danger: true, fn: function () {
+        askConfirm('Permanently delete "' + title + '"? This can\'t be undone.', "Delete forever", true, function () { deleteForever(t.song.id); });
+      } }
+    ]);
+  }
+  function renderTrashList(list, q) {
+    purgeTrash();
+    var items = trash.slice().sort(function (a, b) { return b.deletedAt - a.deletedAt; });
+    if (q) items = items.filter(function (t) { return songSearchText(t.song).indexOf(q) !== -1; });
+    var note = document.createElement("p");
+    note.className = "no-match trash-note";
+    note.textContent = items.length || q
+      ? "Songs are permanently deleted " + TRASH_DAYS + " days after they're moved here."
+      : "No recently deleted songs. Deleted songs stay here for " + TRASH_DAYS + " days.";
+    list.appendChild(note);
+    if (!items.length) {
+      if (q) { var none = document.createElement("p"); none.className = "no-match"; none.textContent = "No deleted songs match \u201C" + q + "\u201D."; list.appendChild(none); }
+      return;
+    }
+    items.forEach(function (t) {
+      var item = document.createElement("div");
+      item.className = "song-item trashed";
+      var info = document.createElement("div");
+      info.className = "info";
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = t.song.title || "Untitled song";
+      var sub = document.createElement("span");
+      sub.className = "sub";
+      var left = trashDaysLeft(t);
+      sub.textContent = left + (left === 1 ? " day" : " days") + " left \u00B7 deleted " + fmtShort(t.deletedAt);
+      info.appendChild(name); info.appendChild(sub);
+      var more = document.createElement("button");
+      more.className = "del more";
+      more.textContent = "\u22EF";
+      more.title = "Restore or delete";
+      more.setAttribute("aria-label", "Options for " + (t.song.title || "Untitled song"));
+      more.addEventListener("click", function (e) { e.stopPropagation(); trashMenu(t); });
+      item.appendChild(info); item.appendChild(more);
+      item.addEventListener("click", function () { trashMenu(t); });
+      list.appendChild(item);
+    });
+    var empty = document.createElement("button");
+    empty.className = "nav-add empty-trash";
+    empty.textContent = "Delete All";
+    empty.addEventListener("click", function () {
+      askConfirm("Permanently delete all " + trash.length + (trash.length === 1 ? " song" : " songs") + " in Recently Deleted? This can't be undone.", "Delete All", true, function () {
+        trash = []; saveTrash(); renderSidebar();
+      });
+    });
+    list.appendChild(empty);
   }
 
   // ---------- folders (like Apple Notes) ----------
@@ -1774,10 +2072,11 @@
   function songMenu(song) {
     var title = song.title || "Untitled song";
     showSheet(title, [
+      { label: "Details", fn: function () { openDetails(song); } },
       { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
       { label: "Delete song", danger: true, fn: function () {
-        askConfirm('Delete "' + title + '"? This can\'t be undone.', "Delete song", true, function () { deleteSong(song); });
+        askConfirm('Move "' + title + '" to Recently Deleted? You can restore it for ' + TRASH_DAYS + ' days.', "Delete song", true, function () { deleteSong(song); });
       } }
     ]);
   }
@@ -1840,6 +2139,9 @@
       more.addEventListener("click", function (e) { e.stopPropagation(); folderMenu(f, r); });
       r.appendChild(more);
     });
+    purgeTrash();
+    var d2 = document.createElement("div"); d2.className = "folder-divider"; list.appendChild(d2);
+    row(TRASH_SVG, "Recently Deleted", trash.length, "trash-row", function () { setNav("songs", "trash"); });
   }
 
   document.getElementById("new-folder-btn").addEventListener("click", function () {
@@ -1856,21 +2158,35 @@
   });
   document.getElementById("folders-back").addEventListener("click", function () { setNav("folders"); });
 
+  // Song list headings by when a song was last edited: Today, Previous 30 Days,
+  // then each earlier month of this year by name, then each earlier year (2025, 2024…)
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  function editGroup(ts, now) {
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (ts >= today) return "Today";
+    if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).getTime()) return "Previous 30 Days";
+    var d = new Date(ts);
+    if (d.getFullYear() === now.getFullYear()) return MONTHS[d.getMonth()];
+    return String(d.getFullYear());
+  }
+
   function renderSidebar() {
     // don't redraw under someone who is naming a folder
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains("folder-input")) return;
-    if (nav.folder !== "all" && !folderById(nav.folder)) nav.folder = "all";
+    if (nav.folder !== "all" && nav.folder !== "trash" && !folderById(nav.folder)) nav.folder = "all";
     document.getElementById("folders-view").hidden = nav.view !== "folders";
     document.getElementById("songs-view").hidden = nav.view === "folders";
     if (nav.view === "folders") { renderFolderList(); return; }
 
-    var folder = nav.folder === "all" ? null : folderById(nav.folder);
-    document.getElementById("folder-title").textContent = folder ? folder.name : "All Songs";
+    var inTrash = nav.folder === "trash";
+    var folder = nav.folder === "all" || inTrash ? null : folderById(nav.folder);
+    document.getElementById("folder-title").textContent = inTrash ? "Recently Deleted" : folder ? folder.name : "All Songs";
 
     var list = document.getElementById("song-list");
     list.innerHTML = "";
     var q = (document.getElementById("song-search").value || "").trim().toLowerCase();
+    if (inTrash) { renderTrashList(list, q); return; }
     var sorted = state.songs.slice().sort(function(a,b){ return b.lastEditedAt - a.lastEditedAt; });
     if (folder) sorted = sorted.filter(function (s) { return s.folderId === folder.id; });
     if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
@@ -1881,7 +2197,16 @@
       list.appendChild(none);
       return;
     }
+    var lastGroup = null, now = new Date();
     sorted.forEach(function (song) {
+      var group = editGroup(song.lastEditedAt, now);
+      if (group !== lastGroup) {
+        var gh = document.createElement("h3");
+        gh.className = "song-group";
+        gh.textContent = group;
+        list.appendChild(gh);
+        lastGroup = group;
+      }
       var item = document.createElement("div");
       item.className = "song-item" + (song.id === state.activeId ? " active" : "");
 
@@ -1926,6 +2251,7 @@
     var song = getActiveSong();
     var editorEl = document.getElementById("editor");
     var emptyEl = document.getElementById("empty-state");
+    if (song && undo.id !== song.id) resetUndo(song);
 
     if (!song) {
       editorEl.classList.remove("visible");
@@ -1938,8 +2264,7 @@
     document.getElementById("title-input").value = song.title;
     document.getElementById("bpm-input").value = song.bpm || "";
     setKeyControls(song.key);
-    document.getElementById("timestamps").innerHTML =
-      "Created " + fmtDateTime(song.createdAt) + "<br>Edited " + fmtDateTime(song.lastEditedAt);
+    refreshDetails();
 
     document.documentElement.style.setProperty("--lyric-size-val", settings.fontSize + "px");
     renderCanvas(song);
@@ -2030,18 +2355,76 @@
       var a = pts[k], b = pts[k + 1];
       if (b <= a) continue;
       var inParen = parens.some(function (r) { return a >= r[0] && b <= r[1]; });
-      var scale = 1;
-      runs.forEach(function (r) { if (a >= r[0] && b <= r[1]) scale = r[2]; });
+      var scale = 1, flags = "", hl = "";
+      runs.forEach(function (r) { if (a >= r[0] && b <= r[1]) { scale = r[2]; flags = r[3] || ""; hl = r[4] || ""; } });
       var piece = line.slice(a, b);
-      if (!inParen && scale === 1) { d.appendChild(document.createTextNode(piece)); continue; }
+      if (!inParen && scale === 1 && !flags && !hl) { d.appendChild(document.createTextNode(piece)); continue; }
       var sp = document.createElement("span");
       if (inParen) sp.className = "rl-paren";
       if (scale !== 1) { sp.setAttribute("data-s", String(scale)); sp.style.setProperty("--s", scale); }
+      if (flags) sp.setAttribute("data-f", flags);
+      if (hl) sp.setAttribute("data-h", hl);
       sp.textContent = piece;
       d.appendChild(sp);
     }
     return d;
   }
+
+  // Replace the selection in the Basic editor with text (which may contain line breaks), then redraw the
+  // lines so each gets its own styling: headers stay headers, and new lines start plain.
+  function insertIntoEditor(song, ed, text) {
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
+    var w = walkEditor(ed, pts);
+    if (pts[0].index == null || pts[1].index == null) return;
+    var a = Math.min(pts[0].index, pts[1].index), b = Math.max(pts[0].index, pts[1].index);
+    var S = w.text.slice(0, a) + text + w.text.slice(b);
+    var keys = w.keys.slice(0, a).concat(text.split("").map(function () { return PLAIN; }), w.keys.slice(b));
+    var lines = [], start = 0;
+    S.split("\n").forEach(function (t) {
+      lines.push({ text: t, runs: runsFromKeys(keys.slice(start, start + t.length)) });
+      start += t.length + 1;
+    });
+    ed.innerHTML = "";
+    lines.forEach(function (l) { ed.appendChild(readLineEl(l.text, l.runs)); });
+    ed.classList.toggle("is-empty", !S.trim());
+    var pt = editorPointAt(ed, a + text.length);
+    var nr = document.createRange();
+    nr.setStart(pt.node, pt.offset);
+    nr.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+    // keep the caret in view (e.g. pressing Return at the bottom of the screen)
+    var el = pt.node.nodeType === 1 ? pt.node : pt.node.parentNode;
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+    readEdited(song, ed);
+  }
+
+  // When the cursor leaves a line, redraw it if its styling is out of date: a line you've just typed
+  // "Chorus" or "Verse 2" on becomes a header, and a header edited into a lyric goes back to plain.
+  var caretLine = null;
+  function lineOfNode(ed, node) {
+    var n = node;
+    while (n && n.parentNode !== ed) n = n.parentNode;
+    return n && n.nodeType === 1 ? n : null;
+  }
+  function restyleLine(ed, div) {
+    if (!div || div.parentNode !== ed) return;
+    var w = walkEditor(div);
+    if (w.lines.length !== 1) return;
+    var fresh = readLineEl(w.lines[0].text, w.lines[0].runs);
+    if (fresh.innerHTML !== div.innerHTML) ed.replaceChild(fresh, div);
+  }
+  document.addEventListener("selectionchange", function () {
+    var sel = window.getSelection();
+    if (!sel.rangeCount || !sel.getRangeAt(0).collapsed) return;
+    var r = sel.getRangeAt(0), ed = editorOfRange(r);
+    var line = ed ? lineOfNode(ed, r.startContainer) : null;
+    if (caretLine && caretLine !== line && caretLine.parentNode) restyleLine(caretLine.parentNode, caretLine);
+    caretLine = line;
+  });
 
   function fillReadEditor(el, lineObjs) {
     el.innerHTML = "";
@@ -2050,41 +2433,78 @@
     lineObjs.forEach(function (l) { el.appendChild(readLineEl(l.text, l.runs)); });
   }
 
-  // Read the Basic editor back into text + per-character sizes (also finds selection positions)
-  function scaleOfNode(node, root) {
-    var el = node.nodeType === 1 ? node : node.parentNode;
-    while (el && el !== root) {
-      if (el.nodeType === 1 && el.hasAttribute("data-s")) return parseFloat(el.getAttribute("data-s")) || 1;
+  // Read the Basic editor back into text + per-character styles.
+  // A style is a key "scale|flags|highlight", e.g. "1.2|bi|yellow"; plain text is "1||".
+  var PLAIN = "1||";
+  function styleKey(st) { return (st.s || 1) + "|" + normFlags(st.f) + "|" + normHl(st.h); }
+  function parseKey(k) { var p = k.split("|"); return { s: parseFloat(p[0]) || 1, f: p[1] || "", h: p[2] || "" }; }
+  function styleKeyOfNode(node, root) {
+    var el = node.nodeType === 1 ? node : node.parentNode, sc = null, f = null, h = null;
+    while (el && el !== root && (sc === null || f === null || h === null)) {
+      if (el.nodeType === 1) {
+        if (sc === null && el.hasAttribute("data-s")) sc = parseFloat(el.getAttribute("data-s")) || 1;
+        if (f === null && el.hasAttribute("data-f")) f = el.getAttribute("data-f");
+        if (h === null && el.hasAttribute("data-h")) h = el.getAttribute("data-h");
+      }
       el = el.parentNode;
     }
-    return 1;
+    return styleKey({ s: sc, f: f, h: h });
   }
-  function walkEditor(root) {
+  // points: optional [{node, offset}] DOM positions; each gets .index, its position in the text
+  function walkEditor(root, points) {
     var S = "", sc = [];
+    points = points || [];
     function add(str, s) { S += str; for (var i = 0; i < str.length; i++) sc.push(s); }
     function isBlock(n) { return n.nodeType === 1 && /^(DIV|P|LI|H\d)$/.test(n.nodeName); }
+    function mark(n, off) { points.forEach(function (p) { if (p.node === n && p.offset === off) p.index = S.length; }); }
     function visit(n) {
       if (n.nodeType === 3) {
+        var start = S.length;
         var d = n.data.replace(/\u00a0/g, " ").replace(/\r/g, "");
-        var s = scaleOfNode(n, root);
-        for (var i = 0; i < d.length; i++) { S += d[i]; sc.push(d[i] === "\n" ? 1 : s); }
+        var s = styleKeyOfNode(n, root);
+        for (var i = 0; i < d.length; i++) { S += d[i]; sc.push(d[i] === "\n" ? PLAIN : s); }
+        points.forEach(function (p) { if (p.node === n) p.index = start + Math.min(p.offset, d.length); });
         return;
       }
-      if (n.nodeName === "BR") { add("\n", 1); return; }
+      if (n.nodeName === "BR") { add("\n", PLAIN); return; }
       if (n.nodeType !== 1) return;
       var block = isBlock(n);
-      if (block && S.length && S[S.length - 1] !== "\n") add("\n", 1);
-      for (var c = n.firstChild; c; c = c.nextSibling) visit(c);
-      if (block && S.length && S[S.length - 1] !== "\n") add("\n", 1);
+      if (block && S.length && S[S.length - 1] !== "\n") add("\n", PLAIN);
+      visitChildren(n);
+      if (block && S.length && S[S.length - 1] !== "\n") add("\n", PLAIN);
     }
-    for (var c = root.firstChild; c; c = c.nextSibling) visit(c);
+    function visitChildren(n) {
+      var i = 0;
+      for (var c = n.firstChild; c; c = c.nextSibling, i++) { mark(n, i); visit(c); }
+      mark(n, i);
+    }
+    visitChildren(root);
     if (S.charAt(S.length - 1) === "\n") { S = S.slice(0, -1); sc.pop(); }
+    points.forEach(function (p) { if (p.index > S.length) p.index = S.length; });
     var lines = [], start = 0;
     S.split("\n").forEach(function (t) {
-      lines.push({ text: t, runs: runsFromScales(sc.slice(start, start + t.length)) });
+      lines.push({ text: t, runs: runsFromKeys(sc.slice(start, start + t.length)) });
       start += t.length + 1;
     });
-    return { text: S, lines: lines };
+    return { text: S, lines: lines, keys: sc };
+  }
+  // DOM position of a text index in an editor rendered by fillReadEditor (one div per line)
+  function editorPointAt(root, index) {
+    var line = root.firstChild;
+    while (line && line.nextSibling) {
+      var len = line.textContent.length;
+      if (index <= len) break;
+      index -= len + 1;
+      line = line.nextSibling;
+    }
+    if (!line) return { node: root, offset: 0 };
+    var tw = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, null), n, last = null;
+    while ((n = tw.nextNode())) {
+      if (index <= n.data.length) return { node: n, offset: index };
+      index -= n.data.length;
+      last = n;
+    }
+    return last ? { node: last, offset: last.data.length } : { node: line, offset: 0 };
   }
 
   function readEditorText(el) {
@@ -2163,7 +2583,16 @@
       if (!cd) return;
       e.preventDefault();
       var text = cd.getData("text").replace(/\r\n?/g, "\n");
-      document.execCommand("insertText", false, text);
+      if (text.indexOf("\n") !== -1) insertIntoEditor(song, ed, text);   // several lines: split them properly
+      else document.execCommand("insertText", false, text);
+    });
+    // Return starts a real new line. Left to the browser, it puts a line break inside whatever styled
+    // piece the cursor is in (a [Verse] header, a dimmed "(ooh)"), and everything typed after it keeps that look.
+    ed.addEventListener("beforeinput", function (e) {
+      if (e.inputType === "insertParagraph" || e.inputType === "insertLineBreak") {
+        e.preventDefault();
+        insertIntoEditor(song, ed, "\n");
+      }
     });
     ed.addEventListener("blur", function () {
       flushReadSync();
@@ -2200,6 +2629,7 @@
   }
 
   function renderCanvas(song) {
+    document.getElementById("font-size-val").textContent = settings.fontSize;
     if (settings.viewMode === "read") { renderReading(song); return; }
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
@@ -2571,31 +3001,48 @@
   }
 
   // ---------- per-word text sizes ----------
-  // Each section may carry `fmt`, parallel to `lines`: null or a list of [start, end, scale] runs.
-  var SIZE_STEPS = [0.7, 0.85, 1, 1.2, 1.45, 1.75, 2.1, 2.6];
+  // Each section may carry `fmt`, parallel to `lines`: null or a list of [start, end, scale, flags?, highlight?] runs.
+  // scale is relative to the sheet's text size; flags is any of "b" bold, "i" italic, "u" underline,
+  // "s" strikethrough, e.g. "bu"; highlight is one of HL_COLORS.
+  // Font sizes offered for selected words, like a word processor's size list
+  var PT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72];
+  var HL_COLORS = ["yellow", "green", "blue", "pink", "orange"];
+  function ptOfScale(scale) { return Math.round(settings.fontSize * scale); }
+  function scaleOfPt(pt) { return pt === settings.fontSize ? 1 : Math.round(pt / settings.fontSize * 10000) / 10000; }
+  function ptSizes() {
+    var list = PT_SIZES.slice();
+    if (list.indexOf(settings.fontSize) === -1) list.push(settings.fontSize);
+    return list.sort(function (a, b) { return a - b; });
+  }
   function stepScale(cur, dir) {
     if (!dir) return 1;
-    var best = 0;
-    for (var i = 1; i < SIZE_STEPS.length; i++) if (Math.abs(SIZE_STEPS[i] - cur) < Math.abs(SIZE_STEPS[best] - cur)) best = i;
-    return SIZE_STEPS[Math.max(0, Math.min(SIZE_STEPS.length - 1, best + dir))];
+    var pt = ptOfScale(cur), list = ptSizes();
+    var next = dir > 0 ? list.filter(function (x) { return x > pt; })[0] : list.filter(function (x) { return x < pt; }).pop();
+    return next ? scaleOfPt(next) : cur;
   }
+  function normHl(h) { return h && HL_COLORS.indexOf(h) !== -1 ? h : ""; }
+  function normFlags(f) {
+    return f ? "bius".split("").filter(function (c) { return f.indexOf(c) !== -1; }).join("") : "";
+  }
+  function makeRun(a, b, s, f, h) { return h ? [a, b, s, f || "", h] : f ? [a, b, s, f] : [a, b, s]; }
   function normRuns(runs, len) {
     if (!runs || !runs.length) return null;
     var out = [];
     runs.slice().sort(function (a, b) { return a[0] - b[0]; }).forEach(function (r) {
-      var a = Math.max(0, Math.min(len, r[0])), b = Math.max(0, Math.min(len, r[1])), s = +r[2];
-      if (b <= a || !s || s === 1) return;
+      var a = Math.max(0, Math.min(len, r[0])), b = Math.max(0, Math.min(len, r[1])), s = +r[2] || 1, f = normFlags(r[3]), h = normHl(r[4]);
+      if (b <= a || (s === 1 && !f && !h)) return;
       var last = out[out.length - 1];
-      if (last && last[1] === a && last[2] === s) last[1] = b; else out.push([a, b, s]);
+      if (last && last[1] === a && last[2] === s && (last[3] || "") === f && (last[4] || "") === h) last[1] = b;
+      else out.push(makeRun(a, b, s, f, h));
     });
     return out.length ? out : null;
   }
-  function runsFromScales(scales) {
+  function runsFromKeys(keys) {
     var runs = [], i = 0;
-    while (i < scales.length) {
-      var s = scales[i], j = i;
-      while (j < scales.length && scales[j] === s) j++;
-      if (s !== 1) runs.push([i, j, s]);
+    while (i < keys.length) {
+      var k = keys[i], j = i;
+      while (j < keys.length && keys[j] === k) j++;
+      if (k !== PLAIN) { var st = parseKey(k); runs.push(makeRun(i, j, st.s, st.f, st.h)); }
       i = j;
     }
     return runs.length ? runs : null;
@@ -2613,7 +3060,7 @@
       if (x >= oe) return x + (ne - oe);
       return isEnd ? ne : p;
     }
-    return normRuns(runs.map(function (r) { return [map(r[0], false), map(r[1], true), r[2]]; }), newT.length);
+    return normRuns(runs.map(function (r) { return [map(r[0], false), map(r[1], true)].concat(r.slice(2)); }), newT.length);
   }
   function ensureFmt(section) {
     if (!section.fmt) section.fmt = [];
@@ -2651,7 +3098,7 @@
       var r = lineRuns && lineRuns[i];
       if (!r) return null;
       var lead = l.length - l.replace(/^\s+/, "").length;
-      return normRuns(r.map(function (x) { return [x[0] - lead, x[1] - lead, x[2]]; }), rawLines[i].length);
+      return normRuns(r.map(function (x) { return [x[0] - lead, x[1] - lead].concat(x.slice(2)); }), rawLines[i].length);
     });
 
     var titleIdx = findTitleIndex(rawLines);
@@ -2788,8 +3235,19 @@
   var titleRow = document.getElementById("paste-title-row");
   var useTitleBox = document.getElementById("paste-use-title");
 
+  // "Written on" can only be given while importing into an empty song that doesn't have one yet
+  var writtenRow = document.getElementById("paste-written-row");
+  var writtenInput = document.getElementById("paste-written");
+  function canSetWritten(song) { return !!song && !song.writtenOn && isEmptySong(song); }
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
   function openPasteModal() {
     var song = getActiveSong();
+    writtenRow.hidden = !canSetWritten(song);
+    writtenInput.value = "";
+    writtenInput.max = todayISO();
     pasteText.value = "";
     useTitleBox.checked = !(song && song.title.trim());
     updatePastePreview();
@@ -2825,6 +3283,11 @@
     if (!song) return;
     var result = currentPasteResult();
     var parsed = stripParseFlags(result.sections);
+    var written = writtenInput.value;
+    if (parsed.length && canSetWritten(song) && /^\d{4}-\d{2}-\d{2}$/.test(written) && written <= todayISO()) {
+      song.writtenOn = written;          // permanent from here on
+      song.writtenOnSetAt = Date.now();  // when it was entered, shown next to it
+    }
     maybeSnapshotOnLeave(); // keep what was there as a restorable version
     if (useTitleBox.checked && result.title) song.title = result.title;
     if (parsed.length) {
@@ -2890,13 +3353,148 @@
   }
 
   // ---------- editing / autosave / versioning ----------
+  // ---------- undo / redo ----------
+  // One history per open song. Each step is a snapshot of the song's title, BPM, key and lyrics
+  // (with formatting). Quick bursts of typing are merged into one step; formatting is always its own step.
+  var UNDO_MERGE_MS = 1000, UNDO_STEP_MAX_MS = 4000, UNDO_LIMIT = 200;
+  var undo = { id: null, stack: [], redo: [], cur: null, lastAt: 0, stepAt: 0, boundary: false, restoring: false };
+  function undoSnap(song) {
+    return JSON.stringify({
+      title: song.title, bpm: song.bpm, key: song.key,
+      // the written date travels with the import it came from (undoing the import removes it; redo puts the same one back)
+      writtenOn: song.writtenOn || null, writtenOnSetAt: song.writtenOnSetAt || null,
+      sections: song.sections.map(function (sec) {
+        var o = { type: sec.type, note: sec.note || "", lines: sec.lines };
+        if (sec.fmt) o.fmt = sec.fmt;
+        return o;
+      })
+    });
+  }
+  function resetUndo(song) {
+    undo.id = song.id; undo.stack = []; undo.redo = [];
+    undo.cur = undoSnap(song); undo.boundary = false;
+    updateUndoButtons();
+  }
+  function recordUndo(song) {
+    if (undo.restoring) return;
+    if (undo.id !== song.id) { resetUndo(song); return; }
+    var snap = undoSnap(song);
+    if (snap === undo.cur) return;
+    var now = Date.now();
+    if (undo.boundary || !undo.stack.length || now - undo.lastAt > UNDO_MERGE_MS || now - undo.stepAt > UNDO_STEP_MAX_MS) {
+      undo.stack.push(undo.cur);
+      if (undo.stack.length > UNDO_LIMIT) undo.stack.shift();
+      undo.stepAt = now;
+    }
+    undo.boundary = false;
+    undo.lastAt = now;
+    undo.cur = snap;
+    undo.redo = [];
+    updateUndoButtons();
+  }
+  function applyUndoSnap(song, snap) {
+    var d = JSON.parse(snap);
+    song.title = d.title; song.bpm = d.bpm; song.key = d.key;
+    if (d.writtenOn) { song.writtenOn = d.writtenOn; song.writtenOnSetAt = d.writtenOnSetAt; }
+    else { delete song.writtenOn; delete song.writtenOnSetAt; }
+    song.sections = d.sections.map(function (sec) { sec.id = newSectionId(); return sec; });
+    var wrap = document.getElementById("canvas-wrap"), top = wrap.scrollTop;
+    undo.restoring = true;
+    try {
+      markEdited(song);
+      hideSizeBar();
+      renderEditor();
+      renderSidebar();
+    } finally { undo.restoring = false; }
+    wrap.scrollTop = top;
+  }
+  function stepUndo(dir) {
+    var song = getActiveSong();
+    if (!song) return;
+    flushReadSync();          // count any typing that hasn't been saved yet
+    recordUndo(song);
+    var from = dir < 0 ? undo.stack : undo.redo, to = dir < 0 ? undo.redo : undo.stack;
+    if (!from.length) return;
+    to.push(undo.cur);
+    undo.cur = from.pop();
+    undo.boundary = true;     // the next edit starts a fresh step
+    applyUndoSnap(song, undo.cur);
+    updateUndoButtons();
+  }
+  function updateUndoButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-undo]"), function (b) {
+      b.disabled = !(b.getAttribute("data-undo") === "undo" ? undo.stack.length : undo.redo.length);
+    });
+  }
+  // Undo/redo from the keyboard and Mac menu. Text boxes outside the sheet (title, search…) keep their own undo.
+  function ownsUndo() {
+    var a = document.activeElement;
+    return !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.nodeName) && !a.closest("#canvas"));
+  }
+
+  function fmtWrittenOn(iso) {
+    var p = iso.split("-");
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  }
+  // ---------- Details window (dates and other facts about a song) ----------
+  var detailsModal = document.getElementById("details-modal");
+  var detailsSongId = null;
+  function openDetails(song) {
+    detailsSongId = song.id;
+    renderDetails(song);
+    detailsModal.classList.add("open");
+    setTimeout(function () { document.getElementById("details-done").focus(); }, 0);
+  }
+  function closeDetails() { detailsModal.classList.remove("open"); detailsSongId = null; }
+  function refreshDetails() {
+    if (!detailsSongId) return;
+    var song = state.songs.filter(function (s) { return s.id === detailsSongId; })[0];
+    if (song) renderDetails(song); else closeDetails();
+  }
+  function renderDetails(song) {
+    document.getElementById("details-song").textContent = song.title || "Untitled song";
+    var list = document.getElementById("details-list");
+    list.innerHTML = "";
+    function row(label, value, sub) {
+      var dt = document.createElement("dt"); dt.textContent = label;
+      var dd = document.createElement("dd"); dd.textContent = value;
+      if (sub) { var sp = document.createElement("span"); sp.className = "sub"; sp.textContent = sub; dd.appendChild(sp); }
+      list.appendChild(dt); list.appendChild(dd);
+    }
+    row("Created", fmtDateTime(song.createdAt));
+    row("Last edited", fmtDateTime(song.lastEditedAt));
+    if (song.writtenOn) {
+      row("Written on", fmtWrittenOn(song.writtenOn), "Entered by you" + (song.writtenOnSetAt
+        ? " on " + new Date(song.writtenOnSetAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : ""));
+    }
+    var fid = songFolderId(song);
+    row("Folder", fid ? folderById(fid).name : "None");
+    var lines = 0, words = 0;
+    song.sections.forEach(function (sec) {
+      sec.lines.forEach(function (l) { if (l.trim()) { lines++; words += l.trim().split(/\s+/).length; } });
+    });
+    row("Lyrics", song.sections.length + (song.sections.length === 1 ? " section" : " sections") + " \u00B7 " +
+      lines + (lines === 1 ? " line" : " lines") + " \u00B7 " + words + (words === 1 ? " word" : " words"));
+    var nv = (song.versions || []).length;
+    row("Versions", nv ? nv + " saved" : "None yet");
+    document.getElementById("details-note").textContent =
+      "Created and Last edited are set automatically from this device's clock and can't be changed." +
+      (song.writtenOn ? " Written on is a date you entered when you imported the lyrics." : "") +
+      " These dates aren't a legal record of authorship.";
+  }
+  document.getElementById("details-btn").addEventListener("click", function () {
+    var song = getActiveSong();
+    if (song) { flushReadSync(); openDetails(song); }
+  });
+  document.getElementById("details-done").addEventListener("click", closeDetails);
+  detailsModal.addEventListener("click", function (e) { if (e.target === detailsModal) closeDetails(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && detailsModal.classList.contains("open")) closeDetails(); });
+
   function markEdited(song, lightweight) {
+    recordUndo(song);
     song.lastEditedAt = Date.now();
     lastEditAt = song.lastEditedAt;
-    if (!lightweight) {
-      document.getElementById("timestamps").innerHTML =
-        "Created " + fmtDateTime(song.createdAt) + "<br>Edited " + fmtDateTime(song.lastEditedAt);
-    }
+    if (!lightweight) refreshDetails();
     scheduleSave();
     renderSidebarSoon();
     scheduleVersionCheck(song);
@@ -3106,6 +3704,7 @@
     maybeSnapshotOnLeave();
     var song = newSong();
     if (nav.folder !== "all" && folderById(nav.folder)) song.folderId = nav.folder;
+    if (nav.folder === "trash") nav.folder = "all";
     state.songs.push(song);
     state.activeId = song.id;
     settings.lastOpenId = song.id;
@@ -3115,6 +3714,18 @@
     openInBasic();
     renderAll();
     document.getElementById("title-input").focus();
+  });
+
+  document.getElementById("new-fab").addEventListener("click", function () {
+    document.getElementById("new-song-btn").click();
+    closeSidebar();
+  });
+  function isTypingTarget(el) {
+    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.nodeName));
+  }
+  document.addEventListener("focusin", function (e) { document.body.classList.toggle("is-typing", isTypingTarget(e.target)); });
+  document.addEventListener("focusout", function () {
+    setTimeout(function () { document.body.classList.toggle("is-typing", isTypingTarget(document.activeElement)); }, 0);
   });
 
   document.getElementById("title-input").addEventListener("input", function (e) {
@@ -3179,6 +3790,7 @@
     historyOpen = open;
     document.getElementById("history-drawer").classList.toggle("open", open);
     document.getElementById("editor").classList.toggle("history-open", open);
+    document.body.classList.toggle("history-open", open);
     var song = getActiveSong();
     if (song && open) renderVersions(song);
   }
@@ -3416,6 +4028,10 @@
     all = all.filter(function (v) { var k = versionKey(v); var keep = k !== prevKey; prevKey = k; return keep; });
     m.versions = all.slice(-MAX_VERSIONS).map(function (v) { return { timestamp: v.timestamp, snapshot: v.snapshot }; });
     m.createdAt = Math.min(L.createdAt || m.createdAt, R.createdAt || m.createdAt);
+    // the written date is set once and never changes: keep whichever device has it (the first entered wins)
+    var wd = [L, R].filter(function (x) { return x.writtenOn; })
+      .sort(function (a, b) { return (a.writtenOnSetAt || 0) - (b.writtenOnSetAt || 0); })[0];
+    if (wd) { m.writtenOn = wd.writtenOn; m.writtenOnSetAt = wd.writtenOnSetAt; }
     return m;
   }
 
@@ -3453,7 +4069,11 @@
       var newest = Math.max(L ? L.lastEditedAt : 0, R ? R.lastEditedAt : 0);
       if (deleted[id] && deleted[id] >= newest) {
         if (R) { patch["song-" + id + ".json"] = null; patchCount++; }
-        if (L) { localChanged = true; if (id === state.activeId) activeGone = true; }
+        if (L) {
+          if (!trash.some(function (t) { return t.song.id === id; })) moveToTrash(L);
+          localChanged = true;
+          if (id === state.activeId) activeGone = true;
+        }
         return;
       }
       if (deleted[id]) delete deleted[id]; // edited again after a delete elsewhere: keep it
@@ -3578,6 +4198,9 @@
   // ---------- resize selected words (Basic mode) ----------
   var sizeBar = document.getElementById("size-bar");
   var sizeSaved = null, sizeBarHold = false;
+  // The last selection as text positions ({ed, a, b}). Unlike a DOM range it survives the editor being
+  // re-rendered and iOS moving or dropping the selection while the toolbar's menus are used.
+  var savedSel = null;
 
   function editorOfRange(r) {
     var n = r.commonAncestorContainer;
@@ -3585,7 +4208,7 @@
     var ed = el && el.closest ? el.closest(".read-editor") : null;
     return ed && !ed.classList.contains("pv-sheet") ? ed : null;
   }
-  function hideSizeBar() { sizeBar.hidden = true; }
+  function hideSizeBar() { sizeBar.hidden = true; closeFmtMenu(); }
   function placeSizeBar(r) {
     var rects = r.getClientRects();
     var box = rects.length ? rects[rects.length - 1] : r.getBoundingClientRect();
@@ -3605,65 +4228,233 @@
     if (!sel.rangeCount) { hideSizeBar(); return; }
     var r = sel.getRangeAt(0);
     if (r.collapsed || !editorOfRange(r)) { hideSizeBar(); return; }
+    // iOS fires selectionchange even when the selection didn't move; only close the size/color menu if it did
+    var moved = !sizeSaved || r.startContainer !== sizeSaved.startContainer || r.startOffset !== sizeSaved.startOffset ||
+      r.endContainer !== sizeSaved.endContainer || r.endOffset !== sizeSaved.endOffset;
     sizeSaved = r.cloneRange();
+    if (moved) closeFmtMenu();
     placeSizeBar(r);
+    refreshSizeBarState();
   });
   document.getElementById("canvas-wrap").addEventListener("scroll", function () {
     if (!sizeBar.hidden && sizeSaved) placeSizeBar(sizeSaved);
+    if (!fmtMenu.hidden && fmtMenuKind) placeFmtMenu(document.getElementById(fmtMenuKind === "size" ? "size-pick" : "hl-pick"));
   }, { passive: true });
 
-  // dir: +1 bigger, -1 smaller, 0 back to normal. Returns false if nothing was selected.
-  function resizeSelection(dir, allowSaved) {
+  // The selected characters of a Basic editor that can be styled (not section headers or line breaks)
+  function selectionInfo(allowSaved) {
     var sel = window.getSelection();
-    var r = sel.rangeCount && !sel.getRangeAt(0).collapsed ? sel.getRangeAt(0) : (allowSaved ? sizeSaved : null);
-    if (!r || r.collapsed) return false;
-    var ed = editorOfRange(r);
-    if (!ed) return false;
+    var r = sel.rangeCount && !sel.getRangeAt(0).collapsed ? sel.getRangeAt(0) : null;
+    var ed = r ? editorOfRange(r) : null, w, a, b;
+    if (ed) {
+      var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
+      w = walkEditor(ed, pts);
+      if (pts[0].index == null || pts[1].index == null) return null;
+      a = Math.min(pts[0].index, pts[1].index); b = Math.max(pts[0].index, pts[1].index);
+      if (b > a) savedSel = { ed: ed, a: a, b: b };
+    } else if (allowSaved && savedSel && document.body.contains(savedSel.ed)) {
+      ed = savedSel.ed;
+      w = walkEditor(ed);
+      a = Math.min(savedSel.a, w.text.length); b = Math.min(savedSel.b, w.text.length);
+    } else {
+      return null;
+    }
+    if (b <= a) return null;
+    var idx = [], lineStart = 0;
+    w.text.split("\n").forEach(function (t) {
+      var lineEnd = lineStart + t.length;
+      if (lineEnd > a && lineStart < b && t.trim() && !detectHeader(t)) {
+        for (var i = Math.max(a, lineStart); i < Math.min(b, lineEnd); i++) idx.push(i);
+      }
+      lineStart = lineEnd + 1;
+    });
+    return { ed: ed, w: w, a: a, b: b, idx: idx };
+  }
+  // Restyle the selected characters: fn({s, f, h}) returns the fields to change. Returns false if nothing was selected.
+  function styleSelection(fn, allowSaved) {
+    var info = selectionInfo(allowSaved);
+    if (!info || !info.idx.length) return false;
     var song = getActiveSong();
     if (!song) return false;
-
-    var nodes = [], tw = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT, null), n;
-    while ((n = tw.nextNode())) if (n.data.length && r.intersectsNode(n)) nodes.push(n);
-    var sc = r.startContainer, so = r.startOffset, ec = r.endContainer, eo = r.endOffset;
-    var wrapped = [];
-    nodes.forEach(function (node) {
-      if (node.parentNode.closest && node.parentNode.closest(".rl-head, .rl-note")) return; // section headers keep their own size
-      var s = node === sc ? so : 0, e = node === ec ? eo : node.data.length;
-      if (s >= e) return;
-      var t = node;
-      if (e < t.data.length) t.splitText(e);
-      if (s > 0) t = t.splitText(s);
-      var next = stepScale(scaleOfNode(t, ed), dir);
-      var sp = document.createElement("span");
-      sp.setAttribute("data-s", String(next));
-      sp.style.setProperty("--s", next);
-      t.parentNode.insertBefore(sp, t);
-      sp.appendChild(t);
-      wrapped.push(sp);
+    var keys = info.w.keys.slice();
+    info.idx.forEach(function (i) {
+      var st = parseKey(keys[i]), ch = fn(st);
+      for (var k in ch) st[k] = ch[k];
+      keys[i] = styleKey(st);
     });
-    if (!wrapped.length) return false;
-
+    var lines = [], start = 0;
+    info.w.text.split("\n").forEach(function (t) {
+      lines.push({ text: t, runs: runsFromKeys(keys.slice(start, start + t.length)) });
+      start += t.length + 1;
+    });
+    // re-render the lines flat so styles never nest, then put the selection back
+    fillReadEditor(info.ed, lines);
+    var p0 = editorPointAt(info.ed, info.a), p1 = editorPointAt(info.ed, info.b);
     var nr = document.createRange();
-    nr.setStart(wrapped[0].firstChild, 0);
-    var last = wrapped[wrapped.length - 1].firstChild;
-    nr.setEnd(last, last.data.length);
+    nr.setStart(p0.node, p0.offset);
+    nr.setEnd(p1.node, p1.offset);
+    var sel = window.getSelection();
     sizeBarHold = true;
     sel.removeAllRanges();
     sel.addRange(nr);
     sizeSaved = nr.cloneRange();
+    savedSel = { ed: info.ed, a: info.a, b: info.b };
+    undo.boundary = true;
     setTimeout(function () { sizeBarHold = false; }, 0);
-    readEdited(song, ed);
+    readEdited(song, info.ed);
     placeSizeBar(nr);
+    updateSizeBarState(info.idx.map(function (i) { return keys[i]; }));
     return true;
   }
 
-  // keep the selection when tapping the toolbar (otherwise iOS clears it)
-  ["pointerdown", "mousedown", "touchstart"].forEach(function (ev) {
-    sizeBar.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+  // dir: +1 bigger, -1 smaller, 0 back to normal
+  function resizeSelection(dir, allowSaved) {
+    return styleSelection(function (st) { return { s: stepScale(st.s, dir) }; }, allowSaved);
+  }
+  function setSelectionPt(pt, allowSaved) {
+    return styleSelection(function () { return { s: scaleOfPt(pt) }; }, allowSaved);
+  }
+  // h: one of HL_COLORS, or "" for none
+  function setHighlight(h, allowSaved) {
+    return styleSelection(function () { return { h: h }; }, allowSaved);
+  }
+  // flag: "b", "i", "u" or "s". Turns it off if every selected character already has it.
+  function toggleFormat(flag, allowSaved) {
+    var info = selectionInfo(allowSaved);
+    if (!info || !info.idx.length) return false;
+    var all = info.idx.every(function (i) { return parseKey(info.w.keys[i]).f.indexOf(flag) !== -1; });
+    return styleSelection(function (st) {
+      return { f: all ? st.f.replace(flag, "") : st.f + flag };
+    }, allowSaved);
+  }
+
+  // Show the selection's font size, highlight and which of B/I/U/S are on
+  var sizeLabel = document.getElementById("size-label");
+  var hlBar = document.getElementById("hl-bar");
+  var barState = { pt: null, h: null };
+  function same(list) { return list.every(function (x) { return x === list[0]; }) ? list[0] : null; }
+  function updateSizeBarState(keys) {
+    var styles = (keys || []).map(parseKey);
+    if (!styles.length) styles = [parseKey(PLAIN)];
+    barState.pt = same(styles.map(function (st) { return ptOfScale(st.s); }));
+    barState.h = same(styles.map(function (st) { return st.h; }));
+    sizeLabel.textContent = barState.pt === null ? "–" : barState.pt;   // blank-ish when sizes are mixed, like Word
+    if (barState.h) { hlBar.setAttribute("data-h", barState.h); hlBar.style.background = "var(--hl-" + barState.h + ")"; }
+    else { hlBar.removeAttribute("data-h"); hlBar.style.background = ""; }
+    Array.prototype.forEach.call(sizeBar.querySelectorAll("[data-fmt]"), function (b) {
+      var flag = b.getAttribute("data-fmt");
+      var on = styles.length > 0 && styles.every(function (st) { return st.f.indexOf(flag) !== -1; });
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  function refreshSizeBarState() {
+    var info = selectionInfo(false);
+    updateSizeBarState(info ? info.idx.map(function (i) { return info.w.keys[i]; }) : []);
+  }
+
+  // Toolbar buttons act as soon as they're pressed. Their touches are cancelled so the selection
+  // isn't cleared, and on iOS that also cancels the "click", so we can't wait for one.
+  // (A click with detail 0 is a keyboard press, which still needs handling.)
+  function onPress(el, fn) {
+    ["mousedown", "touchstart", "touchend"].forEach(function (ev) {
+      el.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+    });
+    function run(b) {
+      try { fn(b); } catch (err) { showFmtError(err); }
+    }
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (e.button > 0) return;
+      var b = e.target.closest("button");
+      if (b) run(b);
+    });
+    el.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (b && e.detail === 0) run(b);
+    });
+  }
+  // If formatting ever fails, say so on screen (otherwise it just silently does nothing)
+  var fmtErrTimer = null;
+  function showFmtError(err) {
+    var box = document.getElementById("fmt-error");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "fmt-error";
+      box.setAttribute("role", "alert");
+      document.body.appendChild(box);
+    }
+    box.textContent = "Couldn't format the text: " + (err && err.message ? err.message : err);
+    box.hidden = false;
+    clearTimeout(fmtErrTimer);
+    fmtErrTimer = setTimeout(function () { box.hidden = true; }, 6000);
+    if (window.console) console.error(err);
+  }
+  onPress(sizeBar, function (b) {
+    if (b.id === "size-pick" || b.id === "hl-pick") { toggleFmtMenu(b.id === "size-pick" ? "size" : "hl"); return; }
+    closeFmtMenu();
+    if (b.hasAttribute("data-fmt")) toggleFormat(b.getAttribute("data-fmt"), true);
+    else resizeSelection(parseInt(b.getAttribute("data-size"), 10), true);
   });
-  sizeBar.addEventListener("click", function (e) {
-    var b = e.target.closest("button");
-    if (b) resizeSelection(parseInt(b.getAttribute("data-size"), 10), true);
+
+  // Drop-down for the font size list and highlight colors
+  var fmtMenu = document.getElementById("fmt-menu");
+  var fmtMenuKind = null, fmtCloseTimer = null;
+  function closeFmtMenu() {
+    fmtMenu.hidden = true;
+    fmtMenuKind = null;
+    document.getElementById("size-pick").setAttribute("aria-expanded", "false");
+    document.getElementById("hl-pick").setAttribute("aria-expanded", "false");
+  }
+  function menuBtn(label, attrs) {
+    var b = document.createElement("button");
+    b.setAttribute("role", "menuitemradio");
+    b.textContent = label;
+    Object.keys(attrs).forEach(function (k) { b.setAttribute(k, attrs[k]); });
+    fmtMenu.appendChild(b);
+    return b;
+  }
+  function placeFmtMenu(anchor) {
+    var ar = anchor.getBoundingClientRect(), br = sizeBar.getBoundingClientRect();
+    var w = fmtMenu.offsetWidth, h = fmtMenu.offsetHeight;
+    var top = br.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = br.top - h - 6;
+    var left = Math.max(8, Math.min(window.innerWidth - w - 8, ar.left + ar.width / 2 - w / 2));
+    fmtMenu.style.top = Math.max(8, top) + "px";
+    fmtMenu.style.left = left + "px";
+  }
+  function toggleFmtMenu(kind) {
+    clearTimeout(fmtCloseTimer);
+    if (fmtMenuKind === kind) { closeFmtMenu(); return; }
+    closeFmtMenu();
+    fmtMenuKind = kind;
+    fmtMenu.innerHTML = "";
+    var anchor = document.getElementById(kind === "size" ? "size-pick" : "hl-pick");
+    if (kind === "size") {
+      fmtMenu.setAttribute("aria-label", "Font size");
+      ptSizes().forEach(function (pt) {
+        var b = menuBtn(String(pt), { "data-pt": pt, "aria-checked": String(barState.pt === pt) });
+        if (pt === settings.fontSize) b.title = "Normal size for this sheet";
+      });
+      menuBtn("Normal size (" + settings.fontSize + ")", { "data-pt": settings.fontSize, "class": "wide", "aria-checked": "false" });
+    } else {
+      fmtMenu.setAttribute("aria-label", "Highlight color");
+      HL_COLORS.forEach(function (c) {
+        var b = menuBtn("", { "data-hl": c, "data-h": c, "class": "swatch", "aria-checked": String(barState.h === c) });
+        b.setAttribute("aria-label", c.charAt(0).toUpperCase() + c.slice(1));
+        b.title = b.getAttribute("aria-label");
+      });
+      menuBtn("No highlight", { "data-hl": "", "class": "wide", "aria-checked": "false" });
+    }
+    anchor.setAttribute("aria-expanded", "true");
+    fmtMenu.hidden = false;
+    placeFmtMenu(anchor);
+  }
+  onPress(fmtMenu, function (b) {
+    if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
+    else setHighlight(b.getAttribute("data-hl"), true);
+    // close once the finger has lifted: hiding the menu mid-tap lets iOS pass the tap to the lyrics underneath
+    clearTimeout(fmtCloseTimer);
+    fmtCloseTimer = setTimeout(closeFmtMenu, 300);
   });
 
   // ---------- commands (Mac menu bar, right-click menu, keyboard) ----------
@@ -3696,23 +4487,66 @@
       case "text-reset":
         if (!resizeSelection(0)) { settings.fontSize = 17; persistSettings(); if (song) renderCanvas(song); }
         break;
+      case "undo": if (ownsUndo()) stepUndo(-1); else document.execCommand("undo"); break;
+      case "redo": if (ownsUndo()) stepUndo(1); else document.execCommand("redo"); break;
+      case "bold": toggleFormat("b"); break;
+      case "italic": toggleFormat("i"); break;
+      case "underline": toggleFormat("u"); break;
+      case "strikethrough": toggleFormat("s"); break;
+      default:
+        if (cmd.indexOf("highlight-") === 0) setHighlight(normHl(cmd.slice(10)));
     }
   }
   if (window.lyricDesktop && window.lyricDesktop.onCommand) {
     window.lyricDesktop.onCommand(runCommand);
   } else {
-    // In the iPhone app / browser: Cmd(Ctrl) + and − resize selected words
+    // In the iPhone app / browser: Cmd(Ctrl) + and − resize selected words,
+    // Cmd B / I / U bold, italicize and underline them, Cmd Shift X strikes them through
     document.addEventListener("keydown", function (e) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      var k = e.key.toLowerCase();
+      var flag = e.shiftKey ? (k === "x" ? "s" : null) : ({ b: "b", i: "i", u: "u" })[k] || null;
+      if (flag) {
+        var sel = window.getSelection();
+        if (sel.rangeCount && editorOfRange(sel.getRangeAt(0))) {
+          e.preventDefault(); // also stops the browser adding its own bold/italic markup
+          toggleFormat(flag);
+        }
+        return;
+      }
       var dir = e.key === "=" || e.key === "+" ? 1 : e.key === "-" ? -1 : null;
       if (dir !== null && resizeSelection(dir)) e.preventDefault();
     });
   }
 
+  // act on press without taking focus/selection away from the lyrics (see onPress)
+  Array.prototype.forEach.call(document.querySelectorAll(".undo-group"), function (g) {
+    onPress(g, function (b) {
+      if (!b.disabled) stepUndo(b.getAttribute("data-undo") === "undo" ? -1 : 1);
+    });
+  });
+  // iPhone shake-to-undo / three-finger swipe, and Edit ▸ Undo on the Mac, arrive as history input events
+  document.getElementById("canvas").addEventListener("beforeinput", function (e) {
+    if (e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+      e.preventDefault();
+      stepUndo(e.inputType === "historyUndo" ? -1 : 1);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || window.lyricDesktop) return;
+    var k = e.key.toLowerCase();
+    var dir = k === "z" ? (e.shiftKey ? 1 : -1) : k === "y" && !e.shiftKey ? 1 : 0;
+    if (!dir || !ownsUndo()) return;
+    e.preventDefault();
+    stepUndo(dir);
+  });
+
   // ---------- init ----------
   loadAll();
   loadFolders();
-  nav.folder = settings.navFolder && (settings.navFolder === "all" || folderById(settings.navFolder)) ? settings.navFolder : "all";
+  loadTrash();
+  setInterval(function () { var n = trash.length; purgeTrash(); if (trash.length !== n) renderSidebar(); }, 60 * 60 * 1000);
+  nav.folder = settings.navFolder && (settings.navFolder === "all" || settings.navFolder === "trash" || folderById(settings.navFolder)) ? settings.navFolder : "all";
   if (state.songs.length) {
     var reopen = state.songs.filter(function (s) { return s.id === settings.lastOpenId; })[0];
     state.activeId = reopen ? reopen.id : state.songs.slice().sort(function(a,b){return b.lastEditedAt-a.lastEditedAt;})[0].id;

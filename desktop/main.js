@@ -39,7 +39,7 @@ function buildMenu() {
         cmd("New Folder", "Shift+CmdOrCtrl+N", "new-folder"),
         cmd("Duplicate Song", "CmdOrCtrl+D", "duplicate-song"),
         { type: "separator" },
-        cmd("Paste a Song…", "Shift+CmdOrCtrl+V", "paste-song"),
+        cmd("Import New Lyrics…", "Shift+CmdOrCtrl+V", "paste-song"),
         cmd("Copy Lyrics", "Shift+CmdOrCtrl+C", "copy-lyrics"),
         { type: "separator" },
         cmd("Sync Now", "Shift+CmdOrCtrl+S", "sync-now"),
@@ -50,8 +50,9 @@ function buildMenu() {
     {
       label: "Edit",
       submenu: [
-        { role: "undo" },
-        { role: "redo" },
+        // the page keeps its own undo history (it redraws the lyrics as you type, which breaks the built-in one)
+        cmd("Undo", "CmdOrCtrl+Z", "undo"),
+        cmd("Redo", "Shift+CmdOrCtrl+Z", "redo"),
         { type: "separator" },
         { role: "cut" },
         { role: "copy" },
@@ -77,7 +78,24 @@ function buildMenu() {
         cmd("Smaller", "CmdOrCtrl+-", "text-smaller"),
         cmd("Normal Size", "CmdOrCtrl+0", "text-reset"),
         { type: "separator" },
-        { label: "Select words first to resize just those words; otherwise the whole sheet changes.", enabled: false },
+        cmd("Bold", "CmdOrCtrl+B", "bold"),
+        cmd("Italic", "CmdOrCtrl+I", "italic"),
+        cmd("Underline", "CmdOrCtrl+U", "underline"),
+        cmd("Strikethrough", "CmdOrCtrl+Shift+X", "strikethrough"),
+        {
+          label: "Highlight",
+          submenu: [
+            { label: "Yellow", click: () => send("highlight-yellow") },
+            { label: "Green", click: () => send("highlight-green") },
+            { label: "Blue", click: () => send("highlight-blue") },
+            { label: "Pink", click: () => send("highlight-pink") },
+            { label: "Orange", click: () => send("highlight-orange") },
+            { type: "separator" },
+            { label: "No Highlight", click: () => send("highlight-none") },
+          ],
+        },
+        { type: "separator" },
+        { label: "Select words first to style or resize just those words; otherwise the whole sheet changes size.", enabled: false },
       ],
     },
     {
@@ -139,6 +157,27 @@ function attachContextMenu(win) {
             { label: "Bigger", accelerator: "CmdOrCtrl+=", click: () => send("text-bigger") },
             { label: "Smaller", accelerator: "CmdOrCtrl+-", click: () => send("text-smaller") },
             { label: "Normal Size", accelerator: "CmdOrCtrl+0", click: () => send("text-reset") },
+          ],
+        });
+        items.push({
+          label: "Style",
+          submenu: [
+            { label: "Bold", accelerator: "CmdOrCtrl+B", click: () => send("bold") },
+            { label: "Italic", accelerator: "CmdOrCtrl+I", click: () => send("italic") },
+            { label: "Underline", accelerator: "CmdOrCtrl+U", click: () => send("underline") },
+            { label: "Strikethrough", accelerator: "CmdOrCtrl+Shift+X", click: () => send("strikethrough") },
+          ],
+        });
+        items.push({
+          label: "Highlight",
+          submenu: [
+            { label: "Yellow", click: () => send("highlight-yellow") },
+            { label: "Green", click: () => send("highlight-green") },
+            { label: "Blue", click: () => send("highlight-blue") },
+            { label: "Pink", click: () => send("highlight-pink") },
+            { label: "Orange", click: () => send("highlight-orange") },
+            { type: "separator" },
+            { label: "No Highlight", click: () => send("highlight-none") },
           ],
         });
       }

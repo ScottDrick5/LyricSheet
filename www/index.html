@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Lyric Sheet — Prototype</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* no double-tap zoom in the iPhone app (taps stay fast; text can still be selected) */
+  html, body { touch-action: manipulation; }
   :root {
     box-sizing: border-box;
     /* Dark theme (default) */
@@ -3745,14 +3747,17 @@
     if (!sel.rangeCount) { hideSizeBar(); return; }
     var r = sel.getRangeAt(0);
     if (r.collapsed || !editorOfRange(r)) { hideSizeBar(); return; }
+    // iOS fires selectionchange even when the selection didn't move; only close the size/color menu if it did
+    var moved = !sizeSaved || r.startContainer !== sizeSaved.startContainer || r.startOffset !== sizeSaved.startOffset ||
+      r.endContainer !== sizeSaved.endContainer || r.endOffset !== sizeSaved.endOffset;
     sizeSaved = r.cloneRange();
-    closeFmtMenu();
+    if (moved) closeFmtMenu();
     placeSizeBar(r);
     refreshSizeBarState();
   });
   document.getElementById("canvas-wrap").addEventListener("scroll", function () {
     if (!sizeBar.hidden && sizeSaved) placeSizeBar(sizeSaved);
-    if (!fmtMenu.hidden) closeFmtMenu();
+    if (!fmtMenu.hidden && fmtMenuKind) placeFmtMenu(document.getElementById(fmtMenuKind === "size" ? "size-pick" : "hl-pick"));
   }, { passive: true });
 
   // The selected characters of a Basic editor that can be styled (not section headers or line breaks)
@@ -3856,13 +3861,25 @@
     updateSizeBarState(info ? info.idx.map(function (i) { return info.w.keys[i]; }) : []);
   }
 
-  // keep the selection when tapping the toolbar (otherwise iOS clears it)
-  ["pointerdown", "mousedown", "touchstart"].forEach(function (ev) {
-    sizeBar.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
-  });
-  sizeBar.addEventListener("click", function (e) {
-    var b = e.target.closest("button");
-    if (!b) return;
+  // Toolbar buttons act as soon as they're pressed. Their touches are cancelled so the selection
+  // isn't cleared, and on iOS that also cancels the "click", so we can't wait for one.
+  // (A click with detail 0 is a keyboard press, which still needs handling.)
+  function onPress(el, fn) {
+    ["mousedown", "touchstart"].forEach(function (ev) {
+      el.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+    });
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (e.button > 0) return;
+      var b = e.target.closest("button");
+      if (b) fn(b);
+    });
+    el.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (b && e.detail === 0) fn(b);
+    });
+  }
+  onPress(sizeBar, function (b) {
     if (b.id === "size-pick" || b.id === "hl-pick") { toggleFmtMenu(b.id === "size-pick" ? "size" : "hl"); return; }
     closeFmtMenu();
     if (b.hasAttribute("data-fmt")) toggleFormat(b.getAttribute("data-fmt"), true);
@@ -3921,12 +3938,7 @@
     fmtMenu.hidden = false;
     placeFmtMenu(anchor);
   }
-  ["pointerdown", "mousedown", "touchstart"].forEach(function (ev) {
-    fmtMenu.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
-  });
-  fmtMenu.addEventListener("click", function (e) {
-    var b = e.target.closest("button");
-    if (!b) return;
+  onPress(fmtMenu, function (b) {
     closeFmtMenu();
     if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
     else setHighlight(b.getAttribute("data-hl"), true);

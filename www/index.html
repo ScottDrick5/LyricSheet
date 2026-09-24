@@ -975,6 +975,12 @@
 
   /* Resized words */
   .read-editor [data-s] { font-size: calc(var(--lyric-px, 17px) * var(--s, 1)); }
+  /* Bold / italic / underline / strikethrough words (data-f holds any of the letters b, i, u, s) */
+  .read-editor [data-f*="b"] { font-weight: 700; }
+  .read-editor [data-f*="i"] { font-style: italic; }
+  .read-editor [data-f*="u"] { text-decoration-line: underline; }
+  .read-editor [data-f*="s"] { text-decoration-line: line-through; }
+  .read-editor [data-f*="u"][data-f*="s"] { text-decoration-line: underline line-through; }
   #size-bar {
     position: fixed;
     z-index: 45;
@@ -994,15 +1000,32 @@
     color: var(--shell-text);
     font-family: var(--font-ui);
     font-size: 0.85rem;
-    min-width: 46px;
+    min-width: 40px;
     height: 38px;
-    padding: 0 10px;
+    padding: 0 8px;
     cursor: pointer;
   }
   #size-bar button + button { border-left: 1px solid var(--shell-border); }
   #size-bar button:active { background: var(--shell-hover); }
   #size-bar .big { font-size: 1.15em; font-weight: 600; }
   #size-bar .minus { font-size: 0.9em; }
+  #size-bar button[aria-pressed="true"] { background: var(--tint-2); color: var(--accent); }
+  #size-bar .fmt-sep { width: 6px; border-left: 1px solid var(--shell-border); }
+  #size-bar #size-label {
+    align-self: center;
+    min-width: 44px;
+    padding: 0 4px;
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--shell-text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  #size-bar #size-label + button, #size-bar .fmt-sep + button { border-left: 1px solid var(--shell-border); }
+  #size-bar [data-fmt="b"] { font-weight: 700; }
+  #size-bar [data-fmt="i"] { font-style: italic; font-family: Georgia, serif; }
+  #size-bar [data-fmt="u"] { text-decoration: underline; }
+  #size-bar [data-fmt="s"] { text-decoration: line-through; }
 
   /* In-app confirmation */
   #confirm-modal {
@@ -1497,10 +1520,16 @@
   </div>
 </div>
 
-<div id="size-bar" role="toolbar" aria-label="Size of selected text" hidden>
+<div id="size-bar" role="toolbar" aria-label="Format selected text" hidden>
   <button data-size="-1" aria-label="Make selected text smaller" title="Smaller">A<span class="minus">−</span></button>
+  <span id="size-label" aria-live="polite" title="Size of selected text">100%</span>
   <button data-size="1" aria-label="Make selected text bigger" title="Bigger"><span class="big">A</span>+</button>
   <button data-size="0" aria-label="Normal size" title="Normal size">Aa</button>
+  <span class="fmt-sep"></span>
+  <button data-fmt="b" aria-label="Bold" aria-pressed="false" title="Bold">B</button>
+  <button data-fmt="i" aria-label="Italic" aria-pressed="false" title="Italic">I</button>
+  <button data-fmt="u" aria-label="Underline" aria-pressed="false" title="Underline">U</button>
+  <button data-fmt="s" aria-label="Strikethrough" aria-pressed="false" title="Strikethrough">S</button>
 </div>
 
 <div id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
@@ -2030,13 +2059,14 @@
       var a = pts[k], b = pts[k + 1];
       if (b <= a) continue;
       var inParen = parens.some(function (r) { return a >= r[0] && b <= r[1]; });
-      var scale = 1;
-      runs.forEach(function (r) { if (a >= r[0] && b <= r[1]) scale = r[2]; });
+      var scale = 1, flags = "";
+      runs.forEach(function (r) { if (a >= r[0] && b <= r[1]) { scale = r[2]; flags = r[3] || ""; } });
       var piece = line.slice(a, b);
-      if (!inParen && scale === 1) { d.appendChild(document.createTextNode(piece)); continue; }
+      if (!inParen && scale === 1 && !flags) { d.appendChild(document.createTextNode(piece)); continue; }
       var sp = document.createElement("span");
       if (inParen) sp.className = "rl-paren";
       if (scale !== 1) { sp.setAttribute("data-s", String(scale)); sp.style.setProperty("--s", scale); }
+      if (flags) sp.setAttribute("data-f", flags);
       sp.textContent = piece;
       d.appendChild(sp);
     }
@@ -2050,41 +2080,75 @@
     lineObjs.forEach(function (l) { el.appendChild(readLineEl(l.text, l.runs)); });
   }
 
-  // Read the Basic editor back into text + per-character sizes (also finds selection positions)
-  function scaleOfNode(node, root) {
-    var el = node.nodeType === 1 ? node : node.parentNode;
-    while (el && el !== root) {
-      if (el.nodeType === 1 && el.hasAttribute("data-s")) return parseFloat(el.getAttribute("data-s")) || 1;
+  // Read the Basic editor back into text + per-character styles.
+  // A style is a key "scale|flags", e.g. "1.2|bi"; plain text is "1|".
+  var PLAIN = "1|";
+  function styleKeyOfNode(node, root) {
+    var el = node.nodeType === 1 ? node : node.parentNode, sc = null, f = null;
+    while (el && el !== root && (sc === null || f === null)) {
+      if (el.nodeType === 1) {
+        if (sc === null && el.hasAttribute("data-s")) sc = parseFloat(el.getAttribute("data-s")) || 1;
+        if (f === null && el.hasAttribute("data-f")) f = el.getAttribute("data-f");
+      }
       el = el.parentNode;
     }
-    return 1;
+    return (sc || 1) + "|" + normFlags(f);
   }
-  function walkEditor(root) {
+  // points: optional [{node, offset}] DOM positions; each gets .index, its position in the text
+  function walkEditor(root, points) {
     var S = "", sc = [];
+    points = points || [];
     function add(str, s) { S += str; for (var i = 0; i < str.length; i++) sc.push(s); }
     function isBlock(n) { return n.nodeType === 1 && /^(DIV|P|LI|H\d)$/.test(n.nodeName); }
+    function mark(n, off) { points.forEach(function (p) { if (p.node === n && p.offset === off) p.index = S.length; }); }
     function visit(n) {
       if (n.nodeType === 3) {
+        var start = S.length;
         var d = n.data.replace(/\u00a0/g, " ").replace(/\r/g, "");
-        var s = scaleOfNode(n, root);
-        for (var i = 0; i < d.length; i++) { S += d[i]; sc.push(d[i] === "\n" ? 1 : s); }
+        var s = styleKeyOfNode(n, root);
+        for (var i = 0; i < d.length; i++) { S += d[i]; sc.push(d[i] === "\n" ? PLAIN : s); }
+        points.forEach(function (p) { if (p.node === n) p.index = start + Math.min(p.offset, d.length); });
         return;
       }
-      if (n.nodeName === "BR") { add("\n", 1); return; }
+      if (n.nodeName === "BR") { add("\n", PLAIN); return; }
       if (n.nodeType !== 1) return;
       var block = isBlock(n);
-      if (block && S.length && S[S.length - 1] !== "\n") add("\n", 1);
-      for (var c = n.firstChild; c; c = c.nextSibling) visit(c);
-      if (block && S.length && S[S.length - 1] !== "\n") add("\n", 1);
+      if (block && S.length && S[S.length - 1] !== "\n") add("\n", PLAIN);
+      visitChildren(n);
+      if (block && S.length && S[S.length - 1] !== "\n") add("\n", PLAIN);
     }
-    for (var c = root.firstChild; c; c = c.nextSibling) visit(c);
+    function visitChildren(n) {
+      var i = 0;
+      for (var c = n.firstChild; c; c = c.nextSibling, i++) { mark(n, i); visit(c); }
+      mark(n, i);
+    }
+    visitChildren(root);
     if (S.charAt(S.length - 1) === "\n") { S = S.slice(0, -1); sc.pop(); }
+    points.forEach(function (p) { if (p.index > S.length) p.index = S.length; });
     var lines = [], start = 0;
     S.split("\n").forEach(function (t) {
-      lines.push({ text: t, runs: runsFromScales(sc.slice(start, start + t.length)) });
+      lines.push({ text: t, runs: runsFromKeys(sc.slice(start, start + t.length)) });
       start += t.length + 1;
     });
-    return { text: S, lines: lines };
+    return { text: S, lines: lines, keys: sc };
+  }
+  // DOM position of a text index in an editor rendered by fillReadEditor (one div per line)
+  function editorPointAt(root, index) {
+    var line = root.firstChild;
+    while (line && line.nextSibling) {
+      var len = line.textContent.length;
+      if (index <= len) break;
+      index -= len + 1;
+      line = line.nextSibling;
+    }
+    if (!line) return { node: root, offset: 0 };
+    var tw = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, null), n, last = null;
+    while ((n = tw.nextNode())) {
+      if (index <= n.data.length) return { node: n, offset: index };
+      index -= n.data.length;
+      last = n;
+    }
+    return last ? { node: last, offset: last.data.length } : { node: line, offset: 0 };
   }
 
   function readEditorText(el) {
@@ -2571,7 +2635,8 @@
   }
 
   // ---------- per-word text sizes ----------
-  // Each section may carry `fmt`, parallel to `lines`: null or a list of [start, end, scale] runs.
+  // Each section may carry `fmt`, parallel to `lines`: null or a list of [start, end, scale, flags?] runs.
+  // flags is any of "b" bold, "i" italic, "u" underline, "s" strikethrough, e.g. "bu".
   var SIZE_STEPS = [0.7, 0.85, 1, 1.2, 1.45, 1.75, 2.1, 2.6];
   function stepScale(cur, dir) {
     if (!dir) return 1;
@@ -2579,23 +2644,27 @@
     for (var i = 1; i < SIZE_STEPS.length; i++) if (Math.abs(SIZE_STEPS[i] - cur) < Math.abs(SIZE_STEPS[best] - cur)) best = i;
     return SIZE_STEPS[Math.max(0, Math.min(SIZE_STEPS.length - 1, best + dir))];
   }
+  function normFlags(f) {
+    return f ? "bius".split("").filter(function (c) { return f.indexOf(c) !== -1; }).join("") : "";
+  }
+  function makeRun(a, b, s, f) { return f ? [a, b, s, f] : [a, b, s]; }
   function normRuns(runs, len) {
     if (!runs || !runs.length) return null;
     var out = [];
     runs.slice().sort(function (a, b) { return a[0] - b[0]; }).forEach(function (r) {
-      var a = Math.max(0, Math.min(len, r[0])), b = Math.max(0, Math.min(len, r[1])), s = +r[2];
-      if (b <= a || !s || s === 1) return;
+      var a = Math.max(0, Math.min(len, r[0])), b = Math.max(0, Math.min(len, r[1])), s = +r[2] || 1, f = normFlags(r[3]);
+      if (b <= a || (s === 1 && !f)) return;
       var last = out[out.length - 1];
-      if (last && last[1] === a && last[2] === s) last[1] = b; else out.push([a, b, s]);
+      if (last && last[1] === a && last[2] === s && (last[3] || "") === f) last[1] = b; else out.push(makeRun(a, b, s, f));
     });
     return out.length ? out : null;
   }
-  function runsFromScales(scales) {
+  function runsFromKeys(keys) {
     var runs = [], i = 0;
-    while (i < scales.length) {
-      var s = scales[i], j = i;
-      while (j < scales.length && scales[j] === s) j++;
-      if (s !== 1) runs.push([i, j, s]);
+    while (i < keys.length) {
+      var k = keys[i], j = i;
+      while (j < keys.length && keys[j] === k) j++;
+      if (k !== PLAIN) { var p = k.split("|"); runs.push(makeRun(i, j, parseFloat(p[0]) || 1, p[1])); }
       i = j;
     }
     return runs.length ? runs : null;
@@ -2613,7 +2682,7 @@
       if (x >= oe) return x + (ne - oe);
       return isEnd ? ne : p;
     }
-    return normRuns(runs.map(function (r) { return [map(r[0], false), map(r[1], true), r[2]]; }), newT.length);
+    return normRuns(runs.map(function (r) { return [map(r[0], false), map(r[1], true)].concat(r.slice(2)); }), newT.length);
   }
   function ensureFmt(section) {
     if (!section.fmt) section.fmt = [];
@@ -2651,7 +2720,7 @@
       var r = lineRuns && lineRuns[i];
       if (!r) return null;
       var lead = l.length - l.replace(/^\s+/, "").length;
-      return normRuns(r.map(function (x) { return [x[0] - lead, x[1] - lead, x[2]]; }), rawLines[i].length);
+      return normRuns(r.map(function (x) { return [x[0] - lead, x[1] - lead].concat(x.slice(2)); }), rawLines[i].length);
     });
 
     var titleIdx = findTitleIndex(rawLines);
@@ -3607,54 +3676,100 @@
     if (r.collapsed || !editorOfRange(r)) { hideSizeBar(); return; }
     sizeSaved = r.cloneRange();
     placeSizeBar(r);
+    refreshSizeBarState();
   });
   document.getElementById("canvas-wrap").addEventListener("scroll", function () {
     if (!sizeBar.hidden && sizeSaved) placeSizeBar(sizeSaved);
   }, { passive: true });
 
-  // dir: +1 bigger, -1 smaller, 0 back to normal. Returns false if nothing was selected.
-  function resizeSelection(dir, allowSaved) {
+  // The selected characters of a Basic editor that can be styled (not section headers or line breaks)
+  function selectionInfo(allowSaved) {
     var sel = window.getSelection();
     var r = sel.rangeCount && !sel.getRangeAt(0).collapsed ? sel.getRangeAt(0) : (allowSaved ? sizeSaved : null);
-    if (!r || r.collapsed) return false;
+    if (!r || r.collapsed) return null;
     var ed = editorOfRange(r);
-    if (!ed) return false;
+    if (!ed) return null;
+    var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
+    var w = walkEditor(ed, pts);
+    if (pts[0].index == null || pts[1].index == null) return null;
+    var a = Math.min(pts[0].index, pts[1].index), b = Math.max(pts[0].index, pts[1].index);
+    var idx = [], lineStart = 0;
+    w.text.split("\n").forEach(function (t) {
+      var lineEnd = lineStart + t.length;
+      if (lineEnd > a && lineStart < b && t.trim() && !detectHeader(t)) {
+        for (var i = Math.max(a, lineStart); i < Math.min(b, lineEnd); i++) idx.push(i);
+      }
+      lineStart = lineEnd + 1;
+    });
+    return { ed: ed, w: w, a: a, b: b, idx: idx };
+  }
+  function parseKey(k) { var p = k.split("|"); return { s: parseFloat(p[0]) || 1, f: p[1] || "" }; }
+
+  // Restyle the selected characters: fn({s, f}) returns the new {s, f}. Returns false if nothing was selected.
+  function styleSelection(fn, allowSaved) {
+    var info = selectionInfo(allowSaved);
+    if (!info || !info.idx.length) return false;
     var song = getActiveSong();
     if (!song) return false;
-
-    var nodes = [], tw = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT, null), n;
-    while ((n = tw.nextNode())) if (n.data.length && r.intersectsNode(n)) nodes.push(n);
-    var sc = r.startContainer, so = r.startOffset, ec = r.endContainer, eo = r.endOffset;
-    var wrapped = [];
-    nodes.forEach(function (node) {
-      if (node.parentNode.closest && node.parentNode.closest(".rl-head, .rl-note")) return; // section headers keep their own size
-      var s = node === sc ? so : 0, e = node === ec ? eo : node.data.length;
-      if (s >= e) return;
-      var t = node;
-      if (e < t.data.length) t.splitText(e);
-      if (s > 0) t = t.splitText(s);
-      var next = stepScale(scaleOfNode(t, ed), dir);
-      var sp = document.createElement("span");
-      sp.setAttribute("data-s", String(next));
-      sp.style.setProperty("--s", next);
-      t.parentNode.insertBefore(sp, t);
-      sp.appendChild(t);
-      wrapped.push(sp);
+    var keys = info.w.keys.slice();
+    info.idx.forEach(function (i) {
+      var st = fn(parseKey(keys[i]));
+      keys[i] = st.s + "|" + normFlags(st.f);
     });
-    if (!wrapped.length) return false;
-
+    var lines = [], start = 0;
+    info.w.text.split("\n").forEach(function (t) {
+      lines.push({ text: t, runs: runsFromKeys(keys.slice(start, start + t.length)) });
+      start += t.length + 1;
+    });
+    // re-render the lines flat so styles never nest, then put the selection back
+    fillReadEditor(info.ed, lines);
+    var p0 = editorPointAt(info.ed, info.a), p1 = editorPointAt(info.ed, info.b);
     var nr = document.createRange();
-    nr.setStart(wrapped[0].firstChild, 0);
-    var last = wrapped[wrapped.length - 1].firstChild;
-    nr.setEnd(last, last.data.length);
+    nr.setStart(p0.node, p0.offset);
+    nr.setEnd(p1.node, p1.offset);
+    var sel = window.getSelection();
     sizeBarHold = true;
     sel.removeAllRanges();
     sel.addRange(nr);
     sizeSaved = nr.cloneRange();
     setTimeout(function () { sizeBarHold = false; }, 0);
-    readEdited(song, ed);
+    readEdited(song, info.ed);
     placeSizeBar(nr);
+    updateSizeBarState(info.idx.map(function (i) { return keys[i]; }));
     return true;
+  }
+
+  // dir: +1 bigger, -1 smaller, 0 back to normal
+  function resizeSelection(dir, allowSaved) {
+    return styleSelection(function (st) { return { s: stepScale(st.s, dir), f: st.f }; }, allowSaved);
+  }
+  // flag: "b", "i", "u" or "s". Turns it off if every selected character already has it.
+  function toggleFormat(flag, allowSaved) {
+    var info = selectionInfo(allowSaved);
+    if (!info || !info.idx.length) return false;
+    var all = info.idx.every(function (i) { return parseKey(info.w.keys[i]).f.indexOf(flag) !== -1; });
+    return styleSelection(function (st) {
+      return { s: st.s, f: all ? st.f.replace(flag, "") : st.f + flag };
+    }, allowSaved);
+  }
+
+  // Show the selection's size and which of B/I/U/S are on
+  var sizeLabel = document.getElementById("size-label");
+  function updateSizeBarState(keys) {
+    var styles = (keys || []).map(parseKey);
+    var sizes = {};
+    styles.forEach(function (st) { sizes[st.s] = true; });
+    var list = Object.keys(sizes);
+    sizeLabel.textContent = list.length > 1 ? "Mixed" : Math.round((list.length ? +list[0] : 1) * 100) + "%";
+    Array.prototype.forEach.call(sizeBar.querySelectorAll("[data-fmt]"), function (b) {
+      var flag = b.getAttribute("data-fmt");
+      var on = styles.length > 0 && styles.every(function (st) { return st.f.indexOf(flag) !== -1; });
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  function refreshSizeBarState() {
+    var info = selectionInfo(false);
+    updateSizeBarState(info ? info.idx.map(function (i) { return info.w.keys[i]; }) : []);
   }
 
   // keep the selection when tapping the toolbar (otherwise iOS clears it)
@@ -3663,7 +3778,9 @@
   });
   sizeBar.addEventListener("click", function (e) {
     var b = e.target.closest("button");
-    if (b) resizeSelection(parseInt(b.getAttribute("data-size"), 10), true);
+    if (!b) return;
+    if (b.hasAttribute("data-fmt")) toggleFormat(b.getAttribute("data-fmt"), true);
+    else resizeSelection(parseInt(b.getAttribute("data-size"), 10), true);
   });
 
   // ---------- commands (Mac menu bar, right-click menu, keyboard) ----------
@@ -3696,14 +3813,29 @@
       case "text-reset":
         if (!resizeSelection(0)) { settings.fontSize = 17; persistSettings(); if (song) renderCanvas(song); }
         break;
+      case "bold": toggleFormat("b"); break;
+      case "italic": toggleFormat("i"); break;
+      case "underline": toggleFormat("u"); break;
+      case "strikethrough": toggleFormat("s"); break;
     }
   }
   if (window.lyricDesktop && window.lyricDesktop.onCommand) {
     window.lyricDesktop.onCommand(runCommand);
   } else {
-    // In the iPhone app / browser: Cmd(Ctrl) + and − resize selected words
+    // In the iPhone app / browser: Cmd(Ctrl) + and − resize selected words,
+    // Cmd B / I / U bold, italicize and underline them, Cmd Shift X strikes them through
     document.addEventListener("keydown", function (e) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      var k = e.key.toLowerCase();
+      var flag = e.shiftKey ? (k === "x" ? "s" : null) : ({ b: "b", i: "i", u: "u" })[k] || null;
+      if (flag) {
+        var sel = window.getSelection();
+        if (sel.rangeCount && editorOfRange(sel.getRangeAt(0))) {
+          e.preventDefault(); // also stops the browser adding its own bold/italic markup
+          toggleFormat(flag);
+        }
+        return;
+      }
       var dir = e.key === "=" || e.key === "+" ? 1 : e.key === "-" ? -1 : null;
       if (dir !== null && resizeSelection(dir)) e.preventDefault();
     });

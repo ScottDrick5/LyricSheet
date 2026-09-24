@@ -1,6 +1,8 @@
 // Lyric Sheet — Mac desktop wrapper. The whole app is app/index.html (copied from www/index.html at build time).
-const { app, BrowserWindow, Menu, shell } = require("electron");
+const { app, BrowserWindow, Menu, shell, ipcMain } = require("electron");
 const path = require("path");
+const music = require("./music");
+const updater = require("./updater");
 
 const isMac = process.platform === "darwin";
 
@@ -101,8 +103,8 @@ function buildMenu() {
     {
       label: "View",
       submenu: [
-        cmd("Basic", "CmdOrCtrl+1", "mode-basic"),
-        cmd("Advanced", "CmdOrCtrl+2", "mode-advanced"),
+        cmd("Write", "CmdOrCtrl+1", "mode-basic"),
+        cmd("Sections", "CmdOrCtrl+2", "mode-advanced"),
         { type: "separator" },
         cmd("Songs as List", "Alt+CmdOrCtrl+1", "view-list"),
         cmd("Songs as Gallery", "Alt+CmdOrCtrl+2", "view-gallery"),
@@ -222,6 +224,22 @@ function createWindow() {
   });
   attachContextMenu(win);
 }
+
+// Music / Spotify controls for the page (Mac only; see music.js)
+ipcMain.handle("music", (_event, method, options) => {
+  if (!isMac) throw new Error("Music controls are only available on the Mac");
+  const allowed = ["getState", "requestAccess", "play", "pause", "next", "previous", "seek", "setRepeat"];
+  if (allowed.indexOf(method) === -1) throw new Error("Unknown music command");
+  return music.call(method, options);
+});
+
+// Settings > Updates (see updater.js)
+ipcMain.handle("updates", (_event, action) => {
+  if (action === "version") return app.getVersion();
+  if (action === "check") return updater.check();
+  if (action === "install") return updater.install();
+  throw new Error("Unknown update action");
+});
 
 app.whenReady().then(() => {
   buildMenu();

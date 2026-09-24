@@ -140,7 +140,9 @@
     color: var(--shell-text);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .folders-back .back-chev { width: 7px; height: 12px; }
   .folders-back {
+    display: inline-flex; align-items: center; gap: 3px;
     align-self: flex-start;
     background: none; border: none;
     color: var(--accent);
@@ -295,7 +297,18 @@
   .song-item:hover .del { opacity: 0.7; }
   .song-item .del:hover { opacity: 1; color: var(--danger); }
 
-  #song-search {
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-right: 32px !important; }
+  .search-wrap input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+  .search-clear {
+    position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+    width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
+    background: var(--shell-text-dim); color: var(--bg);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.8;
+  }
+  .search-clear:hover { opacity: 1; }
+  .search-clear[hidden] { display: none; }
+  #song-search, #folder-search {
     width: 100%;
     background: var(--bg);
     border: 1px solid var(--shell-border);
@@ -305,7 +318,7 @@
     font-size: 0.82rem;
     font-family: var(--font-ui);
   }
-  #song-search:focus { outline: none; border-color: var(--teal); }
+  #song-search:focus, #folder-search:focus { outline: none; border-color: var(--teal); }
   .song-item .info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .song-item .sub { font-size: 0.68rem; color: var(--shell-text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song-item .dup:hover { color: var(--accent) !important; }
@@ -890,6 +903,15 @@
   .seg button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
   .switch-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .switch-row .setting-label { margin-bottom: 2px; }
+  .setting-row[hidden] { display: none; }
+  .updates-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #updates-more a { color: var(--accent); }
+  .setting-btn {
+    flex-shrink: 0; align-self: center;
+    background: none; border: 1px solid var(--shell-border); color: var(--accent);
+    font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600;
+    padding: 7px 14px; border-radius: var(--radius-sm); cursor: pointer;
+  }
   .setting-help { margin: 0; font-size: 0.74rem; color: var(--shell-text-dim); line-height: 1.45; }
   .switch {
     flex-shrink: 0;
@@ -1108,8 +1130,42 @@
   #size-bar .fmt-sep { width: 6px; border-left: 1px solid var(--shell-border); }
   #size-bar .fmt-sep + button { border-left: 1px solid var(--shell-border); }
   #size-pick { min-width: 52px; font-variant-numeric: tabular-nums; }
-  #size-pick .caret, #hl-pick .caret { font-size: 0.7em; margin-left: 3px; color: var(--shell-text-dim); }
+  #size-pick .caret, #hl-pick .caret, #swap-pick .caret { font-size: 0.7em; margin-left: 3px; color: var(--shell-text-dim); }
   #size-bar button[aria-expanded="true"] { background: var(--tint-2); }
+  /* selection inside a section header: the toolbar just offers Swap */
+  #swap-pick { display: none; padding: 0 16px; }
+  #size-bar.header-mode > * { display: none; }
+  #size-bar.header-mode > #swap-pick { display: block; }
+  #fmt-menu.swap-menu { grid-template-columns: repeat(2, 140px); }
+  /* On phones: the section names as a strip just above the keyboard, swiped sideways */
+  #swap-strip {
+    position: fixed; left: 0; right: 0; top: 0;
+    z-index: 47;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-raised);
+    border-top: 1px solid var(--shell-border);
+    box-shadow: 0 -4px 14px rgba(0,0,0,0.25);
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  #swap-strip[hidden] { display: none; }
+  #swap-strip.kb-up { padding-bottom: 8px; }
+  #swap-strip .swap-scroll { flex: 1; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  #swap-strip .swap-scroll::-webkit-scrollbar { display: none; }
+  #swap-strip .swap-scroll button {
+    flex-shrink: 0; white-space: nowrap;
+    background: var(--bg); color: var(--shell-text);
+    border: 1px solid var(--shell-border); border-radius: 18px;
+    padding: 0 16px; height: 36px;
+    font-family: var(--font-ui); font-size: 0.9rem; cursor: pointer;
+  }
+  #swap-strip .swap-close {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    border: none; background: var(--tint-2); color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  }
+  #fmt-menu.swap-menu button { text-align: left; padding: 0 12px; white-space: nowrap; }
   #hl-pick { position: relative; }
   #hl-pick svg { display: block; margin: 0 auto 3px; }
   #hl-bar {
@@ -1575,26 +1631,218 @@
   .g-card:hover .g-more, .g-more:focus-visible { opacity: 0.9; }
   .gallery-empty { grid-column: 1 / -1; color: var(--shell-text-dim); font-size: 0.9rem; }
   @media (prefers-reduced-motion: reduce) { .g-thumb { transition: none; } }
+  /* iPhone sizing: match iOS's standard text sizes (17pt list items and buttons, 34pt headings,
+     44pt rows) and follow the phone's Text Size setting. Every rem size on the phone scales from
+     --phone-root, which the script sets from the iPhone's text size (19.3px at the default size). */
+  @media (max-width: 640px) {
+    html { font-size: var(--phone-root, 19.3px); }
+    .nav-title { font-size: 1.76rem; font-weight: 700; }
+    .song-item, .folder-item { min-height: 44px; }
+    .song-item .sub { font-size: 0.78rem; }
+    .song-group { font-size: 0.68rem; }
+    #songs-toggle, #paste-btn, #history-toggle, #details-btn, #view-toggle button, #gallery-back, .read-copy,
+    #new-song-btn, #settings-btn, .nav-add, #sheet-actions button, #sheet-cancel { font-size: 0.88rem; }
+    #songs-toggle, #paste-btn, #history-toggle, #details-btn, #view-toggle button { min-height: 36px; }
+    #sheet-actions button, #sheet-cancel { min-height: 44px; }
+    .read-hint { font-size: 0.7rem; }
+    /* form fields: at least 16px, or iOS zooms in when you tap them */
+    input, select, textarea:not(.line-input) { font-size: max(16px, 0.88rem) !important; }
+  }
+  /* Phones: the Songs menu covers the whole screen, with a close button */
+  #song-count { display: none; margin: 0; text-align: center; font-size: 0.72rem; color: var(--shell-text-dim); }
+  .sidebar-head { position: relative; }
+  /* the top of the menu only holds the sync status now; take no room when it's off */
+  .sidebar-head:not(:has(#sync-status:not([hidden]))) { display: none; }
+  @media (max-width: 640px) {
+    #sidebar { width: 100% !important; border-right: none; padding-left: calc(18px + env(safe-area-inset-left, 0px)); padding-right: calc(18px + env(safe-area-inset-right, 0px)); }
+    /* the round new-song button covers this corner: skip the duplicate "+ New song" and keep the rest clear of it */
+    #new-song-btn { display: none; }
+    #settings-btn, #sidebar .nav-add { margin-right: 76px; }
+    /* iOS-style back button: "‹ All Songs" in the accent color */
+    #songs-toggle {
+      border: none; background: none; color: var(--accent);
+      padding: 6px 4px 6px 0; margin-left: -2px;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.95rem !important;
+    }
+    #songs-fab { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+    .folders-back { font-size: 0.95rem !important; gap: 4px; padding: 6px 4px 6px 0; margin: 0 0 -4px -2px; min-height: 44px; }
+    .folders-back .back-chev { width: 11px; height: 18px; }
+    .back-chev { flex-shrink: 0; }
+    /* song count at the bottom of the list, like "3 Notes" */
+    #song-count { display: block; }
+  }
+  /* Apple Music mini player (iPhone app) */
+  #music-bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    z-index: 41;
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px calc(14px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+    background: var(--bg-raised);
+    border-top: 1px solid var(--shell-border);
+    box-shadow: 0 -4px 14px rgba(0,0,0,0.2);
+  }
+  #music-bar[hidden], .mb-connect[hidden], .mb-controls[hidden] { display: none; }
+  .mb-art {
+    width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0;
+    background: var(--tint-2) center / cover no-repeat;
+    color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mb-art.has-art svg { display: none; }
+  .mb-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .mb-title { font-size: 0.85rem; color: var(--shell-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-artist { font-size: 0.72rem; color: var(--shell-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .mb-controls button {
+    width: 44px; height: 44px; border: none; background: none; color: var(--shell-text);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; border-radius: 50%;
+  }
+  .mb-controls button:active { background: var(--shell-hover); }
+  .mb-play .ico-pause, .mb-play.playing .ico-play { display: none; }
+  .mb-repeat { position: relative; color: var(--shell-text-dim) !important; }
+  .mb-repeat.on { color: var(--accent) !important; }
+  .mb-repeat .mb-one {
+    display: none; position: absolute; top: 7px; right: 6px;
+    font-family: var(--font-ui); font-size: 0.55rem; font-weight: 700; line-height: 1;
+    background: var(--accent); color: var(--on-accent); border-radius: 6px; padding: 1px 3px;
+  }
+  .mb-repeat.one .mb-one { display: block; }
+  @media (max-width: 400px) { .mb-controls button { width: 38px; } }
+  .mb-play.playing .ico-pause { display: block; }
+  #music-bar { flex-wrap: wrap; row-gap: 6px; }
+  .mb-art, .mb-info { cursor: pointer; }
+  .mb-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: transparent; pointer-events: none; }
+  .mb-progress span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .mb-scrub { order: 10; flex-basis: 100%; display: flex; align-items: center; gap: 10px; padding: 2px 2px 0; }
+  .mb-scrub[hidden] { display: none; }
+  .mb-scrub span { font-size: 0.7rem; color: var(--shell-text-dim); font-variant-numeric: tabular-nums; min-width: 38px; }
+  .mb-scrub .mb-left { text-align: right; }
+  .mb-range { flex: 1; min-width: 0; accent-color: var(--accent); height: 28px; margin: 0; touch-action: pan-x; }
+  body.music-on.music-scrub #new-fab { bottom: calc(22px + 104px + env(safe-area-inset-bottom, 0px)); }
+  .mb-handle {
+    position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px; background: var(--shell-border);
+  }
+  #music-bar { touch-action: pan-x; }
+  /* hidden player: a small round button in the bottom-left corner */
+  #music-pill {
+    position: fixed;
+    left: calc(22px + env(safe-area-inset-left, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 41;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: 1px solid var(--shell-border);
+    background: var(--bg-raised); color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+    touch-action: none;
+  }
+  #music-pill[hidden] { display: none; }
+  #music-pill.playing { color: var(--accent); border-color: var(--accent-dim); }
+  @media (pointer: coarse) { body.is-typing #music-pill { display: none; } }
+  .mb-hide {
+    flex-shrink: 0; width: 30px; height: 30px; margin-left: -4px; border-radius: 50%;
+    border: none; background: var(--tint-2); color: var(--shell-text-dim);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  }
+  .mb-connect {
+    flex-shrink: 0; border: none; border-radius: 18px; padding: 8px 16px;
+    background: var(--accent); color: var(--on-accent);
+    font-family: var(--font-ui); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+  /* make room for the bar */
+  body.music-on #new-fab { bottom: calc(22px + 64px + env(safe-area-inset-bottom, 0px)); }
+  body.music-on #canvas-wrap { padding-bottom: 170px !important; }
+  /* out of the way while typing (the keyboard covers the bottom of the screen) */
+  @media (pointer: coarse) { body.is-typing #music-bar { display: none; } }
+  @media (min-width: 641px) {
+    #music-bar { left: 230px; }
+    #music-pill { left: calc(230px + 22px); }
+  }
+  /* "More" (⋯): the top-bar tools that aren't shown in the bar */
+  #hud-more {
+    order: 900; align-self: center;
+    width: 40px; height: 36px; border-radius: var(--radius-sm);
+    border: 1px solid var(--shell-border); background: none; color: var(--shell-text);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  }
+  #hud-more[hidden] { display: none; }
+  #more-modal {
+    position: fixed; inset: 0; z-index: 56;
+    background: var(--overlay);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #more-modal.open { display: flex; }
+  #more-panel {
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: var(--radius-md);
+    width: 100%; max-width: 380px; max-height: 100%; overflow-y: auto;
+    padding: 18px 20px; color: var(--shell-text);
+  }
+  #more-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 14px; }
+  #more-tools { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+  #more-tools .meta-field { gap: 6px; }
+  #more-tools > button, .more-row {
+    width: 100%; min-height: 44px; text-align: left;
+    background: none; border: 1px solid var(--shell-border); color: var(--shell-text);
+    border-radius: var(--radius-sm); padding: 0 12px; font-family: var(--font-ui); font-size: 0.9rem; cursor: pointer;
+  }
+  .more-row { margin-bottom: 10px; color: var(--accent); }
+  #more-tools #undo-bar, #more-tools #view-toggle { align-self: flex-start; }
+  #more-done {
+    width: 100%; background: var(--accent); border: none; color: var(--on-accent);
+    font-weight: 600; font-family: var(--font-ui); font-size: 0.9rem;
+    padding: 11px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  @media (max-width: 640px) {
+    #more-modal { align-items: flex-end; padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+    #more-panel { max-width: none; }
+    /* the lean bar: title fills the row next to undo and ⋯ */
+    #meta-bar [data-hud="title"] { min-width: 0 !important; flex: 1 1 140px; }
+    /* Customize lives in the ⋯ panel on phones */
+    #hud-customize { display: none; }
+    #meta-bar { padding-right: 52px !important; }
+  }
 </style>
 </head>
 <body>
 
 <div id="app">
   <div id="sidebar-backdrop"></div>
+  <div id="music-bar" role="region" aria-label="Apple Music" hidden>
+    <div class="mb-handle" aria-hidden="true"></div>
+    <div class="mb-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg></div>
+    <div class="mb-info"><span class="mb-title"></span><span class="mb-artist"></span></div>
+    <button class="mb-connect" hidden>Connect</button>
+    <div class="mb-controls">
+      <button data-music="previous" aria-label="Previous"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5.5v13L9 12z" fill="currentColor"/></svg></button>
+      <button data-music="toggle" class="mb-play" aria-label="Play"><svg class="ico-play" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7 4.5v15L19.5 12z" fill="currentColor"/></svg><svg class="ico-pause" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/></svg></button>
+      <button data-music="next" aria-label="Next"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M5 5.5v13L15 12z" fill="currentColor"/></svg></button>
+      <button data-music="repeat" class="mb-repeat" aria-label="Repeat: off" title="Repeat"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 11V9a3 3 0 013-3h11" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M15 3l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 13v2a3 3 0 01-3 3H6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M9 21l-3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="mb-one">1</span></button>
+    </div>
+    <div class="mb-progress" aria-hidden="true"><span></span></div>
+    <div class="mb-scrub" hidden>
+      <span class="mb-time">0:00</span>
+      <input class="mb-range" type="range" min="0" max="1000" step="1" value="0" aria-label="Song position">
+      <span class="mb-left">-0:00</span>
+    </div>
+    <button class="mb-hide" aria-label="Hide music controls" title="Hide (tap the music button to bring it back)"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+  <button id="music-pill" aria-label="Show music controls" title="Show music controls" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg></button>
   <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
-    <div>
-      <h1>Lyric Sheet</h1>
-      <p class="tagline">prototype · placeholder name</p>
+    <div class="sidebar-head">
       <button id="sync-status" class="sync-status" hidden></button>
     </div>
     <div id="folders-view" class="nav-view" hidden>
       <h2 class="nav-title">Folders</h2>
+      <div class="search-wrap"><input id="folder-search" type="search" placeholder="Search all songs and lyrics" aria-label="Search all songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
       <div id="folder-list"></div>
       <button id="new-folder-btn" class="nav-add">+ New folder</button>
     </div>
     <div id="songs-view" class="nav-view">
-      <button id="folders-back" class="folders-back">‹ Folders</button>
+      <button id="folders-back" class="folders-back" aria-label="Back to folders"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Folders</span></button>
       <div class="songs-head">
         <h2 id="folder-title" class="nav-title">All Songs</h2>
         <div id="view-style" role="group" aria-label="Show songs as">
@@ -1602,8 +1850,9 @@
           <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
         </div>
       </div>
-      <input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off">
+      <div class="search-wrap"><input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
       <div id="song-list"></div>
+      <p id="song-count"></p>
       <button id="new-song-btn">+ New song</button>
     </div>
     <button id="settings-btn">⚙︎ Settings</button>
@@ -1618,10 +1867,10 @@
 
     <div id="gallery" hidden><div id="gallery-grid"></div></div>
     <div id="editor">
-      <button id="songs-fab" aria-label="Songs">☰ Songs</button>
+      <button id="songs-fab" aria-label="Back to songs"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-label">All Songs</span></button>
       <div id="mode-fab" role="group" aria-label="View">
-        <button data-mode="read" aria-pressed="true">Basic</button>
-        <button data-mode="edit" aria-pressed="false">Advanced</button>
+        <button data-mode="read" aria-pressed="true" title="Write and read the song as plain text">Write</button>
+        <button data-mode="edit" aria-pressed="false" title="Work section by section, with syllable counts and line tools">Sections</button>
       </div>
       <div id="undo-fab" class="undo-group" role="group" aria-label="Undo and redo">
         <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -1631,7 +1880,7 @@
       <div id="meta-bar">
         <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button id="gallery-back" hidden>‹ Gallery</button>
-        <button id="songs-toggle">☰ Songs</button>
+        <button id="songs-toggle" aria-label="Back to songs"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-label">All Songs</span></button>
         <button id="hud-customize" class="hud-icon" aria-label="Customize top bar" title="Customize top bar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M3 5.5h8M15 5.5h2M3 10h2M9 10h8M3 14.5h6M13 14.5h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="13" cy="5.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="11" cy="14.5" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
         <div class="meta-field" data-hud="title" style="min-width:200px;">
           <label>Title</label>
@@ -1656,10 +1905,10 @@
           <select id="timesig-input" class="small-input" aria-label="Time signature"></select>
         </div>
         <div class="meta-field" data-hud="textsize">
-          <label>Text size</label>
+          <label>Page size</label>
           <div class="font-controls">
             <button id="font-dec" title="Smaller">A−</button>
-            <span id="font-size-val" title="Text size of the whole sheet">17</span>
+            <span id="font-size-val" title="Text size of the whole page">17</span>
             <button id="font-inc" title="Larger">A+</button>
           </div>
         </div>
@@ -1672,12 +1921,13 @@
           <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
         <div id="view-toggle" data-hud="view" role="group" aria-label="View">
-          <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
-          <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
+          <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Write</button>
+          <button id="view-edit" aria-pressed="false" title="Work section by section, with syllable counts and line tools">Sections</button>
         </div>
         <button id="paste-btn" data-hud="import">Import New Lyrics</button>
         <button id="history-toggle" data-hud="history">Version history</button>
         <button id="details-btn" data-hud="details" title="Dates and other details for this song">Details</button>
+        <button id="hud-more" aria-label="More song tools" title="More" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="5.5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18.5" cy="12" r="2" fill="currentColor"/></svg></button>
       </div>
 
       <div id="body-row">
@@ -1737,6 +1987,28 @@
       </div>
       <button id="black-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="black-label"><span></span></button>
     </div>
+    <div class="setting-row switch-row">
+      <div>
+        <span class="setting-label">Welcome song</span>
+        <p class="setting-help">A song whose lyrics show how Lyric Sheet works. Adds it back if you deleted it.</p>
+      </div>
+      <button id="welcome-btn" class="setting-btn">Show</button>
+    </div>
+    <div class="setting-row switch-row" id="music-setting" hidden>
+      <div>
+        <span class="setting-label" id="music-label">Apple Music controls</span>
+        <p class="setting-help">Show a bar at the bottom of the sheet to play, pause and skip what the Music app is playing. Off until you turn it on.</p>
+      </div>
+      <button id="music-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="music-label"><span></span></button>
+    </div>
+    <div class="setting-row" id="updates-setting" hidden>
+      <span class="setting-label">Updates</span>
+      <div class="updates-row">
+        <p class="setting-help" id="updates-status">Version —</p>
+        <button id="updates-btn" class="setting-btn">Check for updates</button>
+      </div>
+      <p class="setting-help" id="updates-more" hidden></p>
+    </div>
     <div class="setting-row sync-row">
       <span class="setting-label">Sync between devices</span>
       <p class="setting-help">Keeps your songs the same on your iPhone and Mac. Songs are stored in a private (unlisted) GitHub Gist on your account. Use the same GitHub token on each device.</p>
@@ -1795,6 +2067,15 @@
   </div>
 </div>
 
+<div id="more-modal" role="dialog" aria-modal="true" aria-labelledby="more-title">
+  <div id="more-panel">
+    <h2 id="more-title">Song tools</h2>
+    <div id="more-tools"></div>
+    <button id="more-customize" class="more-row">Customize Top Bar…</button>
+    <button id="more-done">Done</button>
+  </div>
+</div>
+
 <div id="sheet-modal" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
   <div id="sheet-panel">
     <p id="sheet-title"></p>
@@ -1804,6 +2085,7 @@
 </div>
 
 <div id="size-bar" role="toolbar" aria-label="Format selected text" hidden>
+  <button id="swap-pick" aria-haspopup="true" aria-expanded="false" title="Change this section to another one">Swap<span class="caret">▾</span></button>
   <button data-size="-1" aria-label="Make selected text smaller" title="Smaller">A<span class="minus">−</span></button>
   <button id="size-pick" aria-haspopup="true" aria-expanded="false" aria-label="Font size" title="Font size"><span id="size-label">17</span><span class="caret">▾</span></button>
   <button data-size="1" aria-label="Make selected text bigger" title="Bigger"><span class="big">A</span>+</button>
@@ -1816,6 +2098,10 @@
   <button id="hl-pick" aria-haspopup="true" aria-expanded="false" aria-label="Highlight color" title="Highlight"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M15.2 3.6l5.2 5.2-8.9 8.9H6.3v-5.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.3 17.7l-2.6 2.6h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span id="hl-bar"></span></button>
 </div>
 <div id="fmt-menu" role="menu" hidden></div>
+<div id="swap-strip" role="menu" aria-label="Swap section" hidden>
+  <button class="swap-close" aria-label="Close" title="Close"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <div class="swap-scroll"></div>
+</div>
 
 <div id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
   <div id="confirm-panel">
@@ -1913,6 +2199,61 @@
       versions: []
     };
   }
+  // A first-time user starts with a song whose lyrics are the tips (with real formatting as examples).
+  // It's an ordinary song they can edit or delete.
+  function makeWelcomeSong() {
+    var song = newSong();
+    song.title = "Welcome to Lyric Sheet";
+    function sec(type, lines) { return { id: newSectionId(), type: type, note: "", lines: lines }; }
+    var chorus = sec("Chorus", [
+      "Select words to make them bold, bigger or highlighted",
+      "Select a section name, then tap Swap to change it",
+      "Tap the round pencil button to start a new song"
+    ]);
+    // show what formatting looks like, on the words that describe it
+    var l = chorus.lines[0];
+    function at(word) { return l.indexOf(word); }
+    chorus.fmt = [[
+      [at("bold"), at("bold") + 4, 1, "b"],
+      [at("bigger"), at("bigger") + 6, 1.35],
+      [at("highlighted"), at("highlighted") + 11, 1, "", "yellow"]
+    ], null, null];
+    song.sections = [
+      sec("Verse", [
+        "Just start typing: the whole page is yours",
+        "Start a section by typing its name, like Chorus or [Verse 2]",
+        "On a new song, type a title and press Return twice"
+      ]),
+      chorus,
+      sec("Bridge", [
+        "Tap \u2039 All Songs to see your songs and folders",
+        "On iPhone, swipe in from the left edge to go back",
+        "Tap \u2026 for BPM, key, version history and more"
+      ]),
+      sec("Outro", [
+        "This song is just a guide: delete it whenever you like",
+        "(Deleted songs wait 30 days in Recently Deleted)"
+      ])
+    ];
+    return song;
+  }
+
+  // Settings > Welcome song: open it, or add a fresh copy if it's gone
+  function showWelcomeSong() {
+    var song = state.songs.filter(function (s) { return s.id === settings.welcomeId; })[0];
+    if (!song) {
+      song = makeWelcomeSong();
+      state.songs.push(song);
+      settings.welcomeId = song.id;
+      persistSettings();
+      persistSongs();
+    }
+    closeSettings();
+    if (nav.folder === "trash" || (song.folderId !== nav.folder && nav.folder !== "all")) setNav("songs", "all");
+    openSong(song.id);
+    closeSidebar();
+  }
+
   function getActiveSong() {
     for (var i = 0; i < state.songs.length; i++) {
       if (state.songs[i].id === state.activeId) return state.songs[i];
@@ -1938,6 +2279,7 @@
   function openSong(id) {
     maybeSnapshotOnLeave();
     searchScrollPending = true;
+    searchHlDismissed = false;
     galleryOpen = false;
     state.activeId = id;
     settings.lastOpenId = id;
@@ -2107,6 +2449,7 @@
     settings.navFolder = nav.folder;
     persistSettings();
     document.getElementById("song-search").value = "";
+    syncSearchClears();
     if (folder !== undefined && galleryWanted()) { flushReadSync(); galleryOpen = true; renderSidebar(); renderEditor(); return; }
     renderSidebar();
   }
@@ -2398,6 +2741,9 @@
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains("folder-input")) return;
     if (nav.folder !== "all" && nav.folder !== "trash" && !folderById(nav.folder)) nav.folder = "all";
+    var backTo = nav.view === "folders" ? "Folders" : nav.folder === "trash" ? "Recently Deleted"
+      : nav.folder !== "all" && folderById(nav.folder) ? folderById(nav.folder).name : "All Songs";
+    Array.prototype.forEach.call(document.querySelectorAll(".back-label"), function (el) { el.textContent = backTo; });
     document.getElementById("folders-view").hidden = nav.view !== "folders";
     document.getElementById("songs-view").hidden = nav.view === "folders";
     if (nav.view === "folders") { renderFolderList(); return; }
@@ -2411,8 +2757,9 @@
     var q = (document.getElementById("song-search").value || "").trim().toLowerCase();
     updateViewStyleButtons();
     list.hidden = false;
-    if (inTrash) { renderTrashList(list, q); return; }
+    if (inTrash) { document.getElementById("song-count").textContent = ""; renderTrashList(list, q); return; }
     var sorted = navSongs();
+    document.getElementById("song-count").textContent = sorted.length + (sorted.length === 1 ? " Song" : " Songs");
     if (galleryWanted()) { list.hidden = true; renderGallery(sorted, q, folder); return; }
     if (!sorted.length) {
       var none = document.createElement("p");
@@ -2468,7 +2815,38 @@
       list.appendChild(item);
     });
   }
+  // Clear (x) buttons in the search boxes
+  Array.prototype.forEach.call(document.querySelectorAll(".search-wrap"), function (wrap) {
+    var input = wrap.querySelector("input"), btn = wrap.querySelector(".search-clear");
+    function sync() { btn.hidden = !input.value; }
+    input.addEventListener("input", sync);
+    btn.addEventListener("mousedown", function (e) { e.preventDefault(); });   // keep the keyboard up
+    btn.addEventListener("click", function () {
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    });
+    wrap.syncClear = sync;
+  });
+  function syncSearchClears() {
+    Array.prototype.forEach.call(document.querySelectorAll(".search-wrap"), function (w) { if (w.syncClear) w.syncClear(); });
+  }
+  // Searching from the Folders page searches every song: jump to All Songs with the text carried over
+  document.getElementById("folder-search").addEventListener("input", function (e) {
+    var v = e.target.value;
+    if (!v) return;
+    e.target.value = "";
+    setNav("songs", "all");
+    var box = document.getElementById("song-search");
+    box.value = v;
+    box.focus();
+    try { box.setSelectionRange(v.length, v.length); } catch (err) {}
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    syncSearchClears();
+  });
+
   document.getElementById("song-search").addEventListener("input", function () {
+    searchHlDismissed = false;
     if (galleryWanted() && !galleryOpen) { flushReadSync(); galleryOpen = true; renderEditor(); }
     renderSidebar();
     searchScrollPending = true;
@@ -2480,6 +2858,7 @@
   // and opening a song from the results scrolls to the first one. Basic view uses the CSS Custom
   // Highlight API so the lyrics' own markup is never touched; Advanced view tints the matching lines.
   var searchScrollPending = false;
+  var searchHlDismissed = false;   // set once you start writing in the song; a new search or song brings highlights back
   var canHighlight = !!(window.CSS && CSS.highlights && typeof Highlight === "function");
   function searchQuery() { return (document.getElementById("song-search").value || "").trim().toLowerCase(); }
   function rangeInEl(el, start, end) {
@@ -2495,7 +2874,7 @@
   function applySearchHighlight() {
     var scroll = searchScrollPending;
     searchScrollPending = false;
-    var q = searchQuery();
+    var q = searchHlDismissed ? "" : searchQuery();
     if (canHighlight) { CSS.highlights.delete("search-hit"); CSS.highlights.delete("search-line"); }
     Array.prototype.forEach.call(document.querySelectorAll("#canvas .search-line"), function (r) { r.classList.remove("search-line"); });
     if (!q) return;
@@ -2933,7 +3312,7 @@
     canvas.appendChild(sheet);
   }
 
-  // Basic = "read", Advanced = "edit". Every song opens in Basic.
+  // Write (Basic) = "read", Sections (Advanced) = "edit". Every song opens in Write.
   function markViewButtons(mode) {
     var fb = document.querySelectorAll("#mode-fab button");
     for (var i = 0; i < fb.length; i++) fb[i].setAttribute("aria-pressed", fb[i].getAttribute("data-mode") === (mode === "read" ? "read" : "edit") ? "true" : "false");
@@ -3775,8 +4154,8 @@
   // layout, which "Save as Default" replaces (new songs start with it).
   var HUD_TOOLS = [
     { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
-    { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Text Size" }, { id: "wordcount", name: "Word Count" },
-    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Basic / Advanced" }, { id: "import", name: "Import New Lyrics" },
+    { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "wordcount", name: "Word Count" },
+    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Sections" }, { id: "import", name: "Import New Lyrics" },
     { id: "history", name: "Version History" }, { id: "details", name: "Details" }
   ];
   var HUD_BUILTIN = ["title", "bpm", "key", "textsize", "undo", "view", "import", "history", "details"];
@@ -3787,7 +4166,13 @@
     var out = l.filter(function (id, i) { return ids.indexOf(id) !== -1 && l.indexOf(id) === i; });
     return out;
   }
-  function defaultLayout() { return validLayout(settings.hudDefault) || HUD_BUILTIN.slice(); }
+  // Phones start with a lean bar (title and undo/redo); everything else is one tap away under ⋯
+  var HUD_PHONE_BUILTIN = ["title", "undo"];
+  var phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 640px)") : null;
+  function isPhoneLayout() { return !!(phoneQuery && phoneQuery.matches); }
+  function defaultLayout() {
+    return validLayout(settings.hudDefault) || (isPhoneLayout() ? HUD_PHONE_BUILTIN : HUD_BUILTIN).slice();
+  }
   function songLayout(song) { return (song && validLayout(song.hud)) || defaultLayout(); }
   function sameLayout(a, b) { return a.join(",") === b.join(","); }
   function applyHud(song) {
@@ -3797,6 +4182,51 @@
       el.classList.toggle("hud-off", i === -1);
       el.style.order = i === -1 ? "" : String(10 + i);
     });
+    // ⋯ appears whenever some tools aren't in the bar
+    document.getElementById("hud-more").hidden = layout.length >= HUD_TOOLS.length;
+  }
+
+  // ---------- ⋯ panel: the tools that aren't in the top bar ----------
+  // The real controls are moved into the panel while it's open (so they keep working as they
+  // do in the bar) and put back when it closes.
+  var moreModal = document.getElementById("more-modal");
+  var moreMoved = [];
+  function openMorePanel() {
+    var song = getActiveSong();
+    if (!song) return;
+    var layout = songLayout(song), box = document.getElementById("more-tools");
+    HUD_TOOLS.forEach(function (t) {
+      if (layout.indexOf(t.id) !== -1) return;
+      var el = document.querySelector('#meta-bar [data-hud="' + t.id + '"]');
+      if (!el) return;
+      var ph = document.createComment("hud:" + t.id);
+      el.parentNode.insertBefore(ph, el);
+      moreMoved.push({ el: el, ph: ph });
+      el.classList.remove("hud-off");
+      el.style.order = "";
+      box.appendChild(el);
+    });
+    moreModal.classList.add("open");
+  }
+  function closeMorePanel() {
+    moreMoved.forEach(function (m) { if (m.ph.parentNode) m.ph.parentNode.replaceChild(m.el, m.ph); });
+    moreMoved = [];
+    moreModal.classList.remove("open");
+    var song = getActiveSong();
+    if (song) applyHud(song);
+  }
+  document.getElementById("hud-more").addEventListener("click", openMorePanel);
+  document.getElementById("more-done").addEventListener("click", closeMorePanel);
+  moreModal.addEventListener("click", function (e) { if (e.target === moreModal) closeMorePanel(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && moreModal.classList.contains("open")) closeMorePanel(); });
+  // buttons that open something else close the panel too
+  document.getElementById("more-tools").addEventListener("click", function (e) {
+    if (e.target.closest('[data-hud="import"], [data-hud="history"], [data-hud="details"], #view-toggle button')) closeMorePanel();
+  });
+  document.getElementById("more-customize").addEventListener("click", function () { closeMorePanel(); openHudPanel(); });
+  if (phoneQuery) {
+    var onPhoneChange = function () { var s0 = getActiveSong(); if (s0) applyHud(s0); };
+    if (phoneQuery.addEventListener) phoneQuery.addEventListener("change", onPhoneChange); else if (phoneQuery.addListener) phoneQuery.addListener(onPhoneChange);
   }
   function updateWordCount(song) {
     var lines = 0, words = 0;
@@ -4197,7 +4627,9 @@
     closeSidebar();
   });
   function isTypingTarget(el) {
-    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.nodeName));
+    if (!el) return false;
+    if (el.isContentEditable || el.nodeName === "TEXTAREA") return true;
+    return el.nodeName === "INPUT" && !/^(range|checkbox|radio|button|submit|color|file)$/i.test(el.type);
   }
   document.addEventListener("focusin", function (e) { document.body.classList.toggle("is-typing", isTypingTarget(e.target)); });
   document.addEventListener("focusout", function () {
@@ -4280,6 +4712,7 @@
   // ---------- phone layout: slide-out song list ----------
   var appEl = document.getElementById("app");
   function closeSidebar() { appEl.classList.remove("sidebar-open"); }
+
   document.getElementById("songs-toggle").addEventListener("click", function () { appEl.classList.add("sidebar-open"); });
   document.getElementById("sidebar-backdrop").addEventListener("click", closeSidebar);
   document.getElementById("song-list").addEventListener("click", function (e) {
@@ -4335,6 +4768,7 @@
     settingsModal.classList.add("open");
   });
   document.getElementById("settings-done").addEventListener("click", closeSettings);
+  document.getElementById("welcome-btn").addEventListener("click", showWelcomeSong);
   settingsModal.addEventListener("click", function (e) { if (e.target === settingsModal) closeSettings(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && settingsModal.classList.contains("open")) closeSettings();
@@ -4397,6 +4831,29 @@
   document.getElementById("songs-fab").addEventListener("click", function () {
     document.getElementById("app").classList.add("sidebar-open");
   });
+  // Like iOS: swipe right from the left edge of a song to go back to the list
+  (function () {
+    var start = null;
+    var mainEl = document.getElementById("main");
+    mainEl.addEventListener("touchstart", function (e) {
+      start = null;
+      if (e.touches.length !== 1 || appEl.classList.contains("sidebar-open") || window.innerWidth > 640) return;
+      var t = e.touches[0];
+      if (t.clientX <= 24) start = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+    mainEl.addEventListener("touchmove", function (e) {
+      if (!start) return;
+      var t = e.touches[0], dx = t.clientX - start.x, dy = Math.abs(t.clientY - start.y);
+      if (dy > 60) { start = null; return; }
+      if (dx > 70) {
+        start = null;
+        flushReadSync();
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        appEl.classList.add("sidebar-open");
+      }
+    }, { passive: true });
+    mainEl.addEventListener("touchend", function () { start = null; }, { passive: true });
+  })();
 
   // ---------- sync between devices (private GitHub Gist) ----------
   var SYNC_KEY = "lyricapp_sync_v1";
@@ -4709,9 +5166,17 @@
       r.endContainer !== sizeSaved.endContainer || r.endOffset !== sizeSaved.endOffset;
     sizeSaved = r.cloneRange();
     if (moved) closeFmtMenu();
-    placeSizeBar(r);
     refreshSizeBarState();
+    placeSizeBar(r);
   });
+  // Writing in the song (typing, deleting, Return, paste) clears the search highlights
+  function dismissSearchHighlight() {
+    if (searchHlDismissed || !searchQuery()) return;
+    searchHlDismissed = true;
+    applySearchHighlight();
+  }
+  document.getElementById("canvas").addEventListener("beforeinput", dismissSearchHighlight, true);
+  document.getElementById("canvas").addEventListener("paste", dismissSearchHighlight, true);
   document.getElementById("canvas").addEventListener("input", function (e) {
     if (e.target.classList && e.target.classList.contains("line-input") && searchQuery()) applySearchHighlight();
   });
@@ -4739,16 +5204,139 @@
       return null;
     }
     if (b <= a) return null;
-    var idx = [], lineStart = 0;
+    var idx = [], lineStart = 0, header = null;
     w.text.split("\n").forEach(function (t) {
       var lineEnd = lineStart + t.length;
-      if (lineEnd > a && lineStart < b && t.trim() && !detectHeader(t)) {
+      var h = t.trim() ? detectHeader(t) : null;
+      if (lineEnd > a && lineStart < b && t.trim() && !h) {
         for (var i = Math.max(a, lineStart); i < Math.min(b, lineEnd); i++) idx.push(i);
       }
+      // the whole selection sits inside one header line
+      if (h && a >= lineStart && b <= lineEnd) header = { start: lineStart, text: t, name: h.name };
       lineStart = lineEnd + 1;
     });
-    return { ed: ed, w: w, a: a, b: b, idx: idx };
+    return { ed: ed, w: w, a: a, b: b, idx: idx, header: header };
   }
+  // ---------- Swap strip (phones) ----------
+  // A row of section names pinned just above the keyboard. It scrolls by following your finger
+  // (native scrolling would need the touch, which would clear the text selection) and only
+  // counts a tap if the finger barely moved.
+  var swapStrip = document.getElementById("swap-strip");
+  var swapScroll = swapStrip.querySelector(".swap-scroll");
+  var coarseQuery = window.matchMedia ? window.matchMedia("(pointer: coarse)") : null;
+  function swapStripWanted() { return !!(coarseQuery && coarseQuery.matches); }
+  function swapChoices() {
+    var info = selectionInfo(true);
+    var current = info && info.header ? info.header.name.toLowerCase() : "";
+    return SWAP_NAMES.concat(settings.savedHeaders || []).filter(function (n) { return n.toLowerCase() !== current; });
+  }
+  function placeSwapStrip() {
+    if (swapStrip.hidden) return;
+    var vv = window.visualViewport;
+    var bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    swapStrip.classList.toggle("kb-up", !!vv && vv.height < window.innerHeight - 80);   // keyboard is showing
+    swapStrip.style.top = Math.round(bottom - swapStrip.offsetHeight) + "px";
+  }
+  function openSwapStrip() {
+    swapScroll.innerHTML = "";
+    swapChoices().forEach(function (n) {
+      var b = document.createElement("button");
+      b.setAttribute("role", "menuitem");
+      b.setAttribute("data-swap", n);
+      b.textContent = n;
+      swapScroll.appendChild(b);
+    });
+    swapScroll.scrollLeft = 0;
+    swapStrip.hidden = false;
+    fmtMenuKind = "swap";
+    document.getElementById("swap-pick").setAttribute("aria-expanded", "true");
+    placeSwapStrip();
+  }
+  function closeSwapStrip() { swapStrip.hidden = true; }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", placeSwapStrip);
+    window.visualViewport.addEventListener("scroll", placeSwapStrip);
+  }
+  (function () {
+    var drag = null;
+    ["touchstart", "mousedown"].forEach(function (ev) {
+      swapStrip.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });   // keep the selection
+    });
+    swapStrip.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      drag = { x: e.clientX, left: swapScroll.scrollLeft, moved: false, btn: e.target.closest("button") };
+      try { swapStrip.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    swapStrip.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      var dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 8) drag.moved = true;
+      if (drag.moved) swapScroll.scrollLeft = drag.left - dx;
+    });
+    function end() {
+      var d = drag;
+      drag = null;
+      if (!d || d.moved || !d.btn) return;
+      if (d.btn.classList.contains("swap-close")) { closeFmtMenu(); return; }
+      try { swapHeader(d.btn.getAttribute("data-swap")); } catch (err) { showFmtError(err); }
+      clearTimeout(fmtCloseTimer);
+      fmtCloseTimer = setTimeout(closeFmtMenu, 300);
+    }
+    swapStrip.addEventListener("pointerup", end);
+    swapStrip.addEventListener("pointercancel", function () { drag = null; });
+    // keyboard / assistive tech
+    swapStrip.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b || e.detail !== 0) return;
+      if (b.classList.contains("swap-close")) closeFmtMenu(); else swapHeader(b.getAttribute("data-swap"));
+    });
+  })();
+
+  // ---------- Swap a section header for another ----------
+  var SWAP_NAMES = ["Intro", "Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Hook", "Bridge", "Breakdown", "Refrain", "Interlude", "Outro"];
+  // New text for a header line with its name replaced, keeping its brackets, colon and note
+  function swappedHeaderLine(t, name) {
+    var c = t.charAt(0);
+    if (c === "[") return { text: "[" + name + t.slice(t.indexOf("]")), nameAt: 1 };
+    if (c === "(" || c === "{") return { text: c + name + t.slice(t.indexOf(c === "(" ? ")" : "}")), nameAt: 1 };
+    var m = t.match(/^([^\(\):]+?)(\s*[:\(].*)?$/);
+    return { text: name + (m && m[2] ? m[2] : ""), nameAt: 0 };
+  }
+  function swapHeader(name) {
+    var info = selectionInfo(true);
+    var song = getActiveSong();
+    if (!info || !info.header || !song) return;
+    var h = info.header, lead = h.text.length - h.text.replace(/^\s+/, "").length;
+    var sw = swappedHeaderLine(h.text.trim(), name);
+    var start = h.start + lead, oldLen = h.text.trim().length;
+    var S = info.w.text.slice(0, start) + sw.text + info.w.text.slice(start + oldLen);
+    var keys = info.w.keys.slice(0, start).concat(sw.text.split("").map(function () { return PLAIN; }), info.w.keys.slice(start + oldLen));
+    undo.boundary = true;
+    // keep the new name selected, so you can swap again
+    redrawEditor(song, info.ed, S, keys, start + sw.nameAt, start + sw.nameAt + name.length);
+    undo.boundary = true;
+  }
+  // Redraw the Basic editor from text + per-character styles and put the selection at [a, b]
+  function redrawEditor(song, ed, S, keys, a, b) {
+    var lines = [], pos = 0;
+    S.split("\n").forEach(function (t) {
+      lines.push({ text: t, runs: runsFromKeys(keys.slice(pos, pos + t.length)) });
+      pos += t.length + 1;
+    });
+    ed.innerHTML = "";
+    lines.forEach(function (l) { ed.appendChild(readLineEl(l.text, l.runs)); });
+    ed.classList.toggle("is-empty", !S.trim());
+    var p0 = editorPointAt(ed, a), p1 = editorPointAt(ed, b);
+    var nr = document.createRange();
+    nr.setStart(p0.node, p0.offset);
+    nr.setEnd(p1.node, p1.offset);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(nr);
+    savedSel = { ed: ed, a: a, b: b };
+    readEdited(song, ed);
+  }
+
   // Restyle the selected characters: fn({s, f, h}) returns the fields to change. Returns false if nothing was selected.
   function styleSelection(fn, allowSaved) {
     var info = selectionInfo(allowSaved);
@@ -4828,6 +5416,7 @@
   }
   function refreshSizeBarState() {
     var info = selectionInfo(false);
+    sizeBar.classList.toggle("header-mode", !!(info && info.header));
     updateSizeBarState(info ? info.idx.map(function (i) { return info.w.keys[i]; }) : []);
   }
 
@@ -4869,7 +5458,10 @@
     if (window.console) console.error(err);
   }
   onPress(sizeBar, function (b) {
-    if (b.id === "size-pick" || b.id === "hl-pick") { toggleFmtMenu(b.id === "size-pick" ? "size" : "hl"); return; }
+    if (b.id === "size-pick" || b.id === "hl-pick" || b.id === "swap-pick") {
+      toggleFmtMenu(b.id === "size-pick" ? "size" : b.id === "hl-pick" ? "hl" : "swap");
+      return;
+    }
     closeFmtMenu();
     if (b.hasAttribute("data-fmt")) toggleFormat(b.getAttribute("data-fmt"), true);
     else resizeSelection(parseInt(b.getAttribute("data-size"), 10), true);
@@ -4883,6 +5475,9 @@
     fmtMenuKind = null;
     document.getElementById("size-pick").setAttribute("aria-expanded", "false");
     document.getElementById("hl-pick").setAttribute("aria-expanded", "false");
+    document.getElementById("swap-pick").setAttribute("aria-expanded", "false");
+    fmtMenu.classList.remove("swap-menu");
+    closeSwapStrip();
   }
   function menuBtn(label, attrs) {
     var b = document.createElement("button");
@@ -4907,8 +5502,17 @@
     closeFmtMenu();
     fmtMenuKind = kind;
     fmtMenu.innerHTML = "";
-    var anchor = document.getElementById(kind === "size" ? "size-pick" : "hl-pick");
-    if (kind === "size") {
+    var anchor = document.getElementById(kind === "size" ? "size-pick" : kind === "hl" ? "hl-pick" : "swap-pick");
+    if (kind === "swap" && swapStripWanted()) { openSwapStrip(); return; }
+    if (kind === "swap") {
+      var info = selectionInfo(true);
+      var current = info && info.header ? info.header.name.toLowerCase() : "";
+      fmtMenu.setAttribute("aria-label", "Swap section");
+      fmtMenu.classList.add("swap-menu");
+      SWAP_NAMES.concat(settings.savedHeaders || []).forEach(function (n) {
+        if (n.toLowerCase() !== current) menuBtn(n, { "data-swap": n, "aria-checked": "false" });
+      });
+    } else if (kind === "size") {
       fmtMenu.setAttribute("aria-label", "Font size");
       ptSizes().forEach(function (pt) {
         var b = menuBtn(String(pt), { "data-pt": pt, "aria-checked": String(barState.pt === pt) });
@@ -4929,7 +5533,8 @@
     placeFmtMenu(anchor);
   }
   onPress(fmtMenu, function (b) {
-    if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
+    if (b.hasAttribute("data-swap")) swapHeader(b.getAttribute("data-swap"));
+    else if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
     else setHighlight(b.getAttribute("data-hl"), true);
     // close once the finger has lifted: hiding the menu mid-tap lets iOS pass the tap to the lyrics underneath
     clearTimeout(fmtCloseTimer);
@@ -5023,10 +5628,314 @@
     stepUndo(dir);
   });
 
+  // iPhone: scale the interface with the phone's Text Size setting (Settings > Display & Brightness),
+  // the way Notes does. WebKit exposes it as the size of the system "body" font (17px by default).
+  function applyPhoneTextSize() {
+    var body = 17;
+    if (window.CSS && CSS.supports && CSS.supports("font", "-apple-system-body")) {
+      var probe = document.createElement("span");
+      probe.style.cssText = "position:absolute;visibility:hidden;font:-apple-system-body";
+      document.body.appendChild(probe);
+      body = parseFloat(getComputedStyle(probe).fontSize) || 17;
+      document.body.removeChild(probe);
+    }
+    var scale = Math.max(0.85, Math.min(1.6, body / 17));   // the largest accessibility sizes would break the layout
+    document.documentElement.style.setProperty("--phone-root", (19.3 * scale).toFixed(2) + "px");
+  }
+  applyPhoneTextSize();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) applyPhoneTextSize(); });
+
+  // ---------- Apple Music controls (iPhone app) ----------
+  // A mini player at the bottom of the sheet for what the Music app is playing (the same player as
+  // the Lock Screen / Control Center for Apple Music). Uses the app's MusicControl native add-on;
+  // iOS doesn't let apps control other music apps, so it's Apple Music only.
+  // iPhone app: the MusicControl add-on (Apple Music). Mac app: Music or Spotify through AppleScript (desktop/music.js).
+  var musicOnMac = !!(window.lyricDesktop && window.lyricDesktop.music && window.lyricDesktop.platform === "darwin");
+  var music = {
+    available: musicOnMac || !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() &&
+                  Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.nativePromise),
+    state: null, artId: null, timer: null, busy: false
+  };
+  var musicBar = document.getElementById("music-bar");
+  function musicCall(method, opts) {
+    if (musicOnMac) return window.lyricDesktop.music(method, opts || {});
+    return window.Capacitor.nativePromise("MusicControl", method, opts || {});
+  }
+  function musicWanted() { return music.available && settings.musicBar === true; }   // off until turned on in Settings
+  var musicPill = document.getElementById("music-pill");
+  function showMusicBar() {
+    var on = musicWanted() && !appEl.classList.contains("sidebar-open") && !!getActiveSong();
+    var collapsed = settings.musicCollapsed === true;
+    musicBar.hidden = !on || collapsed;
+    musicPill.hidden = !on || !collapsed;
+    document.body.classList.toggle("music-on", on && !collapsed);
+    return on;
+  }
+  // Swipe the player down (or tap its hide button) to shrink it to the round music button;
+  // tap that button (or swipe it up) to bring the player back.
+  function setMusicCollapsed(c) {
+    settings.musicCollapsed = c;
+    persistSettings();
+    showMusicBar();
+    refreshMusic();
+  }
+  function renderMusic(st) {
+    var title = musicBar.querySelector(".mb-title"), artist = musicBar.querySelector(".mb-artist");
+    var connect = musicBar.querySelector(".mb-connect"), controls = musicBar.querySelector(".mb-controls");
+    var art = musicBar.querySelector(".mb-art"), play = musicBar.querySelector(".mb-play");
+    var access = st && st.access;
+    connect.hidden = access !== "notDetermined";
+    controls.hidden = access !== "authorized";
+    if (access === "notDetermined") {
+      title.textContent = "Control Apple Music from here";
+      artist.textContent = "Play, pause and skip while you write";
+    } else if (access === "denied" || access === "restricted") {
+      title.textContent = musicOnMac ? "Lyric Sheet can't control " + (st.app || "Music") : "Apple Music access is off";
+      artist.textContent = musicOnMac ? "Allow it in System Settings \u203A Privacy & Security \u203A Automation"
+                                      : "Turn on Media & Apple Music for Lyric Sheet in the Settings app";
+    } else if (access === "authorized" && st.id) {
+      title.textContent = st.title || "Unknown song";
+      artist.textContent = [st.artist, st.album].filter(Boolean).join(" \u2014 ") + (musicOnMac && st.app === "Spotify" ? " \u00B7 Spotify" : "");
+    } else if (access === "authorized") {
+      title.textContent = musicOnMac ? "Nothing playing" : "Nothing playing in Music";
+      artist.textContent = musicOnMac ? "Press play to start Apple Music, or play something in Spotify" : "Press play to resume Apple Music";
+    } else {
+      title.textContent = "Apple Music";
+      artist.textContent = "";
+    }
+    var playing = !!(st && st.playing);
+    var rpt = (st && st.repeat) || "off", rb = musicBar.querySelector(".mb-repeat");
+    rb.classList.toggle("on", rpt !== "off");
+    rb.classList.toggle("one", rpt === "one");
+    rb.setAttribute("aria-label", "Repeat: " + (rpt === "one" ? "one song" : rpt === "all" ? "all" : "off"));
+    play.classList.toggle("playing", playing);
+    musicPill.classList.toggle("playing", playing);
+    musicPill.setAttribute("aria-label", "Show music controls" + (st && st.id && st.title ? " (" + st.title + ")" : ""));
+    play.setAttribute("aria-label", playing ? "Pause" : "Play");
+    if (!(st && st.id)) { art.style.backgroundImage = ""; art.classList.remove("has-art"); music.artId = null; }
+  }
+  function refreshMusic() {
+    if (!showMusicBar() || document.hidden || music.busy) return;
+    music.busy = true;
+    var needArt = false;
+    musicCall("getState", { artwork: false }).then(function (st) {
+      music.state = st;
+      renderMusic(st);
+      updateScrubState(st);
+      needArt = st.access === "authorized" && st.id && st.id !== music.artId;
+      if (!needArt) return;
+      return musicCall("getState", { artwork: true }).then(function (full) {
+        var art = musicBar.querySelector(".mb-art");
+        music.artId = full.id;
+        if (full.artwork) { art.style.backgroundImage = "url(" + full.artwork + ")"; art.classList.add("has-art"); }
+        else { art.style.backgroundImage = ""; art.classList.remove("has-art"); }
+      });
+    }).catch(function () {
+      if (musicOnMac) return;   // a slow or failed reply on the Mac: just try again next time
+      // the native add-on isn't there (an older build): hide the bar
+      music.available = false;
+      showMusicBar();
+    }).then(function () { music.busy = false; });
+  }
+  // ----- scrubbing: a thin progress line on the player, and a timeline you open by tapping the song -----
+  var scrub = { open: false, dragging: false, pos: 0, dur: 0, at: 0, playing: false };
+  var scrubRow = musicBar.querySelector(".mb-scrub"), scrubRange = musicBar.querySelector(".mb-range");
+  function fmtTime(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+  }
+  function scrubNow() {   // estimated position, moving on between refreshes while playing
+    var p = scrub.pos + (scrub.playing ? (Date.now() - scrub.at) / 1000 : 0);
+    return Math.min(scrub.dur, Math.max(0, p));
+  }
+  function drawScrub(pos) {
+    var frac = scrub.dur > 0 ? pos / scrub.dur : 0;
+    musicBar.querySelector(".mb-progress span").style.width = (frac * 100).toFixed(2) + "%";
+    if (!scrub.open) return;
+    if (!scrub.dragging) scrubRange.value = String(Math.round(frac * 1000));
+    musicBar.querySelector(".mb-time").textContent = fmtTime(pos);
+    musicBar.querySelector(".mb-left").textContent = "-" + fmtTime(scrub.dur - pos);
+  }
+  function updateScrubState(st) {
+    var has = !!(st && st.access === "authorized" && st.id && st.duration > 0);
+    scrub.dur = has ? st.duration : 0;
+    scrub.pos = has ? st.position || 0 : 0;
+    scrub.at = Date.now();
+    scrub.playing = has && !!st.playing;
+    // the timeline shows by default (tap the song to hide it; that choice is remembered)
+    var want = settings.musicScrub !== false;
+    if (has && want && !scrub.open) setScrubOpen(true);
+    else if (!has && scrub.open) { setScrubOpen(false); }
+    musicBar.querySelector(".mb-progress").style.display = has ? "" : "none";
+    if (!scrub.dragging) drawScrub(scrubNow());
+  }
+  function setScrubOpen(open) {
+    scrub.open = open && scrub.dur > 0;
+    scrub.wanted = open;
+    scrubRow.hidden = !scrub.open;
+    document.body.classList.toggle("music-scrub", scrub.open);
+    musicBar.querySelector(".mb-info").setAttribute("aria-expanded", String(scrub.open));
+    drawScrub(scrubNow());
+  }
+  setInterval(function () { if (!musicBar.hidden && scrub.playing && !scrub.dragging) drawScrub(scrubNow()); }, 250);
+  scrubRange.addEventListener("input", function () {
+    scrub.dragging = true;
+    var pos = scrub.dur * (+scrubRange.value / 1000);
+    musicBar.querySelector(".mb-time").textContent = fmtTime(pos);
+    musicBar.querySelector(".mb-left").textContent = "-" + fmtTime(scrub.dur - pos);
+  });
+  scrubRange.addEventListener("change", function () {
+    var pos = scrub.dur * (+scrubRange.value / 1000);
+    scrub.pos = pos; scrub.at = Date.now();
+    musicCall("seek", { position: pos }).catch(function (err) { showFmtError(err); }).then(function () {
+      scrub.dragging = false;
+      setTimeout(refreshMusic, 300);
+    });
+  });
+  function toggleScrub() {
+    if (!(scrub.dur > 0)) return;
+    settings.musicScrub = !scrub.open;
+    persistSettings();
+    setScrubOpen(!scrub.open);
+  }
+
+  function musicCommand(which) {
+    var st = music.state || {};
+    if (which === "repeat") {   // off -> all -> one -> off (Spotify has no repeat-one)
+      var modes = st.repeatModes || ["off", "all", "one"];
+      var nextMode = modes[(modes.indexOf(st.repeat || "off") + 1) % modes.length];
+      st.repeat = nextMode;
+      renderMusic(st);
+      musicCall("setRepeat", { mode: nextMode }).catch(function (err) { showFmtError(err); }).then(function () { setTimeout(refreshMusic, 350); });
+      return;
+    }
+    var method = which === "toggle" ? (st.playing ? "pause" : "play") : which;
+    if (which === "toggle") {   // flip the button right away; the next refresh confirms it
+      st.playing = !st.playing;
+      renderMusic(st);
+    }
+    musicCall(method).catch(function (err) { showFmtError(err); }).then(function () { setTimeout(refreshMusic, 350); });
+  }
+  if (music.available) {
+    document.getElementById("music-setting").hidden = false;
+    if (musicOnMac) {
+      document.getElementById("music-label").textContent = "Music & Spotify controls";
+      document.querySelector("#music-setting .setting-help").textContent =
+        "Show a bar at the bottom of the sheet to play, pause, skip and scrub what Music or Spotify is playing. Off until you turn it on.";
+      musicBar.setAttribute("aria-label", "Music player");
+    }
+    onPress(musicBar.querySelector(".mb-controls"), function (b) { musicCommand(b.getAttribute("data-music")); });
+    musicBar.querySelector(".mb-connect").addEventListener("click", function () {
+      musicCall("requestAccess").then(function () { refreshMusic(); });
+    });
+    function setMusicBar(on) {
+      settings.musicBar = on;
+      persistSettings();
+      document.getElementById("music-switch").setAttribute("aria-checked", String(on));
+      showMusicBar();
+      refreshMusic();
+    }
+    document.getElementById("music-switch").addEventListener("click", function () { setMusicBar(settings.musicBar !== true); });
+    musicBar.querySelector(".mb-hide").addEventListener("click", function () { setMusicCollapsed(true); });
+    musicPill.addEventListener("click", function () { setMusicCollapsed(false); });
+    // tap the song (title or artwork) to open or close the timeline
+    musicBar.querySelector(".mb-info").setAttribute("role", "button");
+    musicBar.querySelector(".mb-info").setAttribute("aria-label", "Show song position");
+    musicBar.querySelector(".mb-info").addEventListener("click", toggleScrub);
+    musicBar.querySelector(".mb-art").addEventListener("click", toggleScrub);
+    (function () {
+      var y0 = null;
+      musicBar.addEventListener("touchstart", function (e) {
+        y0 = e.touches.length === 1 && !e.target.closest(".mb-scrub") ? e.touches[0].clientY : null;
+      }, { passive: true });
+      musicBar.addEventListener("touchmove", function (e) {
+        if (y0 !== null && e.touches[0].clientY - y0 > 40) { y0 = null; setMusicCollapsed(true); }
+      }, { passive: true });
+      musicBar.addEventListener("touchend", function () { y0 = null; }, { passive: true });
+      var p0 = null;
+      musicPill.addEventListener("touchstart", function (e) { p0 = e.touches[0].clientY; }, { passive: true });
+      musicPill.addEventListener("touchmove", function (e) {
+        if (p0 !== null && p0 - e.touches[0].clientY > 30) { p0 = null; setMusicCollapsed(false); }
+      }, { passive: true });
+    })();
+    // keep it current while it's on screen (what's playing can change from the Lock Screen, AirPods, etc.)
+    music.timer = setInterval(refreshMusic, 1500);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) refreshMusic(); });
+    new MutationObserver(function () { showMusicBar(); }).observe(appEl, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  // ---------- Settings > Updates (Mac app) ----------
+  // Checks the latest GitHub Release; if it's newer, "Download & Install" swaps in the new version
+  // and reopens the app (desktop/updater.js).
+  (function () {
+    var desk = window.lyricDesktop;
+    if (!desk || !desk.updates) return;
+    var row = document.getElementById("updates-setting"), status = document.getElementById("updates-status");
+    var btn = document.getElementById("updates-btn"), more = document.getElementById("updates-more");
+    var found = null;
+    row.hidden = false;
+    desk.updates("version").then(function (v) { status.textContent = "Version " + v; });
+    function say(text, detail, link) {
+      status.textContent = text;
+      more.hidden = !detail && !link;
+      more.textContent = detail || "";
+      if (link) {
+        var a = document.createElement("a");
+        a.href = link; a.target = "_blank"; a.rel = "noopener";
+        a.textContent = "What's new";
+        if (detail) more.appendChild(document.createTextNode(" "));
+        more.appendChild(a);
+      }
+    }
+    btn.addEventListener("click", function () {
+      if (found) {   // install
+        btn.disabled = true;
+        btn.textContent = "Installing\u2026";
+        say("Downloading version " + found.latest + "\u2026", "Lyric Sheet will close and reopen on its own when it's done.");
+        desk.updates("install").catch(function (err) {
+          btn.disabled = false;
+          btn.textContent = "Download & Install";
+          say("Couldn't install the update", String(err && err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ""), found.page);
+        });
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Checking\u2026";
+      desk.updates("check").then(function (r) {
+        btn.disabled = false;
+        if (r.available) {
+          found = r;
+          btn.textContent = "Download & Install";
+          say("Version " + r.latest + " is available", "You have " + r.current + ".", r.page);
+        } else {
+          btn.textContent = "Check for updates";
+          say("You're up to date", "Version " + r.current + " is the newest.");
+        }
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = "Check for updates";
+        var msg = String(err && err.message || err);
+        say("Couldn't check for updates", /404/.test(msg) ? "No releases have been published yet." : "Check your internet connection and try again.");
+      });
+    });
+  })();
+
   // ---------- init ----------
   loadAll();
   loadFolders();
   loadTrash();
+  // first launch: a welcome song with the tips (only ever once; people who already have songs don't get it)
+  if (!settings.welcomed) {
+    if (!state.songs.length) {
+      var welcome = makeWelcomeSong();
+      state.songs.push(welcome);
+      settings.lastOpenId = welcome.id;
+      settings.welcomeId = welcome.id;
+      persistSongs();
+    }
+    settings.welcomed = true;
+    persistSettings();
+  }
   setInterval(function () { var n = trash.length; purgeTrash(); if (trash.length !== n) renderSidebar(); }, 60 * 60 * 1000);
   nav.folder = settings.navFolder && (settings.navFolder === "all" || settings.navFolder === "trash" || folderById(settings.navFolder)) ? settings.navFolder : "all";
   if (state.songs.length) {
@@ -5041,6 +5950,10 @@
   loadSync();
   setSyncState(sync.token ? "ok" : "off");
   if (sync.token) syncNow();
+  if (music.available) {
+    document.getElementById("music-switch").setAttribute("aria-checked", String(settings.musicBar === true));
+    refreshMusic();
+  }
 })();
 </script>
 </body>

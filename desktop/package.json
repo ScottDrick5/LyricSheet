@@ -1,6 +1,6 @@
 {
   "name": "lyric-sheet-desktop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Lyric Sheet desktop prototype",
   "main": "main.js",
@@ -14,6 +14,8 @@
     "files": [
       "main.js",
       "preload.js",
+      "music.js",
+      "updater.js",
       "app/**/*"
     ],
     "directories": {
@@ -23,6 +25,9 @@
     "mac": {
       "category": "public.app-category.music",
       "identity": null,
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Lyric Sheet shows what's playing in Music or Spotify and lets you play, pause, skip and scrub while you write."
+      },
       "target": [
         "dir"
       ]

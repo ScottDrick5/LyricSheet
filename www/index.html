@@ -1692,6 +1692,16 @@
   .mb-controls button:active { background: var(--shell-hover); }
   .mb-play .ico-pause, .mb-play.playing .ico-play { display: none; }
   .mb-play.playing .ico-pause { display: block; }
+  #music-bar { flex-wrap: wrap; row-gap: 6px; }
+  .mb-art, .mb-info { cursor: pointer; }
+  .mb-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: transparent; pointer-events: none; }
+  .mb-progress span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .mb-scrub { order: 10; flex-basis: 100%; display: flex; align-items: center; gap: 10px; padding: 2px 2px 0; }
+  .mb-scrub[hidden] { display: none; }
+  .mb-scrub span { font-size: 0.7rem; color: var(--shell-text-dim); font-variant-numeric: tabular-nums; min-width: 38px; }
+  .mb-scrub .mb-left { text-align: right; }
+  .mb-range { flex: 1; min-width: 0; accent-color: var(--accent); height: 28px; margin: 0; touch-action: pan-x; }
+  body.music-on.music-scrub #new-fab { bottom: calc(22px + 104px + env(safe-area-inset-bottom, 0px)); }
   .mb-handle {
     position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
     width: 36px; height: 4px; border-radius: 2px; background: var(--shell-border);
@@ -1743,6 +1753,12 @@
       <button data-music="previous" aria-label="Previous"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5.5v13L9 12z" fill="currentColor"/></svg></button>
       <button data-music="toggle" class="mb-play" aria-label="Play"><svg class="ico-play" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7 4.5v15L19.5 12z" fill="currentColor"/></svg><svg class="ico-pause" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/></svg></button>
       <button data-music="next" aria-label="Next"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M5 5.5v13L15 12z" fill="currentColor"/></svg></button>
+    </div>
+    <div class="mb-progress" aria-hidden="true"><span></span></div>
+    <div class="mb-scrub" hidden>
+      <span class="mb-time">0:00</span>
+      <input class="mb-range" type="range" min="0" max="1000" step="1" value="0" aria-label="Song position">
+      <span class="mb-left">-0:00</span>
     </div>
     <button class="mb-hide" aria-label="Hide music controls" title="Hide (tap the music button to bring it back)"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
@@ -4413,7 +4429,9 @@
     closeSidebar();
   });
   function isTypingTarget(el) {
-    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.nodeName));
+    if (!el) return false;
+    if (el.isContentEditable || el.nodeName === "TEXTAREA") return true;
+    return el.nodeName === "INPUT" && !/^(range|checkbox|radio|button|submit|color|file)$/i.test(el.type);
   }
   document.addEventListener("focusin", function (e) { document.body.classList.toggle("is-typing", isTypingTarget(e.target)); });
   document.addEventListener("focusout", function () {
@@ -5494,6 +5512,7 @@
     musicCall("getState", { artwork: false }).then(function (st) {
       music.state = st;
       renderMusic(st);
+      updateScrubState(st);
       needArt = st.access === "authorized" && st.id && st.id !== music.artId;
       if (!needArt) return;
       return musicCall("getState", { artwork: true }).then(function (full) {
@@ -5508,6 +5527,59 @@
       showMusicBar();
     }).then(function () { music.busy = false; });
   }
+  // ----- scrubbing: a thin progress line on the player, and a timeline you open by tapping the song -----
+  var scrub = { open: false, dragging: false, pos: 0, dur: 0, at: 0, playing: false };
+  var scrubRow = musicBar.querySelector(".mb-scrub"), scrubRange = musicBar.querySelector(".mb-range");
+  function fmtTime(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+  }
+  function scrubNow() {   // estimated position, moving on between refreshes while playing
+    var p = scrub.pos + (scrub.playing ? (Date.now() - scrub.at) / 1000 : 0);
+    return Math.min(scrub.dur, Math.max(0, p));
+  }
+  function drawScrub(pos) {
+    var frac = scrub.dur > 0 ? pos / scrub.dur : 0;
+    musicBar.querySelector(".mb-progress span").style.width = (frac * 100).toFixed(2) + "%";
+    if (!scrub.open) return;
+    if (!scrub.dragging) scrubRange.value = String(Math.round(frac * 1000));
+    musicBar.querySelector(".mb-time").textContent = fmtTime(pos);
+    musicBar.querySelector(".mb-left").textContent = "-" + fmtTime(scrub.dur - pos);
+  }
+  function updateScrubState(st) {
+    var has = !!(st && st.access === "authorized" && st.id && st.duration > 0);
+    scrub.dur = has ? st.duration : 0;
+    scrub.pos = has ? st.position || 0 : 0;
+    scrub.at = Date.now();
+    scrub.playing = has && !!st.playing;
+    if (!has && scrub.open) setScrubOpen(false);
+    musicBar.querySelector(".mb-progress").style.display = has ? "" : "none";
+    if (!scrub.dragging) drawScrub(scrubNow());
+  }
+  function setScrubOpen(open) {
+    scrub.open = open && scrub.dur > 0;
+    scrubRow.hidden = !scrub.open;
+    document.body.classList.toggle("music-scrub", scrub.open);
+    musicBar.querySelector(".mb-info").setAttribute("aria-expanded", String(scrub.open));
+    drawScrub(scrubNow());
+  }
+  setInterval(function () { if (!musicBar.hidden && scrub.playing && !scrub.dragging) drawScrub(scrubNow()); }, 250);
+  scrubRange.addEventListener("input", function () {
+    scrub.dragging = true;
+    var pos = scrub.dur * (+scrubRange.value / 1000);
+    musicBar.querySelector(".mb-time").textContent = fmtTime(pos);
+    musicBar.querySelector(".mb-left").textContent = "-" + fmtTime(scrub.dur - pos);
+  });
+  scrubRange.addEventListener("change", function () {
+    var pos = scrub.dur * (+scrubRange.value / 1000);
+    scrub.pos = pos; scrub.at = Date.now();
+    musicCall("seek", { position: pos }).catch(function (err) { showFmtError(err); }).then(function () {
+      scrub.dragging = false;
+      setTimeout(refreshMusic, 300);
+    });
+  });
+  function toggleScrub() { if (scrub.dur > 0) setScrubOpen(!scrub.open); }
+
   function musicCommand(which) {
     var st = music.state || {};
     var method = which === "toggle" ? (st.playing ? "pause" : "play") : which;
@@ -5533,9 +5605,16 @@
     document.getElementById("music-switch").addEventListener("click", function () { setMusicBar(settings.musicBar !== true); });
     musicBar.querySelector(".mb-hide").addEventListener("click", function () { setMusicCollapsed(true); });
     musicPill.addEventListener("click", function () { setMusicCollapsed(false); });
+    // tap the song (title or artwork) to open or close the timeline
+    musicBar.querySelector(".mb-info").setAttribute("role", "button");
+    musicBar.querySelector(".mb-info").setAttribute("aria-label", "Show song position");
+    musicBar.querySelector(".mb-info").addEventListener("click", toggleScrub);
+    musicBar.querySelector(".mb-art").addEventListener("click", toggleScrub);
     (function () {
       var y0 = null;
-      musicBar.addEventListener("touchstart", function (e) { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+      musicBar.addEventListener("touchstart", function (e) {
+        y0 = e.touches.length === 1 && !e.target.closest(".mb-scrub") ? e.touches[0].clientY : null;
+      }, { passive: true });
       musicBar.addEventListener("touchmove", function (e) {
         if (y0 !== null && e.touches[0].clientY - y0 > 40) { y0 = null; setMusicCollapsed(true); }
       }, { passive: true });

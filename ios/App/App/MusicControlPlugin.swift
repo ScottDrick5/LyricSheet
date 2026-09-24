@@ -15,7 +15,8 @@ public class MusicControlPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "play", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "pause", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "next", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "previous", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "previous", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "seek", returnType: CAPPluginReturnPromise)
     ]
 
     private var player: MPMusicPlayerController { MPMusicPlayerController.systemMusicPlayer }
@@ -96,6 +97,17 @@ public class MusicControlPlugin: CAPPlugin, CAPBridgedPlugin {
             } else {
                 self.player.skipToPreviousItem()
             }
+            call.resolve()
+        }
+    }
+}
+
+extension MusicControlPlugin {
+    /// Jump to a point in the current song: { position: seconds }
+    @objc func seek(_ call: CAPPluginCall) {
+        let position = call.getDouble("position") ?? 0
+        DispatchQueue.main.async {
+            self.player.currentPlaybackTime = max(0, position)
             call.resolve()
         }
     }

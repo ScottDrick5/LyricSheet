@@ -2161,6 +2161,45 @@
       versions: []
     };
   }
+  // A first-time user starts with a song whose lyrics are the tips (with real formatting as examples).
+  // It's an ordinary song they can edit or delete.
+  function makeWelcomeSong() {
+    var song = newSong();
+    song.title = "Welcome to Lyric Sheet";
+    function sec(type, lines) { return { id: newSectionId(), type: type, note: "", lines: lines }; }
+    var chorus = sec("Chorus", [
+      "Select words to make them bold, bigger or highlighted",
+      "Select a section name, then tap Swap to change it",
+      "Tap the round pencil button to start a new song"
+    ]);
+    // show what formatting looks like, on the words that describe it
+    var l = chorus.lines[0];
+    function at(word) { return l.indexOf(word); }
+    chorus.fmt = [[
+      [at("bold"), at("bold") + 4, 1, "b"],
+      [at("bigger"), at("bigger") + 6, 1.35],
+      [at("highlighted"), at("highlighted") + 11, 1, "", "yellow"]
+    ], null, null];
+    song.sections = [
+      sec("Verse", [
+        "Just start typing: the whole page is yours",
+        "Start a section by typing its name, like Chorus or [Verse 2]",
+        "On a new song, type a title and press Return twice"
+      ]),
+      chorus,
+      sec("Bridge", [
+        "Tap \u2039 All Songs to see your songs and folders",
+        "On iPhone, swipe in from the left edge to go back",
+        "Tap \u2026 for BPM, key, version history and more"
+      ]),
+      sec("Outro", [
+        "This song is just a guide: delete it whenever you like",
+        "(Deleted songs wait 30 days in Recently Deleted)"
+      ])
+    ];
+    return song;
+  }
+
   function getActiveSong() {
     for (var i = 0; i < state.songs.length; i++) {
       if (state.songs[i].id === state.activeId) return state.songs[i];
@@ -5740,6 +5779,17 @@
   loadAll();
   loadFolders();
   loadTrash();
+  // first launch: a welcome song with the tips (only ever once; people who already have songs don't get it)
+  if (!settings.welcomed) {
+    if (!state.songs.length) {
+      var welcome = makeWelcomeSong();
+      state.songs.push(welcome);
+      settings.lastOpenId = welcome.id;
+      persistSongs();
+    }
+    settings.welcomed = true;
+    persistSettings();
+  }
   setInterval(function () { var n = trash.length; purgeTrash(); if (trash.length !== n) renderSidebar(); }, 60 * 60 * 1000);
   nav.folder = settings.navFolder && (settings.navFolder === "all" || settings.navFolder === "trash" || folderById(settings.navFolder)) ? settings.navFolder : "all";
   if (state.songs.length) {

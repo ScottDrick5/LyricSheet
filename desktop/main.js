@@ -50,8 +50,9 @@ function buildMenu() {
     {
       label: "Edit",
       submenu: [
-        { role: "undo" },
-        { role: "redo" },
+        // the page keeps its own undo history (it redraws the lyrics as you type, which breaks the built-in one)
+        cmd("Undo", "CmdOrCtrl+Z", "undo"),
+        cmd("Redo", "Shift+CmdOrCtrl+Z", "redo"),
         { type: "separator" },
         { role: "cut" },
         { role: "copy" },

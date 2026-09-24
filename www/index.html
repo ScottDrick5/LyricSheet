@@ -548,6 +548,38 @@
   #mode-fab button + button { border-left: 1px solid var(--shell-border); }
   #mode-fab button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
   #editor.hud-hidden #mode-fab { opacity: 1; pointer-events: auto; }
+  .undo-group {
+    display: inline-flex;
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .undo-group button {
+    background: none; border: none;
+    color: var(--shell-text);
+    width: 38px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+  .undo-group button + button { border-left: 1px solid var(--shell-border); }
+  .undo-group button:active:not(:disabled) { background: var(--shell-hover); }
+  .undo-group button:disabled { color: var(--shell-text-dim); opacity: 0.4; cursor: default; }
+  #undo-bar { align-self: center; }
+  /* floating copy, shown when the top bar has slid away */
+  #undo-fab {
+    position: absolute;
+    top: 10px; right: 52px;
+    z-index: 11;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  #undo-fab button { width: 34px; }
+  @media (max-width: 400px) { #undo-fab button { width: 30px; } #mode-fab { left: calc(50% - 8px); } }
+  #editor.hud-hidden #undo-fab { opacity: 1; pointer-events: auto; }
   /* Hidden by hand: let the sheet use the space the bar took up */
   #editor.hud-pinned #canvas-wrap { padding-top: 56px !important; }
   #editor.hud-pinned #history-drawer { padding-top: 0; }
@@ -569,7 +601,7 @@
     transition: opacity 0.18s ease;
   }
   @media (prefers-reduced-motion: reduce) {
-    #meta-bar, #songs-fab, #hud-show, #mode-fab, #history-drawer { transition: none !important; }
+    #meta-bar, #songs-fab, #hud-show, #mode-fab, #undo-fab, #history-drawer { transition: none !important; }
   }
   #canvas {
     background: var(--paper);
@@ -1446,6 +1478,10 @@
         <button data-mode="read" aria-pressed="true">Basic</button>
         <button data-mode="edit" aria-pressed="false">Advanced</button>
       </div>
+      <div id="undo-fab" class="undo-group" role="group" aria-label="Undo and redo">
+        <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      </div>
       <button id="hud-show" class="hud-icon" aria-label="Show top bar" title="Show top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 6l4.5 4.5 4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div id="meta-bar">
         <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -1477,6 +1513,10 @@
           </div>
         </div>
         <div class="spacer"></div>
+        <div id="undo-bar" class="undo-group" role="group" aria-label="Undo and redo">
+          <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        </div>
         <div id="view-toggle" role="group" aria-label="View">
           <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
           <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
@@ -2017,6 +2057,7 @@
     var song = getActiveSong();
     var editorEl = document.getElementById("editor");
     var emptyEl = document.getElementById("empty-state");
+    if (song && undo.id !== song.id) resetUndo(song);
 
     if (!song) {
       editorEl.classList.remove("visible");
@@ -3038,7 +3079,83 @@
   }
 
   // ---------- editing / autosave / versioning ----------
+  // ---------- undo / redo ----------
+  // One history per open song. Each step is a snapshot of the song's title, BPM, key and lyrics
+  // (with formatting). Quick bursts of typing are merged into one step; formatting is always its own step.
+  var UNDO_MERGE_MS = 1000, UNDO_STEP_MAX_MS = 4000, UNDO_LIMIT = 200;
+  var undo = { id: null, stack: [], redo: [], cur: null, lastAt: 0, stepAt: 0, boundary: false, restoring: false };
+  function undoSnap(song) {
+    return JSON.stringify({
+      title: song.title, bpm: song.bpm, key: song.key,
+      sections: song.sections.map(function (sec) {
+        var o = { type: sec.type, note: sec.note || "", lines: sec.lines };
+        if (sec.fmt) o.fmt = sec.fmt;
+        return o;
+      })
+    });
+  }
+  function resetUndo(song) {
+    undo.id = song.id; undo.stack = []; undo.redo = [];
+    undo.cur = undoSnap(song); undo.boundary = false;
+    updateUndoButtons();
+  }
+  function recordUndo(song) {
+    if (undo.restoring) return;
+    if (undo.id !== song.id) { resetUndo(song); return; }
+    var snap = undoSnap(song);
+    if (snap === undo.cur) return;
+    var now = Date.now();
+    if (undo.boundary || !undo.stack.length || now - undo.lastAt > UNDO_MERGE_MS || now - undo.stepAt > UNDO_STEP_MAX_MS) {
+      undo.stack.push(undo.cur);
+      if (undo.stack.length > UNDO_LIMIT) undo.stack.shift();
+      undo.stepAt = now;
+    }
+    undo.boundary = false;
+    undo.lastAt = now;
+    undo.cur = snap;
+    undo.redo = [];
+    updateUndoButtons();
+  }
+  function applyUndoSnap(song, snap) {
+    var d = JSON.parse(snap);
+    song.title = d.title; song.bpm = d.bpm; song.key = d.key;
+    song.sections = d.sections.map(function (sec) { sec.id = newSectionId(); return sec; });
+    var wrap = document.getElementById("canvas-wrap"), top = wrap.scrollTop;
+    undo.restoring = true;
+    try {
+      markEdited(song);
+      hideSizeBar();
+      renderEditor();
+      renderSidebar();
+    } finally { undo.restoring = false; }
+    wrap.scrollTop = top;
+  }
+  function stepUndo(dir) {
+    var song = getActiveSong();
+    if (!song) return;
+    flushReadSync();          // count any typing that hasn't been saved yet
+    recordUndo(song);
+    var from = dir < 0 ? undo.stack : undo.redo, to = dir < 0 ? undo.redo : undo.stack;
+    if (!from.length) return;
+    to.push(undo.cur);
+    undo.cur = from.pop();
+    undo.boundary = true;     // the next edit starts a fresh step
+    applyUndoSnap(song, undo.cur);
+    updateUndoButtons();
+  }
+  function updateUndoButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-undo]"), function (b) {
+      b.disabled = !(b.getAttribute("data-undo") === "undo" ? undo.stack.length : undo.redo.length);
+    });
+  }
+  // Undo/redo from the keyboard and Mac menu. Text boxes outside the sheet (title, search…) keep their own undo.
+  function ownsUndo() {
+    var a = document.activeElement;
+    return !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.nodeName) && !a.closest("#canvas"));
+  }
+
   function markEdited(song, lightweight) {
+    recordUndo(song);
     song.lastEditedAt = Date.now();
     lastEditAt = song.lastEditedAt;
     if (!lightweight) {
@@ -3827,6 +3944,7 @@
     sel.addRange(nr);
     sizeSaved = nr.cloneRange();
     savedSel = { ed: info.ed, a: info.a, b: info.b };
+    undo.boundary = true;
     setTimeout(function () { sizeBarHold = false; }, 0);
     readEdited(song, info.ed);
     placeSizeBar(nr);
@@ -4014,6 +4132,8 @@
       case "text-reset":
         if (!resizeSelection(0)) { settings.fontSize = 17; persistSettings(); if (song) renderCanvas(song); }
         break;
+      case "undo": if (ownsUndo()) stepUndo(-1); else document.execCommand("undo"); break;
+      case "redo": if (ownsUndo()) stepUndo(1); else document.execCommand("redo"); break;
       case "bold": toggleFormat("b"); break;
       case "italic": toggleFormat("i"); break;
       case "underline": toggleFormat("u"); break;
@@ -4043,6 +4163,28 @@
       if (dir !== null && resizeSelection(dir)) e.preventDefault();
     });
   }
+
+  // act on press without taking focus/selection away from the lyrics (see onPress)
+  Array.prototype.forEach.call(document.querySelectorAll(".undo-group"), function (g) {
+    onPress(g, function (b) {
+      if (!b.disabled) stepUndo(b.getAttribute("data-undo") === "undo" ? -1 : 1);
+    });
+  });
+  // iPhone shake-to-undo / three-finger swipe, and Edit ▸ Undo on the Mac, arrive as history input events
+  document.getElementById("canvas").addEventListener("beforeinput", function (e) {
+    if (e.inputType === "historyUndo" || e.inputType === "historyRedo") {
+      e.preventDefault();
+      stepUndo(e.inputType === "historyUndo" ? -1 : 1);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || window.lyricDesktop) return;
+    var k = e.key.toLowerCase();
+    var dir = k === "z" ? (e.shiftKey ? 1 : -1) : k === "y" && !e.shiftKey ? 1 : 0;
+    if (!dir || !ownsUndo()) return;
+    e.preventDefault();
+    stepUndo(dir);
+  });
 
   // ---------- init ----------
   loadAll();

@@ -309,6 +309,17 @@
   .song-item .info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .song-item .sub { font-size: 0.68rem; color: var(--shell-text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song-item .dup:hover { color: var(--accent) !important; }
+  .song-group {
+    margin: 10px 4px 2px;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--shell-text-dim);
+  }
+  .song-group:first-child { margin-top: 0; }
+  .song-group, #song-list .song-item { flex-shrink: 0; }
   .no-match { font-size: 0.8rem; color: var(--shell-text-dim); padding: 6px 4px; margin: 0; }
   .sync-status {
     display: block;
@@ -2096,6 +2107,18 @@
   });
   document.getElementById("folders-back").addEventListener("click", function () { setNav("folders"); });
 
+  // Song list headings by when a song was last edited: Today, Previous 30 Days,
+  // then each earlier month of this year by name, then each earlier year (2025, 2024…)
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  function editGroup(ts, now) {
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (ts >= today) return "Today";
+    if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).getTime()) return "Previous 30 Days";
+    var d = new Date(ts);
+    if (d.getFullYear() === now.getFullYear()) return MONTHS[d.getMonth()];
+    return String(d.getFullYear());
+  }
+
   function renderSidebar() {
     // don't redraw under someone who is naming a folder
     var ae = document.activeElement;
@@ -2123,7 +2146,16 @@
       list.appendChild(none);
       return;
     }
+    var lastGroup = null, now = new Date();
     sorted.forEach(function (song) {
+      var group = editGroup(song.lastEditedAt, now);
+      if (group !== lastGroup) {
+        var gh = document.createElement("h3");
+        gh.className = "song-group";
+        gh.textContent = group;
+        list.appendChild(gh);
+        lastGroup = group;
+      }
       var item = document.createElement("div");
       item.className = "song-item" + (song.id === state.activeId ? " active" : "");
 

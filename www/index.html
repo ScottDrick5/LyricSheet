@@ -1637,6 +1637,22 @@
     /* form fields: at least 16px, or iOS zooms in when you tap them */
     input, select, textarea:not(.line-input) { font-size: max(16px, 0.88rem) !important; }
   }
+  /* Phones: the Songs menu covers the whole screen, with a close button */
+  #sidebar-close { display: none; }
+  .sidebar-head { position: relative; }
+  @media (max-width: 640px) {
+    #sidebar { width: 100% !important; border-right: none; padding-left: calc(18px + env(safe-area-inset-left, 0px)); padding-right: calc(18px + env(safe-area-inset-right, 0px)); }
+    /* the round new-song button covers this corner: skip the duplicate "+ New song" and keep the rest clear of it */
+    #new-song-btn { display: none; }
+    #settings-btn, #sidebar .nav-add { margin-right: 76px; }
+    #sidebar-close {
+      display: flex; align-items: center; justify-content: center;
+      position: absolute; top: 0; right: 0;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1px solid var(--shell-border); background: var(--bg); color: var(--shell-text);
+      cursor: pointer; padding: 0;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1645,7 +1661,8 @@
   <div id="sidebar-backdrop"></div>
   <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
-    <div>
+    <div class="sidebar-head">
+      <button id="sidebar-close" aria-label="Close menu" title="Close"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
       <h1>Lyric Sheet</h1>
       <p class="tagline">prototype · placeholder name</p>
       <button id="sync-status" class="sync-status" hidden></button>
@@ -4382,6 +4399,7 @@
   // ---------- phone layout: slide-out song list ----------
   var appEl = document.getElementById("app");
   function closeSidebar() { appEl.classList.remove("sidebar-open"); }
+  document.getElementById("sidebar-close").addEventListener("click", closeSidebar);
   document.getElementById("songs-toggle").addEventListener("click", function () { appEl.classList.add("sidebar-open"); });
   document.getElementById("sidebar-backdrop").addEventListener("click", closeSidebar);
   document.getElementById("song-list").addEventListener("click", function (e) {

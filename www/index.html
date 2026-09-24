@@ -430,6 +430,8 @@
   }
   .small-input:focus { outline: none; border-color: var(--teal); }
   select.small-input { width: auto; }
+  .key-controls { display: flex; gap: 6px; }
+  .small-input:disabled { opacity: 0.45; }
 
   #meta-bar .spacer { flex: 1; }
 
@@ -1376,7 +1378,13 @@
         </div>
         <div class="meta-field">
           <label>Key</label>
-          <select id="key-input" class="small-input"></select>
+          <div class="key-controls">
+            <select id="key-input" class="small-input" aria-label="Key"></select>
+            <select id="key-mode-input" class="small-input" aria-label="Major or minor">
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select>
+          </div>
         </div>
         <div class="meta-field">
           <label>Text size</label>
@@ -1511,8 +1519,8 @@
 
   var STORAGE_KEY = "lyricapp_songs_v1";
   var SETTINGS_KEY = "lyricapp_settings_v1";
-  var KEYS = ["—","C","C#/Db","D","D#/Eb","E","F","F#/Gb","G","G#/Ab","A","A#/Bb","B",
-              "Cm","C#m/Dbm","Dm","D#m/Ebm","Em","Fm","F#m/Gbm","Gm","G#m/Abm","Am","A#m/Bbm","Bm"];
+  // Key roots; a song's key is stored as the root, with "m" after each note name when minor (e.g. "C#m/Dbm")
+  var KEYS = ["—","C","C#/Db","D","D#/Eb","E","F","F#/Gb","G","G#/Ab","A","A#/Bb","B"];
   var SECTION_TYPES = ["Verse","Chorus","Bridge","Breakdown"];
   var VERSION_GAP_MS = 3 * 60 * 1000; // snapshot if 3+ min since last edit and content changed
   var MAX_VERSIONS = 40;
@@ -1929,7 +1937,7 @@
 
     document.getElementById("title-input").value = song.title;
     document.getElementById("bpm-input").value = song.bpm || "";
-    document.getElementById("key-input").value = song.key || "—";
+    setKeyControls(song.key);
     document.getElementById("timestamps").innerHTML =
       "Created " + fmtDateTime(song.createdAt) + "<br>Edited " + fmtDateTime(song.lastEditedAt);
 
@@ -3131,12 +3139,28 @@
     opt.value = k; opt.textContent = k;
     keySelect.appendChild(opt);
   });
-  keySelect.addEventListener("change", function (e) {
+  var keyModeSelect = document.getElementById("key-mode-input");
+  function setKeyControls(key) {
+    var rootEl = document.getElementById("key-input");
+    var modeEl = document.getElementById("key-mode-input");
+    key = key || "—";
+    var minor = key !== "—" && /m$/.test(key);
+    rootEl.value = minor ? key.replace(/m/g, "") : key;
+    modeEl.value = minor ? "minor" : "major";
+    modeEl.disabled = rootEl.value === "—";
+  }
+  function onKeyChange() {
     var song = getActiveSong();
     if (!song) return;
-    song.key = e.target.value;
+    var root = keySelect.value;
+    keyModeSelect.disabled = root === "—";
+    song.key = root !== "—" && keyModeSelect.value === "minor"
+      ? root.split("/").map(function (n) { return n + "m"; }).join("/")
+      : root;
     markEdited(song);
-  });
+  }
+  keySelect.addEventListener("change", onKeyChange);
+  keyModeSelect.addEventListener("change", onKeyChange);
 
   document.getElementById("font-dec").addEventListener("click", function () {
     settings.fontSize = Math.max(12, settings.fontSize - 1);

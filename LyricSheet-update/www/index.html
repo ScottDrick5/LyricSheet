@@ -1,0 +1,2990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lyric Sheet — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    /* Dark theme (default) */
+    color-scheme: dark;
+    --bg: #16181C;
+    --bg-raised: #1E2127;
+    --shell-border: #30343C;
+    --shell-text: #E7E4DC;
+    --shell-text-dim: #9A9CA5;
+    --shell-hover: rgba(255,255,255,0.05);
+    --accent: #C9A24B;
+    --accent-dim: #A88B4E;
+    --on-accent: #16181C;
+    --teal: #6FA3A0;
+    --paper: #202328;
+    --paper-edge: #30343C;
+    --paper-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    --ink: #E9E4D8;
+    --ink-dim: #9C978B;
+    --tint-1: rgba(255,255,255,0.05);
+    --tint-2: rgba(255,255,255,0.09);
+    --danger: #C9674E;
+    --overlay: rgba(6,7,9,0.65);
+    --c-verse: #C9A24B;
+    --c-chorus: #D8905A;
+    --c-bridge: #6FA3A0;
+    --c-breakdown: #B88599;
+    --c-custom: #B5AC9C;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --font-ui: 'Inter', system-ui, sans-serif;
+    --font-lyric: 'Fraunces', Georgia, serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #ECE8E0;
+    --bg-raised: #F6F3ED;
+    --shell-border: #D6D0C4;
+    --shell-text: #2A2620;
+    --shell-text-dim: #6E685C;
+    --shell-hover: rgba(0,0,0,0.04);
+    --accent: #A8812F;
+    --accent-dim: #8A6A28;
+    --on-accent: #FFFDF8;
+    --teal: #3F7471;
+    --paper: #FFFDF8;
+    --paper-edge: #E8E1D2;
+    --paper-shadow: 0 6px 24px rgba(60,50,30,0.12);
+    --ink: #2A2620;
+    --ink-dim: #6B6455;
+    --tint-1: rgba(0,0,0,0.04);
+    --tint-2: var(--tint-2);
+    --danger: #B4573F;
+    --overlay: rgba(40,35,25,0.45);
+    --c-verse: #8A7440;
+    --c-chorus: #9C6B2E;
+    --c-bridge: #3F7471;
+    --c-breakdown: #8A5A6B;
+    --c-custom: #5B5347;
+  }
+  :root[data-theme="black"] {
+    color-scheme: dark;
+    --bg: #000000;
+    --bg-raised: #0B0B0B;
+    --shell-border: #232323;
+    --shell-text: #E9E6DF;
+    --shell-text-dim: #8E8E8E;
+    --shell-hover: rgba(255,255,255,0.06);
+    --paper: #000000;
+    --paper-edge: #1F1F1F;
+    --paper-shadow: none;
+    --ink: #EDE8DC;
+    --ink-dim: #8F8A7F;
+    --tint-1: rgba(255,255,255,0.06);
+    --tint-2: rgba(255,255,255,0.1);
+    --overlay: rgba(0,0,0,0.75);
+    --on-accent: #000000;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--shell-text);
+    font-family: var(--font-ui);
+    overflow-x: hidden;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+
+  #app {
+    display: flex;
+    height: 100%;
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar {
+    width: 230px;
+    flex-shrink: 0;
+    background: var(--bg-raised);
+    border-right: 1px solid var(--shell-border);
+    display: flex;
+    flex-direction: column;
+    padding: 18px 14px;
+    gap: 14px;
+  }
+  #sidebar h1 {
+    font-family: var(--font-lyric);
+    font-weight: 500;
+    font-size: 1.15rem;
+    margin: 0 0 2px 4px;
+    color: var(--shell-text);
+    letter-spacing: 0.2px;
+  }
+  #sidebar .tagline {
+    margin: 0 0 4px 4px;
+    font-size: 0.72rem;
+    color: var(--shell-text-dim);
+  }
+  #song-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .song-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--shell-text-dim);
+    font-size: 0.88rem;
+    border: 1px solid transparent;
+    transition: background 0.12s ease;
+  }
+  .song-item:hover { background: var(--shell-hover); }
+  .song-item.active {
+    background: rgba(201,162,75,0.12);
+    border-color: rgba(201,162,75,0.35);
+    color: var(--shell-text);
+  }
+  .song-item .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .song-item .del {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--shell-text-dim);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 4px;
+    line-height: 1;
+  }
+  .song-item:hover .del { opacity: 0.7; }
+  .song-item .del:hover { opacity: 1; color: var(--danger); }
+
+  #song-search {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    font-family: var(--font-ui);
+  }
+  #song-search:focus { outline: none; border-color: var(--teal); }
+  .song-item .info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .song-item .sub { font-size: 0.68rem; color: var(--shell-text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song-item .dup:hover { color: var(--accent) !important; }
+  .no-match { font-size: 0.8rem; color: var(--shell-text-dim); padding: 6px 4px; margin: 0; }
+  .sync-status {
+    display: block;
+    margin: 6px 0 0 4px;
+    padding: 0;
+    background: none;
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    color: var(--shell-text-dim);
+    cursor: pointer;
+    text-align: left;
+  }
+  .sync-status[hidden] { display: none; }
+  .sync-status::before {
+    content: "";
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background: var(--shell-text-dim);
+  }
+  .sync-status.ok::before { background: #6FA36F; }
+  .sync-status.syncing::before { background: var(--accent); }
+  .sync-status.error::before { background: var(--danger); }
+  #new-song-btn {
+    margin-top: 4px;
+    background: transparent;
+    border: 1px dashed var(--shell-border);
+    color: var(--shell-text-dim);
+    border-radius: var(--radius-sm);
+    padding: 9px 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    text-align: left;
+  }
+  #new-song-btn:hover { border-color: var(--accent-dim); color: var(--shell-text); }
+
+  /* ---------- Main ---------- */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #empty-state {
+    flex-direction: column;
+    align-items: center;
+    margin: auto;
+    text-align: center;
+    color: var(--shell-text-dim);
+    max-width: 320px;
+    padding: 20px;
+  }
+  #empty-state h2 {
+    font-family: var(--font-lyric);
+    color: var(--shell-text);
+    font-weight: 500;
+    font-size: 1.3rem;
+  }
+
+  #editor {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    --hud-h: 0px;
+  }
+  #editor.visible { display: flex; }
+
+  /* Top metadata bar */
+  #meta-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    transition: transform 0.22s ease;
+    will-change: transform;
+    padding: 16px 26px 12px;
+    border-bottom: 1px solid var(--shell-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px;
+    background: var(--bg);
+  }
+  .meta-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .meta-field label {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--shell-text-dim);
+  }
+  #title-input {
+    font-family: var(--font-lyric);
+    font-size: 1.5rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    color: var(--shell-text);
+    padding: 2px 0;
+    min-width: 200px;
+    border-bottom: 1px solid transparent;
+  }
+  #title-input:focus { outline: none; border-bottom: 1px solid var(--accent-dim); }
+  #title-input::placeholder { color: var(--shell-text-dim); }
+
+  .small-input {
+    font-family: var(--font-ui);
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    width: 78px;
+  }
+  .small-input:focus { outline: none; border-color: var(--teal); }
+  select.small-input { width: auto; }
+
+  #meta-bar .spacer { flex: 1; }
+
+  .font-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .font-controls button {
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text-dim);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .font-controls button:hover { color: var(--shell-text); border-color: var(--accent-dim); }
+
+  .timestamps {
+    font-size: 0.7rem;
+    color: var(--shell-text-dim);
+    text-align: right;
+    line-height: 1.5;
+  }
+
+  #history-toggle {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text-dim);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    white-space: nowrap;
+  }
+  #history-toggle:hover { color: var(--shell-text); border-color: var(--accent-dim); }
+
+  /* Body: paper canvas + optional history drawer */
+  #body-row {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  #canvas-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 26px;
+    padding-top: calc(var(--hud-h) + 26px);
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Header bar slides away while reading down the song */
+  #editor.hud-hidden #meta-bar { transform: translateY(-100%); pointer-events: none; }
+  @media (min-width: 641px) {
+    #history-drawer { padding-top: var(--hud-h); transition: width 0.15s ease, padding-top 0.22s ease; }
+    #editor.hud-hidden #history-drawer { padding-top: 0; }
+  }
+  .hud-icon {
+    position: absolute;
+    top: 10px; right: 12px;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--shell-text-dim);
+    cursor: pointer;
+    padding: 0;
+  }
+  .hud-icon:hover { color: var(--shell-text); background: var(--shell-hover); }
+  .hud-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #hud-hide { z-index: 1; }
+  #meta-bar { padding-right: 52px !important; }
+  #hud-show {
+    z-index: 11;
+    background: var(--bg-raised);
+    border-color: var(--shell-border);
+    color: var(--shell-text);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  #editor.hud-hidden #hud-show { opacity: 1; pointer-events: auto; }
+  /* Hidden by hand: let the sheet use the space the bar took up */
+  #editor.hud-pinned #canvas-wrap { padding-top: 56px !important; }
+  #editor.hud-pinned #history-drawer { padding-top: 0; }
+  #songs-fab {
+    display: none;
+    position: absolute;
+    top: 10px; left: 12px;
+    z-index: 11;
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: 18px;
+    padding: 7px 13px;
+    font-size: 0.8rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #meta-bar, #songs-fab, #hud-show, #history-drawer { transition: none !important; }
+  }
+  #canvas {
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--paper-edge);
+    padding: 22px 26px 30px;
+    max-width: 720px;
+    margin: 0 auto;
+    box-shadow: var(--paper-shadow);
+  }
+
+  .section-block {
+    margin-bottom: 22px;
+    border-top: 1px solid var(--paper-edge);
+    padding-top: 14px;
+  }
+  .section-block:first-child { border-top: none; padding-top: 0; }
+
+  .section-head {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .section-type-select {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: none;
+    border: none;
+    color: var(--c-verse);
+    cursor: pointer;
+    padding: 2px 4px 2px 0;
+  }
+  .section-type-select.type-chorus { color: var(--c-chorus); }
+  .section-type-select.type-bridge { color: var(--c-bridge); }
+  .section-type-select.type-breakdown { color: var(--c-breakdown); }
+
+  .section-total {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--ink-dim);
+  }
+  .section-del {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--ink-dim);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 4px;
+  }
+  .section-del:hover { color: var(--danger); }
+  .section-tools { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; }
+  .section-tools .section-del { margin-left: 0; min-width: 28px; height: 28px; border-radius: 4px; }
+  .section-tool:hover { color: var(--ink) !important; background: var(--tint-1); }
+  .section-tool:disabled { opacity: 0.3; cursor: default; background: none !important; }
+
+  .line-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .line-input {
+    flex: 1;
+    min-width: 0;
+    resize: none;
+    overflow: hidden;
+    line-height: 1.4;
+    display: block;
+    font-family: var(--font-lyric);
+    font-size: var(--lyric-size, 1.05rem);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: var(--ink);
+    padding: 4px 2px;
+  }
+  .line-input:focus { outline: none; border-bottom: 1px solid var(--paper-edge); }
+  .line-input::placeholder { color: var(--ink-dim); opacity: 0.6; }
+
+  .syl-badge {
+    flex-shrink: 0;
+    margin-top: 0.45em;
+    min-width: 30px;
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    color: var(--ink-dim);
+    background: var(--tint-1);
+    border-radius: 10px;
+    padding: 2px 7px;
+  }
+  .line-del {
+    flex-shrink: 0;
+    margin-top: 0.4em;
+    background: none;
+    border: none;
+    color: var(--ink-dim);
+    opacity: 0;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .line-row:hover .line-del { opacity: 0.55; }
+  .line-del:hover { opacity: 1 !important; color: var(--danger); }
+
+  .add-line-btn {
+    background: none;
+    border: none;
+    color: var(--ink-dim);
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 4px 2px;
+    font-family: var(--font-ui);
+  }
+  .add-line-btn:hover { color: var(--ink); }
+
+  #add-section-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  .add-section-btn {
+    background: var(--tint-1);
+    border: 1px solid var(--paper-edge);
+    color: var(--ink-dim);
+    border-radius: var(--radius-sm);
+    padding: 7px 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+  }
+  .add-section-btn:hover { background: var(--tint-2); color: var(--ink); }
+
+  /* History drawer */
+  #history-drawer {
+    width: 0;
+    overflow: hidden;
+    border-left: 1px solid var(--shell-border);
+    background: var(--bg-raised);
+    transition: width 0.15s ease;
+    flex-shrink: 0;
+  }
+  #history-drawer.open { width: 250px; }
+  #history-inner {
+    width: 250px;
+    padding: 16px;
+    height: 100%;
+    overflow-y: auto;
+  }
+  .history-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .history-head h3 { margin: 0 !important; }
+  .history-close {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: none;
+    color: var(--shell-text-dim);
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .history-close:hover { color: var(--shell-text); background: var(--shell-hover); }
+  #history-backdrop { display: none; }
+  #history-inner h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--shell-text-dim);
+    margin: 0 0 12px;
+  }
+  .version-item {
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-sm);
+    padding: 9px 10px;
+    margin-bottom: 8px;
+  }
+  .version-item .v-date {
+    font-size: 0.76rem;
+    color: var(--shell-text);
+    margin-bottom: 2px;
+  }
+  .version-item .v-meta {
+    font-size: 0.68rem;
+    color: var(--shell-text-dim);
+    margin-bottom: 8px;
+  }
+  .version-restore {
+    background: none;
+    border: 1px solid var(--accent-dim);
+    color: var(--accent);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    padding: 4px 9px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+  }
+  .version-restore:hover { background: rgba(201,162,75,0.12); }
+  .no-versions {
+    color: var(--shell-text-dim);
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .section-note {
+    display: block;
+    width: 100%;
+    font-family: var(--font-ui);
+    font-style: italic;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    padding: 2px 2px 6px;
+    margin: -4px 0 6px;
+  }
+  .section-note:focus { outline: none; border-bottom-color: var(--paper-edge); color: var(--ink); }
+  .section-note::placeholder { color: var(--ink-dim); opacity: 0; }
+  .section-block:hover .section-note::placeholder,
+  .section-note:focus::placeholder { opacity: 0.55; }
+  .syl-badge:empty { background: transparent; }
+
+  /* Settings */
+  #settings-btn {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text-dim);
+    border-radius: var(--radius-sm);
+    padding: 9px 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    text-align: left;
+  }
+  #settings-btn:hover { color: var(--shell-text); border-color: var(--accent-dim); }
+  #settings-modal {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    z-index: 55;
+  }
+  #settings-modal.open { display: flex; }
+  #settings-panel {
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-md);
+    width: 100%; max-width: 380px;
+    padding: 18px 20px;
+    color: var(--shell-text);
+  }
+  #settings-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 16px; }
+  .setting-row { margin-bottom: 18px; }
+  .setting-label { font-size: 0.85rem; margin-bottom: 8px; display: block; }
+  .seg { display: flex; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); overflow: hidden; }
+  .seg button {
+    flex: 1;
+    background: none; border: none;
+    color: var(--shell-text-dim);
+    padding: 9px 8px;
+    font-size: 0.8rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--shell-border); }
+  .seg button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
+  .switch-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .switch-row .setting-label { margin-bottom: 2px; }
+  .setting-help { margin: 0; font-size: 0.74rem; color: var(--shell-text-dim); line-height: 1.45; }
+  .switch {
+    flex-shrink: 0;
+    width: 46px; height: 28px;
+    border-radius: 14px;
+    border: 1px solid var(--shell-border);
+    background: var(--tint-2);
+    position: relative;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease;
+  }
+  .switch span {
+    position: absolute; top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--shell-text-dim);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+  .switch[aria-checked="true"] span { transform: translateX(18px); background: var(--on-accent); }
+  @media (prefers-reduced-motion: reduce) { .switch, .switch span { transition: none; } }
+  #settings-panel { max-height: 100%; overflow-y: auto; }
+  #settings-modal { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  #sync-connect { display: flex; gap: 8px; margin-top: 10px; }
+  #sync-connect[hidden], #sync-connected[hidden] { display: none; }
+  #sync-token {
+    flex: 1; min-width: 0;
+    background: var(--bg);
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    font-family: var(--font-ui);
+  }
+  #sync-token:focus { outline: none; border-color: var(--teal); }
+  .sync-row button:not(.switch) {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .sync-row button:hover { border-color: var(--accent-dim); }
+  .sync-detail { font-size: 0.78rem; line-height: 1.5; margin: 10px 0; color: var(--shell-text); }
+  .sync-detail.error { color: var(--danger); }
+  .sync-actions { display: flex; gap: 8px; }
+  #settings-done {
+    width: 100%;
+    background: var(--accent); border: none; color: var(--on-accent);
+    font-weight: 600; font-family: var(--font-ui); font-size: 0.85rem;
+    padding: 10px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+
+  /* Version preview */
+  .v-actions { display: flex; gap: 6px; }
+  .version-preview {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    padding: 4px 9px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+  }
+  .version-preview:hover { border-color: var(--accent-dim); }
+  #preview-modal {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 52;
+  }
+  #preview-modal.open { display: flex; }
+  #preview-panel {
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-md);
+    width: 100%; max-width: 640px;
+    max-height: 100%;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  #preview-head { padding: 16px 20px 12px; border-bottom: 1px solid var(--shell-border); }
+  #preview-date { font-family: var(--font-lyric); font-weight: 500; font-size: 1.15rem; margin: 0 0 4px; color: var(--shell-text); }
+  #preview-meta { font-size: 0.75rem; color: var(--shell-text-dim); }
+  #preview-diff { font-size: 0.75rem; color: var(--shell-text); margin-top: 8px; }
+  #preview-diff::before {
+    content: "";
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    background: rgba(201,162,75,0.35);
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+  #preview-body {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 18px 22px 24px;
+    font-family: var(--font-lyric);
+    -webkit-overflow-scrolling: touch;
+  }
+  .pv-sheet { min-height: 0; cursor: default; }
+  .pv-changed { background: rgba(201,162,75,0.22); border-radius: 3px; box-shadow: -4px 0 0 rgba(201,162,75,0.22), 4px 0 0 rgba(201,162,75,0.22); }
+  #preview-actions {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--shell-border);
+  }
+  #preview-actions button {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    cursor: pointer;
+    border: 1px solid var(--shell-border);
+    background: none;
+    color: var(--shell-text);
+  }
+  #preview-actions button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+
+  /* In-app confirmation */
+  #confirm-modal {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 60;
+  }
+  #confirm-modal.open { display: flex; }
+  #confirm-panel {
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-md);
+    max-width: 400px;
+    width: 100%;
+    padding: 18px 20px;
+  }
+  #confirm-msg { margin: 0 0 16px; font-size: 0.9rem; line-height: 1.5; color: var(--shell-text); }
+  #confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  #confirm-actions button {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    cursor: pointer;
+    border: 1px solid var(--shell-border);
+    background: none;
+    color: var(--shell-text);
+  }
+  #confirm-ok { background: var(--accent); border-color: var(--accent) !important; color: var(--on-accent) !important; font-weight: 600; }
+  #confirm-ok.danger { background: var(--danger); border-color: var(--danger) !important; color: #fff !important; }
+  #paste-title-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--shell-text);
+  }
+  #paste-title-row.show { display: flex; }
+  #paste-title-row strong { font-family: var(--font-lyric); font-weight: 600; }
+
+  /* Custom headers */
+  .header-wrap { display: inline-flex; align-items: center; gap: 8px; }
+  .section-type-select.type-custom { color: var(--c-custom); }
+  .header-custom-input {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+    background: var(--tint-1);
+    border: none;
+    border-bottom: 1px solid var(--accent-dim);
+    padding: 4px 6px;
+    width: 180px;
+  }
+  .header-custom-input:focus { outline: none; background: var(--tint-2); }
+  .header-save {
+    background: none;
+    border: none;
+    color: var(--ink-dim);
+    font-size: 0.72rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    padding: 2px 4px;
+  }
+  .header-save:hover { color: var(--ink); }
+  .header-save.saved { color: var(--c-chorus); }
+
+  /* Basic / Advanced toggle */
+  #view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  #view-toggle button {
+    background: none;
+    border: none;
+    color: var(--shell-text-dim);
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+  #view-toggle button + button { border-left: 1px solid var(--shell-border); }
+  #view-toggle button[aria-pressed="true"] { background: rgba(201,162,75,0.16); color: var(--shell-text); }
+
+  /* Reading view */
+  .read-sheet { font-family: var(--font-lyric); color: var(--ink); line-height: 1.55; }
+  .read-toolbar { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 8px; }
+  .read-copy {
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: var(--tint-1);
+    border: 1px solid var(--paper-edge);
+    color: var(--ink-dim);
+    border-radius: var(--radius-sm);
+    padding: 6px 11px;
+    font-size: 0.75rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+  .read-copy:hover { color: var(--ink); background: var(--tint-2); }
+  .read-title {
+    font-weight: 600;
+    font-size: 1.5em;
+    margin: 0 0 1.1em;
+    line-height: 1.2;
+  }
+  .read-section { margin-bottom: 1.8em; }
+  .read-header {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.78em;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.7em;
+  }
+  .read-header.type-verse, .rl-head.type-verse { color: var(--c-verse); }
+  .read-header.type-chorus, .rl-head.type-chorus { color: var(--c-chorus); }
+  .read-header.type-bridge, .rl-head.type-bridge { color: var(--c-bridge); }
+  .read-header.type-breakdown, .rl-head.type-breakdown { color: var(--c-breakdown); }
+  .read-header.type-custom, .rl-head.type-custom { color: var(--c-custom); }
+
+  /* Editable reading view */
+  .read-editor {
+    font-family: var(--font-lyric);
+    line-height: 1.6;
+    color: var(--ink);
+    outline: none;
+    min-height: 40vh;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    caret-color: var(--accent);
+    -webkit-user-modify: read-write-plaintext-only;
+  }
+  .read-editor:empty::before,
+  .read-editor.is-empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-dim);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .read-editor .rl-head { font-family: var(--font-ui); font-weight: 600; font-size: 0.82em; }
+  .read-editor .rl-head.rl-first-gap { margin-top: 0; }
+  .read-editor .rl-note { font-family: var(--font-ui); font-weight: 400; font-style: italic; font-size: 0.82em; color: var(--ink-dim); }
+  .read-editor .rl-paren { color: var(--ink-dim); }
+  .read-hint { font-family: var(--font-ui); font-size: 0.72rem; color: var(--ink-dim); margin: 0 auto 0 0; align-self: center; }
+  .read-header .read-note {
+    font-weight: 400;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-dim);
+    margin-left: 6px;
+  }
+  .read-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .read-gap { height: 1em; }
+  .read-empty { color: var(--ink-dim); font-style: italic; }
+
+  #paste-btn {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text-dim);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    white-space: nowrap;
+  }
+  #paste-btn:hover { color: var(--shell-text); border-color: var(--accent-dim); }
+
+  /* Paste-a-song modal */
+  #paste-modal {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 50;
+  }
+  #paste-modal.open { display: flex; }
+  #paste-panel {
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: var(--radius-md);
+    width: 100%;
+    max-width: 620px;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px;
+    gap: 12px;
+  }
+  #paste-panel h2 {
+    font-family: var(--font-lyric);
+    font-weight: 500;
+    font-size: 1.2rem;
+    margin: 0;
+  }
+  #paste-panel .hint {
+    font-size: 0.78rem;
+    color: var(--shell-text-dim);
+    margin: 0;
+    line-height: 1.5;
+  }
+  #paste-text {
+    width: 100%;
+    min-height: 240px;
+    flex: 1;
+    resize: vertical;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--paper-edge);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-family: var(--font-lyric);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  #paste-text:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+  #paste-preview {
+    font-size: 0.75rem;
+    color: var(--shell-text-dim);
+    min-height: 1.2em;
+    line-height: 1.5;
+  }
+  #paste-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  #paste-actions button {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    cursor: pointer;
+    border: 1px solid var(--shell-border);
+    background: none;
+    color: var(--shell-text);
+  }
+  #paste-actions button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+  #paste-actions button:disabled { opacity: 0.4; cursor: default; }
+
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--shell-border); border-radius: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  #songs-toggle, #sidebar-backdrop { display: none; }
+  #songs-toggle {
+    background: none;
+    border: 1px solid var(--shell-border);
+    color: var(--shell-text);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+  }
+
+  @media (max-width: 640px) {
+    #songs-toggle { display: inline-block; }
+    #sidebar {
+      position: fixed;
+      top: 0; bottom: 0; left: 0;
+      width: 270px;
+      z-index: 40;
+      padding-top: calc(18px + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+    }
+    #app.sidebar-open #sidebar { transform: translateX(0); }
+    #app.sidebar-open #sidebar-backdrop {
+      display: block;
+      position: fixed; inset: 0;
+      background: var(--overlay);
+      z-index: 39;
+    }
+    .song-item .del { opacity: 0.6; }
+    .line-row .line-del { opacity: 0.35; }
+    /* iOS zooms into any field under 16px when tapped */
+    input, select, textarea:not(.line-input) { font-size: 16px !important; }
+    .section-type-select { font-size: 16px !important; max-width: 150px; }
+    .header-custom-input { width: 150px; }
+    .section-total { order: 3; flex-basis: 100%; margin-left: 0; }
+    .section-tools { margin-left: auto; }
+    #title-input { font-size: 1.35rem !important; min-width: 0; width: 100%; }
+    #meta-bar .meta-field:first-of-type { flex-basis: 100%; }
+    #meta-bar .spacer { display: none; }
+    #history-drawer.open { position: fixed; right: 0; top: 0; bottom: 0; z-index: 30; padding-top: env(safe-area-inset-top, 0px); }
+  }
+
+  @media (max-width: 720px) {
+    #sidebar { width: 160px; }
+    #meta-bar { padding: 14px 16px 10px; gap: 12px; }
+    #canvas-wrap { padding: 14px; padding-top: calc(var(--hud-h) + 14px); }
+    #songs-fab { display: block; pointer-events: none; }
+    #editor.hud-hidden #songs-fab { opacity: 1; pointer-events: auto; }
+    #canvas { padding: 16px 16px 22px; }
+    .timestamps { display: none; }
+    #history-drawer.open { width: 200px; }
+    #history-inner { width: 200px; }
+  }
+  @media (max-width: 640px) {
+    #sidebar { width: 270px; }
+    #history-drawer.open { width: min(300px, 86vw); }
+    #history-drawer.open #history-inner { width: min(300px, 86vw); padding-top: 12px; }
+    #editor.history-open #history-backdrop {
+      display: block;
+      position: fixed; inset: 0;
+      background: var(--overlay);
+      z-index: 29;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="sidebar-backdrop"></div>
+  <div id="sidebar">
+    <div>
+      <h1>Lyric Sheet</h1>
+      <p class="tagline">prototype · placeholder name</p>
+      <button id="sync-status" class="sync-status" hidden></button>
+    </div>
+    <input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off">
+    <div id="song-list"></div>
+    <button id="new-song-btn">+ New song</button>
+    <button id="settings-btn">⚙︎ Settings</button>
+  </div>
+
+  <div id="main">
+    <div id="empty-state">
+      <h2>No song open</h2>
+      <p>Start a new song, or pick one from the list.</p>
+      <p><button id="empty-new-btn" class="add-section-btn" style="color:var(--shell-text);border-color:var(--shell-border);background:none;">+ New song</button></p>
+    </div>
+
+    <div id="editor">
+      <button id="songs-fab" aria-label="Songs">☰ Songs</button>
+      <button id="hud-show" class="hud-icon" aria-label="Show top bar" title="Show top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 6l4.5 4.5 4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div id="meta-bar">
+        <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="songs-toggle">☰ Songs</button>
+        <div class="meta-field" style="min-width:200px;">
+          <label>Title</label>
+          <input id="title-input" type="text" placeholder="Untitled song">
+        </div>
+        <div class="meta-field">
+          <label>BPM</label>
+          <input id="bpm-input" class="small-input" type="number" min="1" max="400" placeholder="—">
+        </div>
+        <div class="meta-field">
+          <label>Key</label>
+          <select id="key-input" class="small-input"></select>
+        </div>
+        <div class="meta-field">
+          <label>Text size</label>
+          <div class="font-controls">
+            <button id="font-dec" title="Smaller">A−</button>
+            <button id="font-inc" title="Larger">A+</button>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div id="view-toggle" role="group" aria-label="View">
+          <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
+          <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
+        </div>
+        <button id="paste-btn">Paste a song</button>
+        <button id="history-toggle">Version history</button>
+        <div class="timestamps" id="timestamps"></div>
+      </div>
+
+      <div id="body-row">
+        <div id="canvas-wrap">
+          <div id="canvas"></div>
+        </div>
+        <div id="history-backdrop"></div>
+        <div id="history-drawer">
+          <div id="history-inner">
+            <div class="history-head">
+              <h3>Versions</h3>
+              <button id="history-close" class="history-close" aria-label="Close version history" title="Close">✕</button>
+            </div>
+            <div id="version-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="paste-modal" role="dialog" aria-modal="true" aria-labelledby="paste-title">
+  <div id="paste-panel">
+    <h2 id="paste-title">Paste a song</h2>
+    <p class="hint">Paste lyrics you've already written. A title on its own line at the top fills in the song title. Headers like [Verse 1], [Chorus] or Bridge: start a new section, and everything under a header stays together until the next one, including stanza breaks. A note after a header, like [Chorus] (stripped back), is kept as the section's note.</p>
+    <textarea id="paste-text" placeholder="Paste your lyrics here…"></textarea>
+    <label id="paste-title-row"><input type="checkbox" id="paste-use-title"> <span>Use <strong id="paste-title-name"></strong> as the song title</span></label>
+    <div id="paste-preview"></div>
+    <div id="paste-actions">
+      <button id="paste-cancel">Cancel</button>
+      <button id="paste-append" disabled>Add to end of song</button>
+      <button id="paste-replace" class="primary" disabled>Replace song lyrics</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div id="settings-panel">
+    <h2 id="settings-title">Settings</h2>
+    <div class="setting-row">
+      <span class="setting-label">Appearance</span>
+      <div class="seg" id="theme-seg" role="group" aria-label="Appearance">
+        <button data-theme-choice="light">Light</button>
+        <button data-theme-choice="dark">Dark</button>
+        <button data-theme-choice="system">Match phone</button>
+      </div>
+    </div>
+    <div class="setting-row switch-row">
+      <div>
+        <span class="setting-label" id="black-label">True black</span>
+        <p class="setting-help">Pure black background for OLED screens. Used whenever the app is dark.</p>
+      </div>
+      <button id="black-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="black-label"><span></span></button>
+    </div>
+    <div class="setting-row sync-row">
+      <span class="setting-label">Sync between devices</span>
+      <p class="setting-help">Keeps your songs the same on your iPhone and Mac. Songs are stored in a private (unlisted) GitHub Gist on your account. Use the same GitHub token on each device.</p>
+      <div id="sync-connect">
+        <input id="sync-token" type="password" placeholder="Paste GitHub token" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button id="sync-connect-btn">Connect</button>
+      </div>
+      <div id="sync-connected" hidden>
+        <p id="sync-detail" class="sync-detail"></p>
+        <div class="sync-actions">
+          <button id="sync-now-btn">Sync now</button>
+          <button id="sync-disconnect-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+    <button id="settings-done">Done</button>
+  </div>
+</div>
+
+<div id="preview-modal" role="dialog" aria-modal="true" aria-labelledby="preview-date">
+  <div id="preview-panel">
+    <div id="preview-head">
+      <h2 id="preview-date"></h2>
+      <div id="preview-meta"></div>
+      <div id="preview-diff"></div>
+    </div>
+    <div id="preview-body"></div>
+    <div id="preview-actions">
+      <button id="preview-close">Close</button>
+      <button id="preview-restore" class="primary">Restore this version</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
+  <div id="confirm-panel">
+    <p id="confirm-msg"></p>
+    <div id="confirm-actions">
+      <button id="confirm-cancel">Cancel</button>
+      <button id="confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "lyricapp_songs_v1";
+  var SETTINGS_KEY = "lyricapp_settings_v1";
+  var KEYS = ["—","C","C#/Db","D","D#/Eb","E","F","F#/Gb","G","G#/Ab","A","A#/Bb","B",
+              "Cm","C#m/Dbm","Dm","D#m/Ebm","Em","Fm","F#m/Gbm","Gm","G#m/Abm","Am","A#m/Bbm","Bm"];
+  var SECTION_TYPES = ["Verse","Chorus","Bridge","Breakdown"];
+  var VERSION_GAP_MS = 3 * 60 * 1000; // snapshot if 3+ min since last edit and content changed
+  var MAX_VERSIONS = 40;
+
+  var state = { songs: [], activeId: null };
+  var settings = { fontSize: 17, savedHeaders: [] };
+  var saveTimer = null;
+  var versionTimer = null;
+  var lastEditAt = 0;
+  var historyOpen = false;
+
+  // ---------- persistence ----------
+  function loadAll() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) state.songs = JSON.parse(raw);
+    } catch (e) { state.songs = []; }
+    try {
+      var rawS = localStorage.getItem(SETTINGS_KEY);
+      if (rawS) settings = JSON.parse(rawS);
+    } catch (e) {}
+    if (!settings.fontSize) settings.fontSize = 17;
+    if (!Array.isArray(settings.savedHeaders)) settings.savedHeaders = [];
+  }
+  function persistSongs(fromSync) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.songs)); }
+    catch (e) { console.warn("Save failed", e); }
+    if (!fromSync && typeof scheduleSync === "function") scheduleSync(4000);
+  }
+  function persistSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+    catch (e) {}
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persistSongs, 400);
+  }
+
+  // ---------- syllable estimation (heuristic, offline) ----------
+  function countSyllablesInWord(word) {
+    word = word.toLowerCase().replace(/[^a-z']/g, "");
+    if (!word) return 0;
+    if (word.length <= 3) return 1;
+    word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, "");
+    word = word.replace(/^y/, "");
+    var matches = word.match(/[aeiouy]{1,2}/g);
+    return matches ? matches.length : 1;
+  }
+  function stripParentheticals(line) {
+    var prev;
+    do { prev = line; line = line.replace(/\([^()]*\)/g, " "); } while (line !== prev); // handles nesting
+    return line.replace(/\([^)]*$/, " "); // an unclosed "(" drops the rest of the line
+  }
+  function countSyllablesInLine(line) {
+    var words = stripParentheticals(line).trim().split(/\s+/).filter(Boolean);
+    var total = 0;
+    for (var i = 0; i < words.length; i++) total += countSyllablesInWord(words[i]);
+    return total;
+  }
+
+  // ---------- model helpers ----------
+  function newSong() {
+    var now = Date.now();
+    return {
+      id: "s" + now + Math.random().toString(36).slice(2, 7),
+      title: "",
+      bpm: "",
+      key: "—",
+      createdAt: now,
+      lastEditedAt: now,
+      editLog: [now],
+      sections: [
+        { id: "sec" + Math.random().toString(36).slice(2,7), type: "Verse", lines: [""] }
+      ],
+      versions: []
+    };
+  }
+  function getActiveSong() {
+    for (var i = 0; i < state.songs.length; i++) {
+      if (state.songs[i].id === state.activeId) return state.songs[i];
+    }
+    return null;
+  }
+  function fmtDateTime(ts) {
+    var d = new Date(ts);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
+           ", " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  // ---------- rendering: sidebar ----------
+  function fmtShort(ts) {
+    var d = new Date(ts), now = new Date();
+    if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    return d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+  }
+  function songSearchText(song) {
+    return (song.title + "\n" + song.sections.map(function (s) { return s.type + "\n" + s.lines.join("\n"); }).join("\n")).toLowerCase();
+  }
+
+  function openSong(id) {
+    maybeSnapshotOnLeave();
+    state.activeId = id;
+    settings.lastOpenId = id;
+    persistSettings();
+    openInBasic();
+    renderAll();
+  }
+
+  function duplicateSong(song) {
+    maybeSnapshotOnLeave();
+    var now = Date.now();
+    var copy = JSON.parse(JSON.stringify(song));
+    copy.id = "s" + now + Math.random().toString(36).slice(2, 7);
+    copy.title = (song.title || "Untitled song") + " (copy)";
+    copy.createdAt = now;
+    copy.lastEditedAt = now;
+    copy.editLog = [now];
+    copy.versions = [];
+    copy.sections.forEach(function (s) { s.id = newSectionId(); });
+    state.songs.push(copy);
+    persistSongs();
+    openSong(copy.id);
+  }
+
+  function deleteSong(song) {
+    state.songs = state.songs.filter(function (s) { return s.id !== song.id; });
+    recordDeletion(song.id);
+    if (state.activeId === song.id) {
+      var rest = state.songs.slice().sort(function (a, b) { return b.lastEditedAt - a.lastEditedAt; });
+      state.activeId = rest.length ? rest[0].id : null;
+    }
+    persistSongs();
+    renderAll();
+  }
+
+  function renderSidebar() {
+    var list = document.getElementById("song-list");
+    list.innerHTML = "";
+    var q = (document.getElementById("song-search").value || "").trim().toLowerCase();
+    var sorted = state.songs.slice().sort(function(a,b){ return b.lastEditedAt - a.lastEditedAt; });
+    if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
+    if (q && !sorted.length) {
+      var none = document.createElement("p");
+      none.className = "no-match";
+      none.textContent = "No songs match \u201C" + q + "\u201D.";
+      list.appendChild(none);
+      return;
+    }
+    sorted.forEach(function (song) {
+      var item = document.createElement("div");
+      item.className = "song-item" + (song.id === state.activeId ? " active" : "");
+
+      var info = document.createElement("div");
+      info.className = "info";
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = song.title || "Untitled song";
+      var sub = document.createElement("span");
+      sub.className = "sub";
+      var bits = [fmtShort(song.lastEditedAt)];
+      if (song.key && song.key !== "—") bits.push(song.key);
+      if (song.bpm) bits.push(song.bpm + " BPM");
+      sub.textContent = bits.join(" · ");
+      info.appendChild(name);
+      info.appendChild(sub);
+
+      var dup = document.createElement("button");
+      dup.className = "del dup";
+      dup.textContent = "⧉";
+      dup.title = "Duplicate song";
+      dup.setAttribute("aria-label", "Duplicate " + (song.title || "Untitled song"));
+      dup.addEventListener("click", function (e) {
+        e.stopPropagation();
+        duplicateSong(song);
+        closeSidebar();
+      });
+
+      var del = document.createElement("button");
+      del.className = "del";
+      del.textContent = "✕";
+      del.title = "Delete song";
+      del.setAttribute("aria-label", "Delete " + (song.title || "Untitled song"));
+      del.addEventListener("click", function (e) {
+        e.stopPropagation();
+        askConfirm('Delete "' + (song.title || "Untitled song") + '"? This can\'t be undone.', "Delete song", true, function () {
+          deleteSong(song);
+        });
+      });
+      item.appendChild(info);
+      item.appendChild(dup);
+      item.appendChild(del);
+      item.addEventListener("click", function () { openSong(song.id); });
+      list.appendChild(item);
+    });
+  }
+  document.getElementById("song-search").addEventListener("input", renderSidebar);
+
+  // ---------- rendering: editor ----------
+  function renderEditor() {
+    var song = getActiveSong();
+    var editorEl = document.getElementById("editor");
+    var emptyEl = document.getElementById("empty-state");
+
+    if (!song) {
+      editorEl.classList.remove("visible");
+      emptyEl.style.display = "flex";
+      return;
+    }
+    emptyEl.style.display = "none";
+    editorEl.classList.add("visible");
+
+    document.getElementById("title-input").value = song.title;
+    document.getElementById("bpm-input").value = song.bpm || "";
+    document.getElementById("key-input").value = song.key || "—";
+    document.getElementById("timestamps").innerHTML =
+      "Created " + fmtDateTime(song.createdAt) + "<br>Edited " + fmtDateTime(song.lastEditedAt);
+
+    document.documentElement.style.setProperty("--lyric-size-val", settings.fontSize + "px");
+    renderCanvas(song);
+    renderVersions(song);
+  }
+
+  // ---------- reading view ----------
+  function sectionsAsText(song) {
+    var out = [];
+    song.sections.forEach(function (s, i) {
+      var lines = tidyLines(s.lines.slice());
+      if (i > 0) out.push("", "");
+      out.push("[" + s.type + "]" + (s.note && s.note.trim() ? " (" + s.note.trim() + ")" : ""));
+      if (lines.length) out.push("");
+      lines.forEach(function (l) { out.push(l); });
+    });
+    return out.join("\n");
+  }
+  function songAsText(song) {
+    var body = sectionsAsText(song);
+    return ((song.title.trim() ? song.title.trim() + "\n\n" : "") + body).trim() + "\n";
+  }
+
+  function copyText(text, btn) {
+    function done(ok) {
+      btn.textContent = ok ? "Copied" : "Couldn't copy";
+      setTimeout(function () { btn.textContent = "Copy lyrics"; }, 1600);
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // Editable reading view: plain text you can type in like Notes.
+  // Headers and notes are colored; the text is parsed back into sections as you type.
+  var readSync = { timer: null, song: null, el: null };
+
+  function readLineEl(line, idx, lines) {
+    var d = document.createElement("div");
+    if (!line.trim()) { d.appendChild(document.createElement("br")); return d; }
+    var h = detectHeader(line);
+    if (h) {
+      var t = line.trim();
+      var cut = t.charAt(0) === "[" ? t.indexOf("]") + 1 : t.length;
+      var head = document.createElement("span");
+      head.className = "rl-head " + typeClass(h.name);
+      head.textContent = t.slice(0, cut);
+      d.appendChild(head);
+      if (cut < t.length) {
+        var note = document.createElement("span");
+        note.className = "rl-note";
+        note.textContent = t.slice(cut);
+        d.appendChild(note);
+      }
+      return d;
+    }
+    // dim (parenthetical) vocal notes inside lyric lines
+    line.split(/(\([^()]*(?:\([^()]*\)[^()]*)*\))/).forEach(function (part, i) {
+      if (!part) return;
+      if (i % 2 === 1) {
+        var sp = document.createElement("span");
+        sp.className = "rl-paren";
+        sp.textContent = part;
+        d.appendChild(sp);
+      } else {
+        d.appendChild(document.createTextNode(part));
+      }
+    });
+    return d;
+  }
+
+  function fillReadEditor(el, text) {
+    el.innerHTML = "";
+    if (!text.trim()) { el.classList.add("is-empty"); return; }
+    el.classList.remove("is-empty");
+    var lines = text.split("\n");
+    lines.forEach(function (l, i) { el.appendChild(readLineEl(l, i, lines)); });
+  }
+
+  function readEditorText(el) {
+    return (el.innerText || "").replace(/\u00a0/g, " ").replace(/\r/g, "");
+  }
+
+  function applyReadText(song, text) {
+    var parsed = stripParseFlags(parseSong(text, false).sections);
+    song.sections = parsed.length ? parsed : [{ id: newSectionId(), type: "Verse", note: "", lines: [""] }];
+    markEdited(song, true);
+  }
+
+  function flushReadSync() {
+    if (!readSync.timer) return;
+    clearTimeout(readSync.timer);
+    readSync.timer = null;
+    if (readSync.song && readSync.el) applyReadText(readSync.song, readEditorText(readSync.el));
+  }
+
+  function renderReading(song) {
+    var canvas = document.getElementById("canvas");
+    canvas.innerHTML = "";
+
+    var bar = document.createElement("div");
+    bar.className = "read-toolbar";
+    var hint = document.createElement("span");
+    hint.className = "read-hint";
+    hint.textContent = "Type anywhere. Start a section with [Verse], [Chorus]…";
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "read-copy";
+    copyBtn.textContent = "Copy lyrics";
+    copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
+    bar.appendChild(hint);
+    bar.appendChild(copyBtn);
+    canvas.appendChild(bar);
+
+    var sheet = document.createElement("div");
+    sheet.className = "read-sheet";
+    sheet.style.fontSize = settings.fontSize + "px";
+
+    if (song.title.trim()) {
+      var t = document.createElement("h2");
+      t.className = "read-title";
+      t.textContent = song.title;
+      sheet.appendChild(t);
+    }
+
+    var ed = document.createElement("div");
+    ed.className = "read-editor";
+    ed.setAttribute("contenteditable", "plaintext-only");
+    if (ed.contentEditable !== "plaintext-only") ed.setAttribute("contenteditable", "true");
+    ed.setAttribute("role", "textbox");
+    ed.setAttribute("aria-multiline", "true");
+    ed.setAttribute("aria-label", "Lyrics");
+    ed.setAttribute("data-placeholder", "Write or paste your lyrics here…");
+    ed.spellcheck = true;
+
+    var isEmpty = song.sections.every(function (s) { return !s.lines.some(function (l) { return l.trim(); }); });
+    fillReadEditor(ed, isEmpty && song.sections.length === 1 ? "" : sectionsAsText(song));
+
+    ed.addEventListener("input", function () {
+      ed.classList.toggle("is-empty", !readEditorText(ed).trim());
+      readSync.song = song; readSync.el = ed;
+      clearTimeout(readSync.timer);
+      readSync.timer = setTimeout(function () {
+        readSync.timer = null;
+        applyReadText(song, readEditorText(ed));
+      }, 400);
+    });
+    ed.addEventListener("paste", function (e) {
+      var cd = e.clipboardData || window.clipboardData;
+      if (!cd) return;
+      e.preventDefault();
+      var text = cd.getData("text").replace(/\r\n?/g, "\n");
+      document.execCommand("insertText", false, text);
+    });
+    ed.addEventListener("blur", function () {
+      flushReadSync();
+      if (readEditorText(ed).trim()) fillReadEditor(ed, sectionsAsText(song)); // tidy + recolor
+    });
+
+    sheet.appendChild(ed);
+    canvas.appendChild(sheet);
+  }
+
+  // Basic = "read", Advanced = "edit". Every song opens in Basic.
+  function markViewButtons(mode) {
+    document.getElementById("view-edit").setAttribute("aria-pressed", mode !== "read" ? "true" : "false");
+    document.getElementById("view-read").setAttribute("aria-pressed", mode === "read" ? "true" : "false");
+  }
+  function openInBasic() {
+    flushReadSync();
+    if (typeof showHud === "function") {
+      if (!hud.pinned) showHud();
+      document.getElementById("canvas-wrap").scrollTop = 0;
+    }
+    settings.viewMode = "read";
+    markViewButtons("read");
+  }
+  function setViewMode(mode) {
+    flushReadSync();
+    settings.viewMode = mode;
+    markViewButtons(mode);
+    var song = getActiveSong();
+    if (song) renderCanvas(song);
+  }
+
+  function renderCanvas(song) {
+    if (settings.viewMode === "read") { renderReading(song); return; }
+    var canvas = document.getElementById("canvas");
+    canvas.innerHTML = "";
+    canvas.style.setProperty("--lyric-size", settings.fontSize + "px");
+
+    song.sections.forEach(function (section, sIdx) {
+      var block = document.createElement("div");
+      block.className = "section-block";
+
+      var head = document.createElement("div");
+      head.className = "section-head";
+
+      var typeSelect = buildHeaderControl(song, section);
+
+      var total = document.createElement("span");
+      total.className = "section-total";
+      var totalSyl = section.lines.reduce(function (sum, l) { return sum + countSyllablesInLine(l); }, 0);
+      total.textContent = section.lines.filter(function(l){return l.trim();}).length + " lines · " + totalSyl + " syllables";
+
+      var delBtn = document.createElement("button");
+      delBtn.className = "section-del";
+      delBtn.textContent = "✕";
+      delBtn.title = "Remove this section";
+      delBtn.setAttribute("aria-label", "Remove this section");
+      delBtn.addEventListener("click", function () {
+        song.sections.splice(sIdx, 1);
+        markEdited(song);
+        renderCanvas(song);
+      });
+
+      var tools = document.createElement("span");
+      tools.className = "section-tools";
+      function toolBtn(label, title, disabled, fn) {
+        var b = document.createElement("button");
+        b.className = "section-del section-tool";
+        b.textContent = label;
+        b.title = title;
+        b.setAttribute("aria-label", title);
+        b.disabled = !!disabled;
+        b.addEventListener("click", fn);
+        return b;
+      }
+      tools.appendChild(toolBtn("↑", "Move section up", sIdx === 0, function () {
+        song.sections.splice(sIdx - 1, 0, song.sections.splice(sIdx, 1)[0]);
+        markEdited(song); renderCanvas(song);
+      }));
+      tools.appendChild(toolBtn("↓", "Move section down", sIdx === song.sections.length - 1, function () {
+        song.sections.splice(sIdx + 1, 0, song.sections.splice(sIdx, 1)[0]);
+        markEdited(song); renderCanvas(song);
+      }));
+      tools.appendChild(toolBtn("⧉", "Duplicate section", false, function () {
+        song.sections.splice(sIdx + 1, 0, { id: newSectionId(), type: section.type, note: section.note || "", lines: section.lines.slice() });
+        markEdited(song); renderCanvas(song);
+      }));
+      tools.appendChild(delBtn);
+
+      head.appendChild(typeSelect);
+      head.appendChild(total);
+      head.appendChild(tools);
+      block.appendChild(head);
+
+      var note = document.createElement("input");
+      note.type = "text";
+      note.className = "section-note";
+      note.placeholder = "Add a note for this section (vocals, production…)";
+      note.value = section.note || "";
+      note.setAttribute("aria-label", "Section note");
+      note.addEventListener("input", function () {
+        section.note = note.value;
+        markEdited(song, true);
+      });
+      block.appendChild(note);
+
+      section.lines.forEach(function (line, lIdx) {
+        block.appendChild(renderLineRow(song, section, lIdx));
+      });
+
+      var addLine = document.createElement("button");
+      addLine.className = "add-line-btn";
+      addLine.textContent = "+ add line";
+      addLine.addEventListener("click", function () {
+        section.lines.push("");
+        markEdited(song);
+        renderCanvas(song);
+        focusLine(section.id, section.lines.length - 1);
+      });
+      block.appendChild(addLine);
+
+      canvas.appendChild(block);
+    });
+
+    var addRow = document.createElement("div");
+    addRow.id = "add-section-row";
+    SECTION_TYPES.concat(settings.savedHeaders).forEach(function (t) {
+      var btn = document.createElement("button");
+      btn.className = "add-section-btn";
+      btn.textContent = "+ " + t;
+      btn.addEventListener("click", function () {
+        song.sections.push({ id: "sec" + Math.random().toString(36).slice(2,7), type: t, lines: [""] });
+        markEdited(song);
+        renderCanvas(song);
+      });
+      addRow.appendChild(btn);
+    });
+    canvas.appendChild(addRow);
+    autoGrowAll();
+  }
+
+  function renderLineRow(song, section, lIdx) {
+    var row = document.createElement("div");
+    row.className = "line-row";
+    row.dataset.sectionId = section.id;
+    row.dataset.lineIdx = lIdx;
+
+    var input = document.createElement("textarea");
+    input.rows = 1;
+    input.className = "line-input";
+    input.style.fontSize = settings.fontSize + "px";
+    input.placeholder = section.lines.length === 1 ? "Write a line…" : "";
+    input.value = section.lines[lIdx];
+    input.id = "line_" + section.id + "_" + lIdx;
+
+    var badge = document.createElement("span");
+    badge.className = "syl-badge";
+    function sylText(v) { return v.trim() ? countSyllablesInLine(v) + " syl" : ""; }
+    badge.textContent = sylText(section.lines[lIdx]);
+
+    input.addEventListener("input", function () {
+      if (/\n/.test(input.value)) input.value = input.value.replace(/\n/g, " "); // Enter is handled below
+      autoGrow(input);
+      section.lines[lIdx] = input.value;
+      badge.textContent = sylText(input.value);
+      markEdited(song, true);
+      updateSectionTotal(section);
+    });
+
+    input.addEventListener("paste", function (e) {
+      var cd = e.clipboardData || window.clipboardData;
+      var text = cd ? cd.getData("text") : "";
+      if (!text || !/[\r\n]/.test(text)) return; // single-line paste: normal behavior
+      e.preventDefault();
+      insertPastedAt(song, section, lIdx, input, text);
+    });
+
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        section.lines.splice(lIdx + 1, 0, "");
+        markEdited(song);
+        renderCanvas(song);
+        focusLine(section.id, lIdx + 1);
+      } else if (e.key === "Backspace" && input.value === "" && section.lines.length > 1) {
+        e.preventDefault();
+        section.lines.splice(lIdx, 1);
+        markEdited(song);
+        renderCanvas(song);
+        focusLine(section.id, Math.max(0, lIdx - 1), true);
+      }
+    });
+
+    var delBtn = document.createElement("button");
+    delBtn.className = "line-del";
+    delBtn.textContent = "✕";
+    delBtn.addEventListener("click", function () {
+      if (section.lines.length > 1) {
+        section.lines.splice(lIdx, 1);
+      } else {
+        section.lines[0] = "";
+      }
+      markEdited(song);
+      renderCanvas(song);
+    });
+
+    row.appendChild(input);
+    row.appendChild(badge);
+    row.appendChild(delBtn);
+    return row;
+  }
+
+  // ---------- section headers (built-in + custom + saved) ----------
+  function newSectionId() { return "sec" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function isBuiltIn(t) { return SECTION_TYPES.indexOf(t) !== -1; }
+  function savedIndex(t) {
+    var low = (t || "").toLowerCase();
+    for (var i = 0; i < settings.savedHeaders.length; i++) {
+      if (settings.savedHeaders[i].toLowerCase() === low) return i;
+    }
+    return -1;
+  }
+  function typeClass(t) {
+    var f = (t || "").toLowerCase();
+    if (/^(pre|post)/.test(f)) return "type-custom";
+    if (f.indexOf("chorus") === 0) return "type-chorus";
+    if (f.indexOf("verse") === 0) return "type-verse";
+    if (f.indexOf("bridge") === 0) return "type-bridge";
+    if (f.indexOf("breakdown") === 0) return "type-breakdown";
+    return "type-custom";
+  }
+
+  function buildHeaderControl(song, section) {
+    var wrap = document.createElement("span");
+    wrap.className = "header-wrap";
+
+    function showSelect() {
+      wrap.innerHTML = "";
+      var sel = document.createElement("select");
+      sel.className = "section-type-select " + typeClass(section.type);
+      sel.setAttribute("aria-label", "Section header");
+      var opts = SECTION_TYPES.concat(settings.savedHeaders);
+      if (opts.indexOf(section.type) === -1) opts = [section.type].concat(opts);
+      opts.forEach(function (t) {
+        var o = document.createElement("option");
+        o.value = t; o.textContent = t;
+        if (t === section.type) o.selected = true;
+        sel.appendChild(o);
+      });
+      var custom = document.createElement("option");
+      custom.value = "__custom__";
+      custom.textContent = isBuiltIn(section.type) ? "Custom header…" : "Rename header…";
+      sel.appendChild(custom);
+
+      sel.addEventListener("change", function () {
+        if (sel.value === "__custom__") { showInput(); return; }
+        section.type = sel.value;
+        markEdited(song);
+        showSelect();
+      });
+      wrap.appendChild(sel);
+
+      if (!isBuiltIn(section.type)) {
+        var saved = savedIndex(section.type) !== -1;
+        var star = document.createElement("button");
+        star.className = "header-save" + (saved ? " saved" : "");
+        star.textContent = saved ? "★ Saved" : "☆ Save header";
+        star.title = saved ? "Remove from your saved headers" : "Save this header so it's in the list for every song";
+        star.addEventListener("click", function () {
+          var i = savedIndex(section.type);
+          if (i === -1) settings.savedHeaders.push(section.type);
+          else settings.savedHeaders.splice(i, 1);
+          persistSettings();
+          renderCanvas(song);
+        });
+        wrap.appendChild(star);
+      }
+    }
+
+    function showInput() {
+      wrap.innerHTML = "";
+      var input = document.createElement("input");
+      input.type = "text";
+      input.className = "header-custom-input";
+      input.placeholder = "e.g. Pre-Chorus, Hook, Outro";
+      input.maxLength = 40;
+      input.value = isBuiltIn(section.type) ? "" : section.type;
+      var done = false;
+      function commit(keep) {
+        if (done) return;
+        done = true;
+        var v = input.value.trim();
+        if (keep && v) {
+          section.type = v;
+          markEdited(song);
+        }
+        showSelect();
+      }
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); commit(true); }
+        else if (e.key === "Escape") { e.preventDefault(); commit(false); }
+      });
+      input.addEventListener("blur", function () { commit(true); });
+      wrap.appendChild(input);
+      setTimeout(function () { input.focus(); input.select(); }, 0);
+    }
+
+    showSelect();
+    return wrap;
+  }
+
+  // ---------- lyric parsing (paste a whole song) ----------
+  var HEADER_WORDS = ["verse","chorus","pre-chorus","pre chorus","prechorus","post-chorus","post chorus",
+                      "bridge","breakdown","intro","outro","hook","refrain","interlude","tag","instrumental","coda"];
+
+  function titleCase(s) {
+    return s.replace(/\s+/g, " ").trim().toLowerCase().replace(/(^|[\s\-])([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); });
+  }
+  // Keep the writer's own capitalization; only fix all-lowercase names
+  function tidyName(s) {
+    s = s.replace(/\s+/g, " ").trim();
+    return s === s.toLowerCase() ? titleCase(s) : s;
+  }
+  function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+  // Is this text a section name? (known word, optionally numbered, or a saved header)
+  function matchHeaderName(text) {
+    var bare = text.replace(/[:\-–—.]+$/, "").trim();
+    if (!bare || bare.length > 32) return null;
+    var si = savedIndex(bare);
+    if (si !== -1) return settings.savedHeaders[si];
+    for (var i = 0; i < HEADER_WORDS.length; i++) {
+      var re = new RegExp("^" + escapeRe(HEADER_WORDS[i]) + "(\\s*(\\d+|[ivx]+))?(\\s*x\\s*\\d+)?$", "i");
+      if (re.test(bare)) return tidyName(bare);
+    }
+    return null;
+  }
+
+  function unwrapNote(rest) {
+    rest = rest.replace(/^[:\-–—\s]+/, "").trim();
+    var m = rest.match(/^\((.*)\)$/);
+    return m ? m[1].trim() : null;
+  }
+
+  // Returns { name, note, firstLine } or null
+  function detectHeader(line) {
+    var t = line.trim();
+    if (!t) return null;
+
+    // [Anything] — square brackets are always a header, with optional note/lyric after
+    var sq = t.match(/^\[\s*([^\]]{1,40}?)\s*\]\s*:?\s*(.*)$/);
+    if (sq) {
+      var inner = sq[1].replace(/:$/, "").trim();
+      var si = savedIndex(inner);
+      var name = si !== -1 ? settings.savedHeaders[si] : tidyName(inner);
+      var rest = sq[2].trim();
+      if (!rest) return { name: name, note: "", firstLine: null };
+      var n = unwrapNote(rest);
+      return n !== null ? { name: name, note: n, firstLine: null } : { name: name, note: "", firstLine: rest };
+    }
+
+    // (Outro) or {Chorus} — only when the inside is a real section name,
+    // so performance notes like "(Female singer with echo)" stay as lyrics
+    var par = t.match(/^[\(\{]\s*([^\)\}]{1,40}?)\s*[\)\}]\s*:?$/);
+    if (par) {
+      var nm = matchHeaderName(par[1]);
+      return nm ? { name: nm, note: "", firstLine: null } : null;
+    }
+
+    // Chorus / Verse 2: / Hook x2 / Chorus (stripped back)
+    var plain = t.match(/^([^\(\):]{1,32}?)\s*:?\s*(\(.*\))?\s*:?$/);
+    if (plain) {
+      var nm2 = matchHeaderName(plain[1]);
+      if (nm2) return { name: nm2, note: plain[2] ? unwrapNote(plain[2]) || "" : "", firstLine: null };
+    }
+    return null;
+  }
+
+  // A short line alone at the very top, before any header, followed by a blank line or header
+  function findTitleIndex(lines) {
+    var i = 0;
+    while (i < lines.length && !lines[i].trim()) i++;
+    if (i >= lines.length) return -1;
+    var t = lines[i].trim();
+    if (t.length > 60 || detectHeader(t)) return -1;
+    var next = lines[i + 1];
+    if (next !== undefined && next.trim() && !detectHeader(next)) return -1;
+    for (var j = i + 1; j < lines.length; j++) if (lines[j].trim()) return i;
+    return -1; // nothing after it: it's a lyric, not a title
+  }
+
+  function tidyLines(lines) {
+    var out = [];
+    lines.forEach(function (l) {
+      if (!l.trim() && (!out.length || !out[out.length - 1].trim())) return; // no leading/double blanks
+      out.push(l);
+    });
+    while (out.length && !out[out.length - 1].trim()) out.pop();
+    return out;
+  }
+
+  function parseSong(text, useTitle) {
+    var rawLines = text.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").split("\n")
+      .map(function (l) { return l.trim(); });
+
+    var titleIdx = findTitleIndex(rawLines);
+    var title = titleIdx !== -1 ? rawLines[titleIdx] : "";
+    if (useTitle && titleIdx !== -1) rawLines.splice(titleIdx, 1);
+
+    var sections = [];
+    var cur = null;
+    rawLines.forEach(function (line) {
+      var h = detectHeader(line);
+      if (h) {
+        cur = { type: h.name, note: h.note, explicit: true, lines: [] };
+        if (h.firstLine) cur.lines.push(h.firstLine);
+        sections.push(cur);
+        return;
+      }
+      if (!line) {
+        if (!cur) return;
+        if (cur.explicit) { cur.lines.push(""); return; } // keep stanza breaks inside a labeled section
+        if (cur.lines.length) cur = null;                 // unlabeled text: blank line starts a new block
+        return;
+      }
+      if (!cur) {
+        cur = { type: null, note: "", explicit: false, lines: [] };
+        sections.push(cur);
+      }
+      cur.lines.push(line);
+    });
+
+    sections.forEach(function (s) { s.lines = tidyLines(s.lines); });
+
+    var counts = {};
+    sections.forEach(function (s) {
+      if (!s.explicit) {
+        var k = s.lines.join("\n").toLowerCase();
+        counts[k] = (counts[k] || 0) + 1;
+      }
+    });
+    var out = sections.filter(function (s) { return s.explicit || s.lines.length; }).map(function (s) {
+      var type = s.type;
+      if (!s.explicit) type = counts[s.lines.join("\n").toLowerCase()] > 1 ? "Chorus" : "Verse";
+      return { id: newSectionId(), type: type, note: s.note, explicit: s.explicit, lines: s.lines.length ? s.lines : [""] };
+    });
+    return { title: title, sections: out };
+  }
+
+  function stripParseFlags(sections) {
+    return sections.map(function (s) { return { id: s.id, type: s.type, note: s.note || "", lines: s.lines }; });
+  }
+
+  function isEmptySection(sec) {
+    return sec.lines.every(function (l) { return !l.trim(); });
+  }
+  function isEmptySong(song) {
+    return song.sections.every(isEmptySection);
+  }
+
+  // Paste directly into a line: split into lines/sections at the cursor
+  function insertPastedAt(song, section, lIdx, input, text) {
+    var takeTitle = !song.title.trim() && isEmptySong(song);
+    var result = parseSong(text, takeTitle);
+    var parsed = result.sections;
+    if (takeTitle && result.title) {
+      song.title = result.title;
+      document.getElementById("title-input").value = song.title;
+    }
+    if (!parsed.length) { markEdited(song); renderAll(); return; }
+
+    var sIdx = song.sections.indexOf(section);
+    var val = input.value;
+    var before = val.slice(0, input.selectionStart || 0);
+    var after = val.slice(input.selectionEnd || 0);
+    var rest = parsed;
+    var focusSec = section, focusIdx = lIdx;
+
+    if (!parsed[0].explicit) {
+      var first = parsed[0].lines.slice();
+      first[0] = before + first[0];
+      first[first.length - 1] = first[first.length - 1] + after;
+      section.lines.splice.apply(section.lines, [lIdx, 1].concat(first));
+      focusIdx = lIdx + first.length - 1;
+      rest = parsed.slice(1);
+    } else {
+      section.lines[lIdx] = before + after;
+    }
+
+    if (rest.length) {
+      var toInsert = stripParseFlags(rest);
+      if (isEmptySection(section)) song.sections.splice.apply(song.sections, [sIdx, 1].concat(toInsert));
+      else song.sections.splice.apply(song.sections, [sIdx + 1, 0].concat(toInsert));
+      var last = toInsert[toInsert.length - 1];
+      focusSec = last; focusIdx = last.lines.length - 1;
+    }
+
+    markEdited(song);
+    renderAll();
+    focusLine(focusSec.id, focusIdx, true);
+  }
+
+  // ---------- in-app confirmation (browser confirm() is blocked on published pages) ----------
+  var confirmModal = document.getElementById("confirm-modal");
+  var confirmOk = document.getElementById("confirm-ok");
+  var confirmCb = null;
+  function askConfirm(message, okLabel, danger, cb) {
+    document.getElementById("confirm-msg").textContent = message;
+    confirmOk.textContent = okLabel;
+    confirmOk.classList.toggle("danger", !!danger);
+    confirmCb = cb;
+    confirmModal.classList.add("open");
+    setTimeout(function () { confirmOk.focus(); }, 0);
+  }
+  function closeConfirm() { confirmModal.classList.remove("open"); confirmCb = null; }
+  confirmOk.addEventListener("click", function () {
+    var cb = confirmCb;
+    closeConfirm();
+    if (cb) cb();
+  });
+  document.getElementById("confirm-cancel").addEventListener("click", closeConfirm);
+  confirmModal.addEventListener("click", function (e) { if (e.target === confirmModal) closeConfirm(); });
+
+  // ---------- paste-a-song modal ----------
+  var modal = document.getElementById("paste-modal");
+  var pasteText = document.getElementById("paste-text");
+  var pastePreview = document.getElementById("paste-preview");
+  var pasteAppend = document.getElementById("paste-append");
+  var pasteReplace = document.getElementById("paste-replace");
+  var titleRow = document.getElementById("paste-title-row");
+  var useTitleBox = document.getElementById("paste-use-title");
+
+  function openPasteModal() {
+    var song = getActiveSong();
+    pasteText.value = "";
+    useTitleBox.checked = !(song && song.title.trim());
+    updatePastePreview();
+    modal.classList.add("open");
+    setTimeout(function () { pasteText.focus(); }, 0);
+  }
+  function closePasteModal() { modal.classList.remove("open"); }
+
+  function currentPasteResult() {
+    return parseSong(pasteText.value, useTitleBox.checked);
+  }
+
+  function updatePastePreview() {
+    var hasText = !!pasteText.value.trim();
+    var result = hasText ? currentPasteResult() : { title: "", sections: [] };
+    titleRow.classList.toggle("show", !!result.title);
+    document.getElementById("paste-title-name").textContent = "\u201C" + result.title + "\u201D";
+    var parsed = result.sections;
+    pasteAppend.disabled = pasteReplace.disabled = !parsed.length && !(result.title && useTitleBox.checked);
+    if (!parsed.length) { pastePreview.textContent = ""; return; }
+    var totalLines = 0;
+    var parts = parsed.map(function (s) {
+      var n = s.lines.filter(function (l) { return l.trim(); }).length;
+      totalLines += n;
+      return s.type + " (" + n + ")";
+    });
+    pastePreview.textContent = "Found " + parsed.length + " section" + (parsed.length === 1 ? "" : "s") +
+      ", " + totalLines + " lines: " + parts.join(", ");
+  }
+
+  function applyPaste(replace) {
+    var song = getActiveSong();
+    if (!song) return;
+    var result = currentPasteResult();
+    var parsed = stripParseFlags(result.sections);
+    maybeSnapshotOnLeave(); // keep what was there as a restorable version
+    if (useTitleBox.checked && result.title) song.title = result.title;
+    if (parsed.length) {
+      if (replace || isEmptySong(song)) song.sections = parsed;
+      else song.sections = song.sections.concat(parsed);
+    }
+    markEdited(song);
+    persistSongs();
+    closePasteModal();
+    renderAll();
+  }
+
+  pasteText.addEventListener("input", updatePastePreview);
+  useTitleBox.addEventListener("change", updatePastePreview);
+  document.getElementById("paste-cancel").addEventListener("click", closePasteModal);
+  pasteAppend.addEventListener("click", function () { applyPaste(false); });
+  pasteReplace.addEventListener("click", function () {
+    var song = getActiveSong();
+    if (song && !isEmptySong(song)) {
+      askConfirm("Replace this song's lyrics with the pasted text? The current lyrics are saved to version history first.", "Replace lyrics", false, function () { applyPaste(true); });
+    } else {
+      applyPaste(true);
+    }
+  });
+  modal.addEventListener("click", function (e) { if (e.target === modal) closePasteModal(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    if (confirmModal.classList.contains("open")) closeConfirm();
+    else if (modal.classList.contains("open")) closePasteModal();
+  });
+  document.getElementById("paste-btn").addEventListener("click", openPasteModal);
+
+  function autoGrow(el) {
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }
+  function autoGrowAll() {
+    var els = document.querySelectorAll(".line-input");
+    for (var i = 0; i < els.length; i++) autoGrow(els[i]);
+  }
+  window.addEventListener("resize", autoGrowAll);
+
+  function updateSectionTotal(section) {
+    var block = null;
+    var rows = document.querySelectorAll('[data-section-id="' + section.id + '"]');
+    if (!rows.length) return;
+    var block2 = rows[0].closest(".section-block");
+    var totalEl = block2 && block2.querySelector(".section-total");
+    if (totalEl) {
+      var totalSyl = section.lines.reduce(function (sum, l) { return sum + countSyllablesInLine(l); }, 0);
+      totalEl.textContent = section.lines.filter(function(l){return l.trim();}).length + " lines · " + totalSyl + " syllables";
+    }
+  }
+
+  function focusLine(sectionId, lineIdx, toEnd) {
+    setTimeout(function () {
+      var el = document.getElementById("line_" + sectionId + "_" + lineIdx);
+      if (el) {
+        el.focus();
+        if (toEnd) el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }, 0);
+  }
+
+  // ---------- editing / autosave / versioning ----------
+  function markEdited(song, lightweight) {
+    song.lastEditedAt = Date.now();
+    lastEditAt = song.lastEditedAt;
+    if (!lightweight) {
+      document.getElementById("timestamps").innerHTML =
+        "Created " + fmtDateTime(song.createdAt) + "<br>Edited " + fmtDateTime(song.lastEditedAt);
+    }
+    scheduleSave();
+    renderSidebarSoon();
+    scheduleVersionCheck(song);
+  }
+
+  var sidebarTimer = null;
+  function renderSidebarSoon() {
+    clearTimeout(sidebarTimer);
+    sidebarTimer = setTimeout(renderSidebar, 250);
+  }
+
+  function snapshotOf(song) {
+    return JSON.stringify({ title: song.title, bpm: song.bpm, key: song.key, sections: song.sections });
+  }
+
+  // What counts as "the lyrics": section names, notes and lines (not ids, title, BPM or key)
+  function lyricKeyOf(sections) {
+    return JSON.stringify(sections.map(function (s) {
+      return [s.type, (s.note || "").trim(), tidyLines(s.lines.map(function (l) { return l.replace(/\s+$/, ""); }))];
+    }));
+  }
+  function hasLyrics(sections) {
+    return sections.some(function (s) { return s.lines.some(function (l) { return l.trim(); }); });
+  }
+  var versionKeyCache = typeof WeakMap === "function" ? new WeakMap() : null;
+  function versionKey(v) {
+    if (versionKeyCache && versionKeyCache.has(v)) return versionKeyCache.get(v);
+    var k = "";
+    try { k = lyricKeyOf(JSON.parse(v.snapshot).sections); } catch (e) {}
+    if (versionKeyCache) versionKeyCache.set(v, k);
+    return k;
+  }
+  // Adds a version only if the lyrics differ from the most recent saved version
+  function addVersionIfChanged(song) {
+    if (!hasLyrics(song.sections)) return false;
+    var last = song.versions[song.versions.length - 1];
+    if (last && versionKey(last) === lyricKeyOf(song.sections)) return false;
+    song.versions.push({ timestamp: Date.now(), snapshot: snapshotOf(song) });
+    if (song.versions.length > MAX_VERSIONS) song.versions.shift();
+    return true;
+  }
+
+  function scheduleVersionCheck(song) {
+    clearTimeout(versionTimer);
+    versionTimer = setTimeout(function () { maybeSnapshot(song); }, VERSION_GAP_MS);
+  }
+
+  function maybeSnapshot(song) {
+    if (addVersionIfChanged(song)) {
+      persistSongs();
+      if (historyOpen) renderVersions(song);
+    }
+  }
+
+  function maybeSnapshotOnLeave() {
+    flushReadSync();
+    var song = getActiveSong();
+    if (!song) return;
+    addVersionIfChanged(song);
+    persistSongs();
+  }
+
+  window.addEventListener("beforeunload", maybeSnapshotOnLeave);
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) maybeSnapshotOnLeave();
+  });
+
+  // ---------- version history UI ----------
+  function renderVersions(song) {
+    var list = document.getElementById("version-list");
+    list.innerHTML = "";
+    if (!song.versions.length) {
+      var p = document.createElement("p");
+      p.className = "no-versions";
+      p.textContent = "No saved versions yet. A version is saved when you change the lyrics and then leave the song, close the app, or pause writing for a few minutes.";
+      list.appendChild(p);
+      return;
+    }
+    song.versions.slice().reverse().forEach(function (v) {
+      var data = JSON.parse(v.snapshot);
+      var lineCount = data.sections.reduce(function (sum, s) { return sum + s.lines.filter(function(l){return l.trim();}).length; }, 0);
+      var item = document.createElement("div");
+      item.className = "version-item";
+      var date = document.createElement("div");
+      date.className = "v-date";
+      date.textContent = fmtDateTime(v.timestamp);
+      var meta = document.createElement("div");
+      meta.className = "v-meta";
+      meta.textContent = (data.title || "Untitled") + " · " + data.sections.length + " sections · " + lineCount + " lines";
+      var actions = document.createElement("div");
+      actions.className = "v-actions";
+      var pv = document.createElement("button");
+      pv.className = "version-preview";
+      pv.textContent = "Preview";
+      pv.addEventListener("click", function () { openVersionPreview(song, v); });
+      var btn = document.createElement("button");
+      btn.className = "version-restore";
+      btn.textContent = "Restore";
+      btn.addEventListener("click", function () {
+        askConfirm("Restore the version from " + fmtDateTime(v.timestamp) + "? What you have now is saved to version history first.", "Restore version", false, function () {
+          restoreVersion(song, v);
+        });
+      });
+      actions.appendChild(pv);
+      actions.appendChild(btn);
+      item.appendChild(date);
+      item.appendChild(meta);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+
+  function restoreVersion(song, v) {
+    var data = JSON.parse(v.snapshot);
+    maybeSnapshotOnLeave();
+    song.title = data.title;
+    song.bpm = data.bpm;
+    song.key = data.key;
+    song.sections = JSON.parse(JSON.stringify(data.sections));
+    markEdited(song);
+    persistSongs();
+    renderAll();
+  }
+
+  // ---------- version preview ----------
+  var previewModal = document.getElementById("preview-modal");
+  var previewTarget = null;
+
+  function openVersionPreview(song, v) {
+    flushReadSync();
+    var data = JSON.parse(v.snapshot);
+    previewTarget = { song: song, v: v };
+
+    document.getElementById("preview-date").textContent = "Version from " + fmtDateTime(v.timestamp);
+    var lineCount = data.sections.reduce(function (sum, s) { return sum + s.lines.filter(function (l) { return l.trim(); }).length; }, 0);
+    var bits = [data.sections.length + " sections", lineCount + " lines"];
+    if (data.bpm) bits.push(data.bpm + " BPM");
+    if (data.key && data.key !== "—") bits.push("Key " + data.key);
+    document.getElementById("preview-meta").textContent = bits.join(" · ");
+
+    // Lines that don't appear anywhere in the current song get highlighted
+    var current = {};
+    sectionsAsText(song).split("\n").forEach(function (l) { if (l.trim()) current[l.trim()] = true; });
+    var changed = 0;
+
+    var body = document.getElementById("preview-body");
+    body.innerHTML = "";
+    body.style.fontSize = settings.fontSize + "px";
+    if ((data.title || "").trim()) {
+      var t = document.createElement("h2");
+      t.className = "read-title";
+      t.textContent = data.title;
+      if (data.title.trim() !== song.title.trim()) { t.classList.add("pv-changed"); changed++; }
+      body.appendChild(t);
+    }
+    var text = sectionsAsText({ sections: data.sections });
+    var wrap = document.createElement("div");
+    wrap.className = "read-editor pv-sheet";
+    text.split("\n").forEach(function (l) {
+      var el = readLineEl(l);
+      if (l.trim() && !current[l.trim()]) { el.classList.add("pv-changed"); changed++; }
+      wrap.appendChild(el);
+    });
+    if (!text.trim()) {
+      var e = document.createElement("p");
+      e.className = "read-empty";
+      e.textContent = "This version has no lyrics.";
+      wrap.appendChild(e);
+    }
+    body.appendChild(wrap);
+
+    document.getElementById("preview-diff").textContent = changed
+      ? changed + " highlighted line" + (changed === 1 ? " is" : "s are") + " different from what you have now."
+      : "This version matches what you have now.";
+
+    previewModal.classList.add("open");
+    body.scrollTop = 0;
+    var firstChange = body.querySelector(".pv-changed");
+    if (firstChange && firstChange.offsetTop > body.clientHeight * 0.6) {
+      body.scrollTop = Math.max(0, firstChange.offsetTop - body.offsetTop - 60);
+    }
+  }
+  function closePreview() { previewModal.classList.remove("open"); previewTarget = null; }
+  document.getElementById("preview-close").addEventListener("click", closePreview);
+  previewModal.addEventListener("click", function (e) { if (e.target === previewModal) closePreview(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && previewModal.classList.contains("open") && !confirmModal.classList.contains("open")) closePreview();
+  });
+  document.getElementById("preview-restore").addEventListener("click", function () {
+    if (!previewTarget) return;
+    var t = previewTarget;
+    closePreview();
+    restoreVersion(t.song, t.v);
+  });
+
+  // ---------- top-level render ----------
+  function renderAll() {
+    renderSidebar();
+    renderEditor();
+  }
+
+  // ---------- events ----------
+  document.getElementById("new-song-btn").addEventListener("click", function () {
+    maybeSnapshotOnLeave();
+    var song = newSong();
+    state.songs.push(song);
+    state.activeId = song.id;
+    settings.lastOpenId = song.id;
+    persistSettings();
+    persistSongs();
+    document.getElementById("song-search").value = "";
+    openInBasic();
+    renderAll();
+    document.getElementById("title-input").focus();
+  });
+
+  document.getElementById("title-input").addEventListener("input", function (e) {
+    var song = getActiveSong();
+    if (!song) return;
+    song.title = e.target.value;
+    markEdited(song, true);
+    renderSidebarSoon();
+  });
+
+  document.getElementById("bpm-input").addEventListener("input", function (e) {
+    var song = getActiveSong();
+    if (!song) return;
+    var v = e.target.value.replace(/[^0-9]/g, "");
+    song.bpm = v;
+    markEdited(song);
+  });
+
+  var keySelect = document.getElementById("key-input");
+  KEYS.forEach(function (k) {
+    var opt = document.createElement("option");
+    opt.value = k; opt.textContent = k;
+    keySelect.appendChild(opt);
+  });
+  keySelect.addEventListener("change", function (e) {
+    var song = getActiveSong();
+    if (!song) return;
+    song.key = e.target.value;
+    markEdited(song);
+  });
+
+  document.getElementById("font-dec").addEventListener("click", function () {
+    settings.fontSize = Math.max(12, settings.fontSize - 1);
+    persistSettings();
+    var song = getActiveSong();
+    if (song) renderCanvas(song);
+  });
+  document.getElementById("font-inc").addEventListener("click", function () {
+    settings.fontSize = Math.min(28, settings.fontSize + 1);
+    persistSettings();
+    var song = getActiveSong();
+    if (song) renderCanvas(song);
+  });
+
+  function setHistoryOpen(open) {
+    historyOpen = open;
+    document.getElementById("history-drawer").classList.toggle("open", open);
+    document.getElementById("editor").classList.toggle("history-open", open);
+    var song = getActiveSong();
+    if (song && open) renderVersions(song);
+  }
+  document.getElementById("history-toggle").addEventListener("click", function () { setHistoryOpen(!historyOpen); });
+  document.getElementById("history-close").addEventListener("click", function () { setHistoryOpen(false); });
+  document.getElementById("history-backdrop").addEventListener("click", function () { setHistoryOpen(false); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && historyOpen && !document.querySelector("#preview-modal.open, #confirm-modal.open")) setHistoryOpen(false);
+  });
+
+  // ---------- phone layout: slide-out song list ----------
+  var appEl = document.getElementById("app");
+  function closeSidebar() { appEl.classList.remove("sidebar-open"); }
+  document.getElementById("songs-toggle").addEventListener("click", function () { appEl.classList.add("sidebar-open"); });
+  document.getElementById("sidebar-backdrop").addEventListener("click", closeSidebar);
+  document.getElementById("song-list").addEventListener("click", function (e) {
+    if (!e.target.closest(".del")) closeSidebar();
+  });
+  document.getElementById("new-song-btn").addEventListener("click", closeSidebar);
+  document.getElementById("empty-new-btn").addEventListener("click", function () {
+    document.getElementById("new-song-btn").click();
+  });
+
+  document.getElementById("view-edit").addEventListener("click", function () { setViewMode("edit"); });
+  document.getElementById("view-read").addEventListener("click", function () { setViewMode("read"); });
+
+  // ---------- appearance ----------
+  var systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function applyTheme() {
+    var pref = settings.theme || "dark";
+    var resolved = pref === "system" ? (systemDark && systemDark.matches ? "dark" : "light") : pref;
+    if (resolved === "dark" && settings.trueBlack) resolved = "black";
+    document.documentElement.setAttribute("data-theme", resolved);
+    document.getElementById("black-switch").setAttribute("aria-checked", settings.trueBlack ? "true" : "false");
+    var btns = document.querySelectorAll("#theme-seg button");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-theme-choice") === pref ? "true" : "false");
+    }
+  }
+  if (systemDark) {
+    var onSys = function () { if (settings.theme === "system") applyTheme(); };
+    if (systemDark.addEventListener) systemDark.addEventListener("change", onSys);
+    else if (systemDark.addListener) systemDark.addListener(onSys);
+  }
+  document.getElementById("theme-seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    settings.theme = b.getAttribute("data-theme-choice");
+    persistSettings();
+    applyTheme();
+  });
+  document.getElementById("black-switch").addEventListener("click", function () {
+    settings.trueBlack = !settings.trueBlack;
+    persistSettings();
+    applyTheme();
+  });
+  var settingsModal = document.getElementById("settings-modal");
+  function closeSettings() { settingsModal.classList.remove("open"); }
+  document.getElementById("settings-btn").addEventListener("click", function () {
+    closeSidebar();
+    applyTheme();
+    settingsModal.classList.add("open");
+  });
+  document.getElementById("settings-done").addEventListener("click", closeSettings);
+  settingsModal.addEventListener("click", function (e) { if (e.target === settingsModal) closeSettings(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && settingsModal.classList.contains("open")) closeSettings();
+  });
+
+  // ---------- auto-hiding header bar ----------
+  var editorEl = document.getElementById("editor");
+  var metaBar = document.getElementById("meta-bar");
+  var scroller = document.getElementById("canvas-wrap");
+  var hud = { lastY: 0, travel: 0, hidden: false, pinned: false };
+
+  function measureHud() {
+    editorEl.style.setProperty("--hud-h", metaBar.offsetHeight + "px");
+  }
+  if (window.ResizeObserver) new ResizeObserver(measureHud).observe(metaBar);
+  window.addEventListener("resize", measureHud);
+
+  function setHudHidden(hide) {
+    if (hud.hidden === hide) return;
+    hud.hidden = hide;
+    editorEl.classList.toggle("hud-hidden", hide);
+    if (hide && metaBar.contains(document.activeElement)) document.activeElement.blur();
+  }
+  function showHud() { hud.travel = 0; setHudHidden(false); }
+
+  scroller.addEventListener("scroll", function () {
+    var y = scroller.scrollTop;
+    var dy = y - hud.lastY;
+    hud.lastY = y;
+    if (hud.pinned) return;                        // hidden by hand: stays hidden until shown by hand
+    if (y <= 40) { showHud(); return; }           // near the top: always show
+    if (dy === 0) return;
+    // require a little travel in one direction so small jitters don't flicker it
+    hud.travel = (dy > 0) === (hud.travel > 0) ? hud.travel + dy : dy;
+    if (hud.travel > 28) setHudHidden(true);      // moving further into the song
+    else if (hud.travel < -28) setHudHidden(false); // heading back toward the top
+  }, { passive: true });
+
+  document.getElementById("hud-hide").addEventListener("click", function () {
+    var sc = document.getElementById("canvas-wrap");
+    var before = sc.scrollTop;
+    hud.pinned = true;
+    setHudHidden(true);
+    editorEl.classList.add("hud-pinned");
+    // keep the same lyric line in view after the sheet moves up
+    var shift = metaBar.offsetHeight + (window.innerWidth <= 640 ? 14 : 26) - 56;
+    hud.lastY = sc.scrollTop = Math.max(0, before - shift);
+    document.getElementById("hud-show").focus({ preventScroll: true });
+  });
+  document.getElementById("hud-show").addEventListener("click", function () {
+    var sc = document.getElementById("canvas-wrap");
+    var before = sc.scrollTop;
+    hud.pinned = false;
+    editorEl.classList.remove("hud-pinned");
+    var shift = metaBar.offsetHeight + (window.innerWidth <= 640 ? 14 : 26) - 56;
+    if (before > 40) hud.lastY = sc.scrollTop = before + shift;
+    showHud();
+  });
+
+  document.getElementById("songs-fab").addEventListener("click", function () {
+    document.getElementById("app").classList.add("sidebar-open");
+  });
+
+  // ---------- sync between devices (private GitHub Gist) ----------
+  var SYNC_KEY = "lyricapp_sync_v1";
+  var GIST_DESC = "Lyric Sheet sync - do not edit";
+  var META_FILE = "lyricsheet-meta.json";
+  var sync = { token: "", gistId: "", deleted: {}, lastSync: 0, state: "off", message: "", running: false, again: false, timer: null };
+
+  function loadSync() {
+    try {
+      var o = JSON.parse(localStorage.getItem(SYNC_KEY) || "{}");
+      sync.token = o.token || ""; sync.gistId = o.gistId || "";
+      sync.deleted = o.deleted || {}; sync.lastSync = o.lastSync || 0;
+    } catch (e) {}
+  }
+  function saveSync() {
+    try {
+      localStorage.setItem(SYNC_KEY, JSON.stringify({ token: sync.token, gistId: sync.gistId, deleted: sync.deleted, lastSync: sync.lastSync }));
+    } catch (e) {}
+  }
+  function recordDeletion(id) {
+    sync.deleted[id] = Date.now();
+    saveSync();
+  }
+
+  function SyncError(kind, status) { this.kind = kind; this.status = status; }
+  function gh(method, path, body) {
+    var headers = { "Authorization": "Bearer " + sync.token, "Accept": "application/vnd.github+json" };
+    if (body) headers["Content-Type"] = "application/json";
+    return fetch("https://api.github.com" + path, { method: method, headers: headers, cache: "no-store", body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) {
+        if (r.status === 401) throw new SyncError("auth", 401);
+        if (r.status === 404) throw new SyncError("notfound", 404);
+        if (r.status === 403 || r.status === 429) throw new SyncError("limited", r.status);
+        if (!r.ok) throw new SyncError("http", r.status);
+        return r.status === 204 ? null : r.json();
+      }, function () { throw new SyncError("network"); });
+  }
+  function fileText(f) {
+    if (!f.truncated && typeof f.content === "string") return Promise.resolve(f.content);
+    return fetch(f.raw_url, { cache: "no-store" }).then(function (r) { return r.text(); });
+  }
+  function findOrCreateGist() {
+    return gh("GET", "/gists?per_page=100").then(function (list) {
+      var found = (list || []).filter(function (g) { return g.description === GIST_DESC; })[0];
+      if (found) return found.id;
+      return gh("POST", "/gists", {
+        description: GIST_DESC,
+        public: false,
+        files: (function () { var f = {}; f[META_FILE] = { content: JSON.stringify({ format: 1, deleted: {}, savedHeaders: [] }) }; return f; })()
+      }).then(function (g) { return g.id; });
+    });
+  }
+
+  function describeSyncError(err) {
+    switch (err && err.kind) {
+      case "auth": return "GitHub didn't accept the token. Make sure it has the \u201Cgist\u201D permission and hasn't expired.";
+      case "network": return "Can't reach GitHub right now. Your songs are saved on this device and will sync when you're back online.";
+      case "limited": return "GitHub refused the request. Check the token has the \u201Cgist\u201D permission, or wait a few minutes.";
+      default: return "Sync hit a problem" + (err && err.status ? " (GitHub error " + err.status + ")" : "") + ". It will try again.";
+    }
+  }
+
+  function setSyncState(st, msg) {
+    sync.state = st; sync.message = msg || "";
+    var el = document.getElementById("sync-status");
+    el.hidden = !sync.token;
+    el.className = "sync-status " + st;
+    el.textContent = st === "syncing" ? "Syncing\u2026"
+      : st === "ok" ? (sync.lastSync ? "Synced " + fmtShort(sync.lastSync) : "Sync on")
+      : st === "error" ? "Sync problem \u2014 tap for details"
+      : "";
+    renderSyncSettings();
+  }
+  function renderSyncSettings() {
+    var on = !!sync.token;
+    document.getElementById("sync-connect").hidden = on;
+    document.getElementById("sync-connected").hidden = !on;
+    var d = document.getElementById("sync-detail");
+    d.classList.toggle("error", sync.state === "error");
+    d.textContent = !on ? "" : sync.state === "error" ? sync.message
+      : sync.state === "syncing" ? "Syncing\u2026"
+      : sync.lastSync ? "Connected. Last synced " + fmtDateTime(sync.lastSync) + "."
+      : "Connected.";
+  }
+
+  function lyricsEqual(a, b) { return lyricKeyOf(a.sections) === lyricKeyOf(b.sections); }
+
+  function mergeSong(L, R) {
+    var winner = R.lastEditedAt > L.lastEditedAt ? R : L;
+    var loser = winner === R ? L : R;
+    var m = JSON.parse(JSON.stringify(winner));
+    var all = (L.versions || []).concat(R.versions || []);
+    // Keep the other device's text as a version so nothing is ever lost in a conflict
+    if (hasLyrics(loser.sections) && !lyricsEqual(loser, winner)) {
+      all.push({ timestamp: loser.lastEditedAt, snapshot: snapshotOf(loser) });
+    }
+    var seen = {};
+    all = all.filter(function (v) {
+      var k = v.timestamp + "|" + v.snapshot;
+      if (seen[k]) return false;
+      seen[k] = true; return true;
+    }).sort(function (a, b) { return a.timestamp - b.timestamp; });
+    // both devices may have saved the same lyrics: keep one of each back-to-back duplicate
+    var prevKey = null;
+    all = all.filter(function (v) { var k = versionKey(v); var keep = k !== prevKey; prevKey = k; return keep; });
+    m.versions = all.slice(-MAX_VERSIONS).map(function (v) { return { timestamp: v.timestamp, snapshot: v.snapshot }; });
+    m.createdAt = Math.min(L.createdAt || m.createdAt, R.createdAt || m.createdAt);
+    return m;
+  }
+
+  function mergeRemote(pairs) {
+    var remote = {}, remoteRaw = {}, meta = { format: 1, deleted: {}, savedHeaders: [] }, metaRaw = null;
+    pairs.forEach(function (pr) {
+      var n = pr[0], c = pr[1];
+      if (n === META_FILE) {
+        metaRaw = c;
+        try { var mo = JSON.parse(c); meta.deleted = mo.deleted || {}; meta.savedHeaders = mo.savedHeaders || []; } catch (e) {}
+      } else if (/^song-.+\.json$/.test(n)) {
+        try { var s = JSON.parse(c); if (s && s.id && s.sections) { remote[s.id] = s; remoteRaw[s.id] = c; } } catch (e) {}
+      }
+    });
+
+    var deleted = {};
+    Object.keys(meta.deleted).forEach(function (id) { deleted[id] = meta.deleted[id]; });
+    Object.keys(sync.deleted).forEach(function (id) { deleted[id] = Math.max(deleted[id] || 0, sync.deleted[id]); });
+
+    var localMap = {};
+    state.songs.forEach(function (s) { localMap[s.id] = s; });
+    var ids = {};
+    Object.keys(remote).forEach(function (id) { ids[id] = true; });
+    Object.keys(localMap).forEach(function (id) { ids[id] = true; });
+
+    var patch = {}, patchCount = 0;
+    var next = [], localChanged = false, activeChanged = false, activeGone = false;
+
+    Object.keys(ids).forEach(function (id) {
+      var L = localMap[id], R = remote[id];
+      var newest = Math.max(L ? L.lastEditedAt : 0, R ? R.lastEditedAt : 0);
+      if (deleted[id] && deleted[id] >= newest) {
+        if (R) { patch["song-" + id + ".json"] = null; patchCount++; }
+        if (L) { localChanged = true; if (id === state.activeId) activeGone = true; }
+        return;
+      }
+      if (deleted[id]) delete deleted[id]; // edited again after a delete elsewhere: keep it
+
+      var merged = L && R ? mergeSong(L, R) : JSON.parse(JSON.stringify(L || R));
+      var out = JSON.stringify(merged);
+      if (!R || out !== remoteRaw[id]) { patch["song-" + id + ".json"] = { content: out }; patchCount++; }
+
+      if (L) {
+        if (JSON.stringify(L) !== out) {
+          var lyricChange = !lyricsEqual(L, merged) || L.title !== merged.title || L.bpm !== merged.bpm || L.key !== merged.key;
+          // update in place so an open editor keeps working on the same song object
+          Object.keys(L).forEach(function (k) { delete L[k]; });
+          Object.keys(merged).forEach(function (k) { L[k] = merged[k]; });
+          localChanged = true;
+          if (id === state.activeId && lyricChange) activeChanged = true;
+        }
+        next.push(L);
+      } else {
+        next.push(merged);
+        localChanged = true;
+      }
+    });
+
+    // saved headers follow you between devices
+    var headers = settings.savedHeaders.slice();
+    meta.savedHeaders.forEach(function (x) { if (savedIndex(x) === -1) headers.push(x); });
+    if (headers.length !== settings.savedHeaders.length) { settings.savedHeaders = headers; persistSettings(); localChanged = true; }
+    var metaOut = JSON.stringify({ format: 1, deleted: deleted, savedHeaders: headers });
+    if (metaOut !== metaRaw) { patch[META_FILE] = { content: metaOut }; patchCount++; }
+
+    sync.deleted = deleted;
+    saveSync();
+
+    if (localChanged) {
+      state.songs = next;
+      if (activeGone || !getActiveSong()) {
+        var rest = state.songs.slice().sort(function (a, b) { return b.lastEditedAt - a.lastEditedAt; });
+        state.activeId = rest.length ? rest[0].id : null;
+        activeChanged = true;
+      }
+      persistSongs(true);
+      if (activeChanged) renderAll(); else { renderSidebar(); if (historyOpen && getActiveSong()) renderVersions(getActiveSong()); }
+    }
+    return patchCount ? patch : null;
+  }
+
+  function syncNow() {
+    clearTimeout(sync.timer);
+    if (!sync.token) { setSyncState("off"); return Promise.resolve(); }
+    if (sync.running) { sync.again = true; return Promise.resolve(); }
+    sync.running = true;
+    setSyncState("syncing");
+    flushReadSync();
+    return (sync.gistId ? Promise.resolve(sync.gistId) : findOrCreateGist())
+      .then(function (id) { sync.gistId = id; saveSync(); return gh("GET", "/gists/" + id); })
+      .then(function (g) {
+        var names = Object.keys(g.files || {});
+        return Promise.all(names.map(function (n) { return fileText(g.files[n]).then(function (c) { return [n, c]; }); }));
+      })
+      .then(function (pairs) {
+        var patch = mergeRemote(pairs);
+        if (patch) return gh("PATCH", "/gists/" + sync.gistId, { files: patch });
+      })
+      .then(function () { sync.lastSync = Date.now(); saveSync(); setSyncState("ok"); })
+      .catch(function (err) {
+        if (err && err.kind === "notfound" && sync.gistId) { sync.gistId = ""; saveSync(); sync.again = true; setSyncState("syncing"); return; }
+        console.warn("Sync failed", err);
+        setSyncState("error", describeSyncError(err));
+      })
+      .then(function () {
+        sync.running = false;
+        if (sync.again) { sync.again = false; syncNow(); }
+      });
+  }
+  function scheduleSync(ms) {
+    if (!sync.token) return;
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(syncNow, ms);
+  }
+
+  document.getElementById("sync-connect-btn").addEventListener("click", function () {
+    var t = document.getElementById("sync-token").value.trim();
+    if (!t) { document.getElementById("sync-token").focus(); return; }
+    sync.token = t; sync.gistId = ""; sync.lastSync = 0;
+    saveSync();
+    document.getElementById("sync-token").value = "";
+    syncNow();
+  });
+  document.getElementById("sync-now-btn").addEventListener("click", function () { syncNow(); });
+  document.getElementById("sync-disconnect-btn").addEventListener("click", function () {
+    askConfirm("Stop syncing on this device? Your songs stay on this device and in your Gist.", "Disconnect", false, function () {
+      sync.token = ""; sync.gistId = ""; sync.lastSync = 0;
+      saveSync();
+      setSyncState("off");
+    });
+  });
+  document.getElementById("sync-status").addEventListener("click", function () {
+    document.getElementById("settings-btn").click();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (sync.token) syncNow(); // pull when you come back, push when you leave
+  });
+  setInterval(function () { if (sync.token && !document.hidden) syncNow(); }, 60000);
+
+  // ---------- init ----------
+  loadAll();
+  if (state.songs.length) {
+    var reopen = state.songs.filter(function (s) { return s.id === settings.lastOpenId; })[0];
+    state.activeId = reopen ? reopen.id : state.songs.slice().sort(function(a,b){return b.lastEditedAt-a.lastEditedAt;})[0].id;
+  }
+  applyTheme();
+  openInBasic();
+  measureHud();
+  renderAll();
+  loadSync();
+  setSyncState(sync.token ? "ok" : "off");
+  if (sync.token) syncNow();
+})();
+</script>
+</body>
+</html>

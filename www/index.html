@@ -1054,6 +1054,12 @@
     user-select: none;
   }
   #fmt-menu[hidden] { display: none; }
+  #fmt-error {
+    position: fixed; z-index: 60; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    background: #8a2b2b; color: #fff; border-radius: 10px; padding: 10px 14px;
+    font-family: var(--font-ui); font-size: 0.85rem; box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+  #fmt-error[hidden] { display: none; }
   #fmt-menu button {
     background: none;
     border: 1px solid transparent;
@@ -3720,6 +3726,9 @@
   // ---------- resize selected words (Basic mode) ----------
   var sizeBar = document.getElementById("size-bar");
   var sizeSaved = null, sizeBarHold = false;
+  // The last selection as text positions ({ed, a, b}). Unlike a DOM range it survives the editor being
+  // re-rendered and iOS moving or dropping the selection while the toolbar's menus are used.
+  var savedSel = null;
 
   function editorOfRange(r) {
     var n = r.commonAncestorContainer;
@@ -3763,14 +3772,22 @@
   // The selected characters of a Basic editor that can be styled (not section headers or line breaks)
   function selectionInfo(allowSaved) {
     var sel = window.getSelection();
-    var r = sel.rangeCount && !sel.getRangeAt(0).collapsed ? sel.getRangeAt(0) : (allowSaved ? sizeSaved : null);
-    if (!r || r.collapsed) return null;
-    var ed = editorOfRange(r);
-    if (!ed) return null;
-    var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
-    var w = walkEditor(ed, pts);
-    if (pts[0].index == null || pts[1].index == null) return null;
-    var a = Math.min(pts[0].index, pts[1].index), b = Math.max(pts[0].index, pts[1].index);
+    var r = sel.rangeCount && !sel.getRangeAt(0).collapsed ? sel.getRangeAt(0) : null;
+    var ed = r ? editorOfRange(r) : null, w, a, b;
+    if (ed) {
+      var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
+      w = walkEditor(ed, pts);
+      if (pts[0].index == null || pts[1].index == null) return null;
+      a = Math.min(pts[0].index, pts[1].index); b = Math.max(pts[0].index, pts[1].index);
+      if (b > a) savedSel = { ed: ed, a: a, b: b };
+    } else if (allowSaved && savedSel && document.body.contains(savedSel.ed)) {
+      ed = savedSel.ed;
+      w = walkEditor(ed);
+      a = Math.min(savedSel.a, w.text.length); b = Math.min(savedSel.b, w.text.length);
+    } else {
+      return null;
+    }
+    if (b <= a) return null;
     var idx = [], lineStart = 0;
     w.text.split("\n").forEach(function (t) {
       var lineEnd = lineStart + t.length;
@@ -3809,6 +3826,7 @@
     sel.removeAllRanges();
     sel.addRange(nr);
     sizeSaved = nr.cloneRange();
+    savedSel = { ed: info.ed, a: info.a, b: info.b };
     setTimeout(function () { sizeBarHold = false; }, 0);
     readEdited(song, info.ed);
     placeSizeBar(nr);
@@ -3865,19 +3883,38 @@
   // isn't cleared, and on iOS that also cancels the "click", so we can't wait for one.
   // (A click with detail 0 is a keyboard press, which still needs handling.)
   function onPress(el, fn) {
-    ["mousedown", "touchstart"].forEach(function (ev) {
+    ["mousedown", "touchstart", "touchend"].forEach(function (ev) {
       el.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
     });
+    function run(b) {
+      try { fn(b); } catch (err) { showFmtError(err); }
+    }
     el.addEventListener("pointerdown", function (e) {
       e.preventDefault();
       if (e.button > 0) return;
       var b = e.target.closest("button");
-      if (b) fn(b);
+      if (b) run(b);
     });
     el.addEventListener("click", function (e) {
       var b = e.target.closest("button");
-      if (b && e.detail === 0) fn(b);
+      if (b && e.detail === 0) run(b);
     });
+  }
+  // If formatting ever fails, say so on screen (otherwise it just silently does nothing)
+  var fmtErrTimer = null;
+  function showFmtError(err) {
+    var box = document.getElementById("fmt-error");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "fmt-error";
+      box.setAttribute("role", "alert");
+      document.body.appendChild(box);
+    }
+    box.textContent = "Couldn't format the text: " + (err && err.message ? err.message : err);
+    box.hidden = false;
+    clearTimeout(fmtErrTimer);
+    fmtErrTimer = setTimeout(function () { box.hidden = true; }, 6000);
+    if (window.console) console.error(err);
   }
   onPress(sizeBar, function (b) {
     if (b.id === "size-pick" || b.id === "hl-pick") { toggleFmtMenu(b.id === "size-pick" ? "size" : "hl"); return; }
@@ -3888,7 +3925,7 @@
 
   // Drop-down for the font size list and highlight colors
   var fmtMenu = document.getElementById("fmt-menu");
-  var fmtMenuKind = null;
+  var fmtMenuKind = null, fmtCloseTimer = null;
   function closeFmtMenu() {
     fmtMenu.hidden = true;
     fmtMenuKind = null;
@@ -3913,6 +3950,7 @@
     fmtMenu.style.left = left + "px";
   }
   function toggleFmtMenu(kind) {
+    clearTimeout(fmtCloseTimer);
     if (fmtMenuKind === kind) { closeFmtMenu(); return; }
     closeFmtMenu();
     fmtMenuKind = kind;
@@ -3939,9 +3977,11 @@
     placeFmtMenu(anchor);
   }
   onPress(fmtMenu, function (b) {
-    closeFmtMenu();
     if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
     else setHighlight(b.getAttribute("data-hl"), true);
+    // close once the finger has lifted: hiding the menu mid-tap lets iOS pass the tap to the lyrics underneath
+    clearTimeout(fmtCloseTimer);
+    fmtCloseTimer = setTimeout(closeFmtMenu, 300);
   });
 
   // ---------- commands (Mac menu bar, right-click menu, keyboard) ----------

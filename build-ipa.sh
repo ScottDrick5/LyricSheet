@@ -15,6 +15,13 @@ cp www/index.html ios/App/App/public/index.html
 
 rm -rf build Payload LyricSheet.ipa
 echo "Building… (the first build downloads Capacitor and takes a few minutes)"
+
+# Download Capacitor first, retrying: GitHub downloads sometimes time out, which used to fail the whole build
+for attempt in 1 2 3; do
+  xcodebuild -resolvePackageDependencies -project ios/App/App.xcodeproj -scheme App -derivedDataPath build -quiet && break
+  echo "Downloading Capacitor failed (attempt $attempt of 3)."
+  if [ "$attempt" -lt 3 ]; then sleep 15; fi
+done
 xcodebuild \
   -project ios/App/App.xcodeproj \
   -scheme App \

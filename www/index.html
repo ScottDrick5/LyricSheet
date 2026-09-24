@@ -1642,6 +1642,8 @@
   /* Phones: the Songs menu covers the whole screen, with a close button */
   #song-count { display: none; margin: 0; text-align: center; font-size: 0.72rem; color: var(--shell-text-dim); }
   .sidebar-head { position: relative; }
+  /* the top of the menu only holds the sync status now; take no room when it's off */
+  .sidebar-head:not(:has(#sync-status:not([hidden]))) { display: none; }
   @media (max-width: 640px) {
     #sidebar { width: 100% !important; border-right: none; padding-left: calc(18px + env(safe-area-inset-left, 0px)); padding-right: calc(18px + env(safe-area-inset-right, 0px)); }
     /* the round new-song button covers this corner: skip the duplicate "+ New song" and keep the rest clear of it */
@@ -1670,8 +1672,6 @@
   <button id="new-fab" aria-label="New song" title="New song"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M11 4.5H6.5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.6 3.4a1.9 1.9 0 012.7 2.7L12.5 14l-3.6.9.9-3.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
   <div id="sidebar">
     <div class="sidebar-head">
-      <h1>Lyric Sheet</h1>
-      <p class="tagline">prototype · placeholder name</p>
       <button id="sync-status" class="sync-status" hidden></button>
     </div>
     <div id="folders-view" class="nav-view" hidden>

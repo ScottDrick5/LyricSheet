@@ -101,8 +101,8 @@ function buildMenu() {
     {
       label: "View",
       submenu: [
-        cmd("Basic", "CmdOrCtrl+1", "mode-basic"),
-        cmd("Advanced", "CmdOrCtrl+2", "mode-advanced"),
+        cmd("Write", "CmdOrCtrl+1", "mode-basic"),
+        cmd("Sections", "CmdOrCtrl+2", "mode-advanced"),
         { type: "separator" },
         cmd("Songs as List", "Alt+CmdOrCtrl+1", "view-list"),
         cmd("Songs as Gallery", "Alt+CmdOrCtrl+2", "view-gallery"),

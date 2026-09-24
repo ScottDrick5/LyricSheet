@@ -1738,6 +1738,50 @@
   body.music-on #canvas-wrap { padding-bottom: 170px !important; }
   /* out of the way while typing (the keyboard covers the bottom of the screen) */
   body.is-typing #music-bar { display: none; }
+  /* "More" (⋯): the top-bar tools that aren't shown in the bar */
+  #hud-more {
+    order: 900; align-self: center;
+    width: 40px; height: 36px; border-radius: var(--radius-sm);
+    border: 1px solid var(--shell-border); background: none; color: var(--shell-text);
+    display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  }
+  #hud-more[hidden] { display: none; }
+  #more-modal {
+    position: fixed; inset: 0; z-index: 56;
+    background: var(--overlay);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #more-modal.open { display: flex; }
+  #more-panel {
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: var(--radius-md);
+    width: 100%; max-width: 380px; max-height: 100%; overflow-y: auto;
+    padding: 18px 20px; color: var(--shell-text);
+  }
+  #more-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 14px; }
+  #more-tools { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+  #more-tools .meta-field { gap: 6px; }
+  #more-tools > button, .more-row {
+    width: 100%; min-height: 44px; text-align: left;
+    background: none; border: 1px solid var(--shell-border); color: var(--shell-text);
+    border-radius: var(--radius-sm); padding: 0 12px; font-family: var(--font-ui); font-size: 0.9rem; cursor: pointer;
+  }
+  .more-row { margin-bottom: 10px; color: var(--accent); }
+  #more-tools #undo-bar, #more-tools #view-toggle { align-self: flex-start; }
+  #more-done {
+    width: 100%; background: var(--accent); border: none; color: var(--on-accent);
+    font-weight: 600; font-family: var(--font-ui); font-size: 0.9rem;
+    padding: 11px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  @media (max-width: 640px) {
+    #more-modal { align-items: flex-end; padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+    #more-panel { max-width: none; }
+    /* the lean bar: title fills the row next to undo and ⋯ */
+    #meta-bar [data-hud="title"] { min-width: 0 !important; flex: 1 1 140px; }
+    /* Customize lives in the ⋯ panel on phones */
+    #hud-customize { display: none; }
+    #meta-bar { padding-right: 52px !important; }
+  }
 </style>
 </head>
 <body>
@@ -1802,8 +1846,8 @@
     <div id="editor">
       <button id="songs-fab" aria-label="Back to songs"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-label">All Songs</span></button>
       <div id="mode-fab" role="group" aria-label="View">
-        <button data-mode="read" aria-pressed="true">Basic</button>
-        <button data-mode="edit" aria-pressed="false">Advanced</button>
+        <button data-mode="read" aria-pressed="true" title="Write and read the song as plain text">Write</button>
+        <button data-mode="edit" aria-pressed="false" title="Work section by section, with syllable counts and line tools">Sections</button>
       </div>
       <div id="undo-fab" class="undo-group" role="group" aria-label="Undo and redo">
         <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -1838,10 +1882,10 @@
           <select id="timesig-input" class="small-input" aria-label="Time signature"></select>
         </div>
         <div class="meta-field" data-hud="textsize">
-          <label>Text size</label>
+          <label>Page size</label>
           <div class="font-controls">
             <button id="font-dec" title="Smaller">A−</button>
-            <span id="font-size-val" title="Text size of the whole sheet">17</span>
+            <span id="font-size-val" title="Text size of the whole page">17</span>
             <button id="font-inc" title="Larger">A+</button>
           </div>
         </div>
@@ -1854,12 +1898,13 @@
           <button data-undo="redo" aria-label="Redo" title="Redo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 9H8.5a4.5 4.5 0 000 9H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
         <div id="view-toggle" data-hud="view" role="group" aria-label="View">
-          <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Basic</button>
-          <button id="view-edit" aria-pressed="false" title="Sections, syllable counts and line tools">Advanced</button>
+          <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Write</button>
+          <button id="view-edit" aria-pressed="false" title="Work section by section, with syllable counts and line tools">Sections</button>
         </div>
         <button id="paste-btn" data-hud="import">Import New Lyrics</button>
         <button id="history-toggle" data-hud="history">Version history</button>
         <button id="details-btn" data-hud="details" title="Dates and other details for this song">Details</button>
+        <button id="hud-more" aria-label="More song tools" title="More" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="5.5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18.5" cy="12" r="2" fill="currentColor"/></svg></button>
       </div>
 
       <div id="body-row">
@@ -1981,6 +2026,15 @@
       <button id="preview-close">Close</button>
       <button id="preview-restore" class="primary">Restore this version</button>
     </div>
+  </div>
+</div>
+
+<div id="more-modal" role="dialog" aria-modal="true" aria-labelledby="more-title">
+  <div id="more-panel">
+    <h2 id="more-title">Song tools</h2>
+    <div id="more-tools"></div>
+    <button id="more-customize" class="more-row">Customize Top Bar…</button>
+    <button id="more-done">Done</button>
   </div>
 </div>
 
@@ -3165,7 +3219,7 @@
     canvas.appendChild(sheet);
   }
 
-  // Basic = "read", Advanced = "edit". Every song opens in Basic.
+  // Write (Basic) = "read", Sections (Advanced) = "edit". Every song opens in Write.
   function markViewButtons(mode) {
     var fb = document.querySelectorAll("#mode-fab button");
     for (var i = 0; i < fb.length; i++) fb[i].setAttribute("aria-pressed", fb[i].getAttribute("data-mode") === (mode === "read" ? "read" : "edit") ? "true" : "false");
@@ -4007,8 +4061,8 @@
   // layout, which "Save as Default" replaces (new songs start with it).
   var HUD_TOOLS = [
     { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
-    { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Text Size" }, { id: "wordcount", name: "Word Count" },
-    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Basic / Advanced" }, { id: "import", name: "Import New Lyrics" },
+    { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "wordcount", name: "Word Count" },
+    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Sections" }, { id: "import", name: "Import New Lyrics" },
     { id: "history", name: "Version History" }, { id: "details", name: "Details" }
   ];
   var HUD_BUILTIN = ["title", "bpm", "key", "textsize", "undo", "view", "import", "history", "details"];
@@ -4019,7 +4073,13 @@
     var out = l.filter(function (id, i) { return ids.indexOf(id) !== -1 && l.indexOf(id) === i; });
     return out;
   }
-  function defaultLayout() { return validLayout(settings.hudDefault) || HUD_BUILTIN.slice(); }
+  // Phones start with a lean bar (title and undo/redo); everything else is one tap away under ⋯
+  var HUD_PHONE_BUILTIN = ["title", "undo"];
+  var phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 640px)") : null;
+  function isPhoneLayout() { return !!(phoneQuery && phoneQuery.matches); }
+  function defaultLayout() {
+    return validLayout(settings.hudDefault) || (isPhoneLayout() ? HUD_PHONE_BUILTIN : HUD_BUILTIN).slice();
+  }
   function songLayout(song) { return (song && validLayout(song.hud)) || defaultLayout(); }
   function sameLayout(a, b) { return a.join(",") === b.join(","); }
   function applyHud(song) {
@@ -4029,6 +4089,51 @@
       el.classList.toggle("hud-off", i === -1);
       el.style.order = i === -1 ? "" : String(10 + i);
     });
+    // ⋯ appears whenever some tools aren't in the bar
+    document.getElementById("hud-more").hidden = layout.length >= HUD_TOOLS.length;
+  }
+
+  // ---------- ⋯ panel: the tools that aren't in the top bar ----------
+  // The real controls are moved into the panel while it's open (so they keep working as they
+  // do in the bar) and put back when it closes.
+  var moreModal = document.getElementById("more-modal");
+  var moreMoved = [];
+  function openMorePanel() {
+    var song = getActiveSong();
+    if (!song) return;
+    var layout = songLayout(song), box = document.getElementById("more-tools");
+    HUD_TOOLS.forEach(function (t) {
+      if (layout.indexOf(t.id) !== -1) return;
+      var el = document.querySelector('#meta-bar [data-hud="' + t.id + '"]');
+      if (!el) return;
+      var ph = document.createComment("hud:" + t.id);
+      el.parentNode.insertBefore(ph, el);
+      moreMoved.push({ el: el, ph: ph });
+      el.classList.remove("hud-off");
+      el.style.order = "";
+      box.appendChild(el);
+    });
+    moreModal.classList.add("open");
+  }
+  function closeMorePanel() {
+    moreMoved.forEach(function (m) { if (m.ph.parentNode) m.ph.parentNode.replaceChild(m.el, m.ph); });
+    moreMoved = [];
+    moreModal.classList.remove("open");
+    var song = getActiveSong();
+    if (song) applyHud(song);
+  }
+  document.getElementById("hud-more").addEventListener("click", openMorePanel);
+  document.getElementById("more-done").addEventListener("click", closeMorePanel);
+  moreModal.addEventListener("click", function (e) { if (e.target === moreModal) closeMorePanel(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && moreModal.classList.contains("open")) closeMorePanel(); });
+  // buttons that open something else close the panel too
+  document.getElementById("more-tools").addEventListener("click", function (e) {
+    if (e.target.closest('[data-hud="import"], [data-hud="history"], [data-hud="details"], #view-toggle button')) closeMorePanel();
+  });
+  document.getElementById("more-customize").addEventListener("click", function () { closeMorePanel(); openHudPanel(); });
+  if (phoneQuery) {
+    var onPhoneChange = function () { var s0 = getActiveSong(); if (s0) applyHud(s0); };
+    if (phoneQuery.addEventListener) phoneQuery.addEventListener("change", onPhoneChange); else if (phoneQuery.addListener) phoneQuery.addListener(onPhoneChange);
   }
   function updateWordCount(song) {
     var lines = 0, words = 0;

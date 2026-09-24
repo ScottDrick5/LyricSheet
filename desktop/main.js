@@ -81,6 +81,18 @@ function buildMenu() {
         cmd("Italic", "CmdOrCtrl+I", "italic"),
         cmd("Underline", "CmdOrCtrl+U", "underline"),
         cmd("Strikethrough", "CmdOrCtrl+Shift+X", "strikethrough"),
+        {
+          label: "Highlight",
+          submenu: [
+            { label: "Yellow", click: () => send("highlight-yellow") },
+            { label: "Green", click: () => send("highlight-green") },
+            { label: "Blue", click: () => send("highlight-blue") },
+            { label: "Pink", click: () => send("highlight-pink") },
+            { label: "Orange", click: () => send("highlight-orange") },
+            { type: "separator" },
+            { label: "No Highlight", click: () => send("highlight-none") },
+          ],
+        },
         { type: "separator" },
         { label: "Select words first to style or resize just those words; otherwise the whole sheet changes size.", enabled: false },
       ],
@@ -153,6 +165,18 @@ function attachContextMenu(win) {
             { label: "Italic", accelerator: "CmdOrCtrl+I", click: () => send("italic") },
             { label: "Underline", accelerator: "CmdOrCtrl+U", click: () => send("underline") },
             { label: "Strikethrough", accelerator: "CmdOrCtrl+Shift+X", click: () => send("strikethrough") },
+          ],
+        });
+        items.push({
+          label: "Highlight",
+          submenu: [
+            { label: "Yellow", click: () => send("highlight-yellow") },
+            { label: "Green", click: () => send("highlight-green") },
+            { label: "Blue", click: () => send("highlight-blue") },
+            { label: "Pink", click: () => send("highlight-pink") },
+            { label: "Orange", click: () => send("highlight-orange") },
+            { type: "separator" },
+            { label: "No Highlight", click: () => send("highlight-none") },
           ],
         });
       }

@@ -440,6 +440,7 @@
     align-items: center;
     gap: 4px;
   }
+  #font-size-val { min-width: 22px; text-align: center; font-size: 0.85rem; color: var(--shell-text); font-variant-numeric: tabular-nums; }
   .font-controls button {
     background: var(--bg-raised);
     border: 1px solid var(--shell-border);
@@ -981,6 +982,21 @@
   .read-editor [data-f*="u"] { text-decoration-line: underline; }
   .read-editor [data-f*="s"] { text-decoration-line: line-through; }
   .read-editor [data-f*="u"][data-f*="s"] { text-decoration-line: underline line-through; }
+  /* Highlighted words */
+  :root {
+    --hl-yellow: #FFE45C;
+    --hl-green: #92E3A5;
+    --hl-blue: #A3CCFF;
+    --hl-pink: #FFABD8;
+    --hl-orange: #FFC27A;
+  }
+  /* solid highlighter colors with dark text, so they read the same in light and dark themes */
+  .read-editor span[data-h] { color: #1D1B16; border-radius: 3px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  [data-h="yellow"] { background-color: var(--hl-yellow); }
+  [data-h="green"] { background-color: var(--hl-green); }
+  [data-h="blue"] { background-color: var(--hl-blue); }
+  [data-h="pink"] { background-color: var(--hl-pink); }
+  [data-h="orange"] { background-color: var(--hl-orange); }
   #size-bar {
     position: fixed;
     z-index: 45;
@@ -1011,17 +1027,52 @@
   #size-bar .minus { font-size: 0.9em; }
   #size-bar button[aria-pressed="true"] { background: var(--tint-2); color: var(--accent); }
   #size-bar .fmt-sep { width: 6px; border-left: 1px solid var(--shell-border); }
-  #size-bar #size-label {
-    align-self: center;
-    min-width: 44px;
-    padding: 0 4px;
-    text-align: center;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--shell-text-dim);
-    font-variant-numeric: tabular-nums;
+  #size-bar .fmt-sep + button { border-left: 1px solid var(--shell-border); }
+  #size-pick { min-width: 52px; font-variant-numeric: tabular-nums; }
+  #size-pick .caret, #hl-pick .caret { font-size: 0.7em; margin-left: 3px; color: var(--shell-text-dim); }
+  #size-bar button[aria-expanded="true"] { background: var(--tint-2); }
+  #hl-pick { position: relative; }
+  #hl-pick svg { display: block; margin: 0 auto 3px; }
+  #hl-bar {
+    position: absolute; left: 10px; right: 10px; bottom: 6px; height: 4px; border-radius: 2px;
+    box-shadow: inset 0 0 0 1px var(--shell-border);
   }
-  #size-bar #size-label + button, #size-bar .fmt-sep + button { border-left: 1px solid var(--shell-border); }
+  #fmt-menu {
+    position: fixed;
+    z-index: 46;
+    background: var(--bg-raised);
+    border: 1px solid var(--shell-border);
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    padding: 6px;
+    display: grid;
+    grid-template-columns: repeat(5, 44px);
+    gap: 4px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #fmt-menu[hidden] { display: none; }
+  #fmt-menu button {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--shell-text);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    height: 36px;
+    cursor: pointer;
+  }
+  #fmt-menu button:active { background: var(--shell-hover); }
+  #fmt-menu button[aria-checked="true"] { border-color: var(--accent); color: var(--accent); }
+  #fmt-menu .wide { grid-column: 1 / -1; font-size: 0.8rem; color: var(--shell-text-dim); }
+  #fmt-menu .swatch[data-h="yellow"] { background: var(--hl-yellow); }
+  #fmt-menu .swatch[data-h="green"] { background: var(--hl-green); }
+  #fmt-menu .swatch[data-h="blue"] { background: var(--hl-blue); }
+  #fmt-menu .swatch[data-h="pink"] { background: var(--hl-pink); }
+  #fmt-menu .swatch[data-h="orange"] { background: var(--hl-orange); }
+  #fmt-menu .swatch { border: 1px solid var(--shell-border); }
+  #fmt-menu .swatch[aria-checked="true"] { border: 2px solid var(--accent); }
   #size-bar [data-fmt="b"] { font-weight: 700; }
   #size-bar [data-fmt="i"] { font-style: italic; font-family: Georgia, serif; }
   #size-bar [data-fmt="u"] { text-decoration: underline; }
@@ -1413,6 +1464,7 @@
           <label>Text size</label>
           <div class="font-controls">
             <button id="font-dec" title="Smaller">A−</button>
+            <span id="font-size-val" title="Text size of the whole sheet">17</span>
             <button id="font-inc" title="Larger">A+</button>
           </div>
         </div>
@@ -1522,15 +1574,17 @@
 
 <div id="size-bar" role="toolbar" aria-label="Format selected text" hidden>
   <button data-size="-1" aria-label="Make selected text smaller" title="Smaller">A<span class="minus">−</span></button>
-  <span id="size-label" aria-live="polite" title="Size of selected text">100%</span>
+  <button id="size-pick" aria-haspopup="true" aria-expanded="false" aria-label="Font size" title="Font size"><span id="size-label">17</span><span class="caret">▾</span></button>
   <button data-size="1" aria-label="Make selected text bigger" title="Bigger"><span class="big">A</span>+</button>
-  <button data-size="0" aria-label="Normal size" title="Normal size">Aa</button>
   <span class="fmt-sep"></span>
   <button data-fmt="b" aria-label="Bold" aria-pressed="false" title="Bold">B</button>
   <button data-fmt="i" aria-label="Italic" aria-pressed="false" title="Italic">I</button>
   <button data-fmt="u" aria-label="Underline" aria-pressed="false" title="Underline">U</button>
   <button data-fmt="s" aria-label="Strikethrough" aria-pressed="false" title="Strikethrough">S</button>
+  <span class="fmt-sep"></span>
+  <button id="hl-pick" aria-haspopup="true" aria-expanded="false" aria-label="Highlight color" title="Highlight"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M15.2 3.6l5.2 5.2-8.9 8.9H6.3v-5.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.3 17.7l-2.6 2.6h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span id="hl-bar"></span></button>
 </div>
+<div id="fmt-menu" role="menu" hidden></div>
 
 <div id="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
   <div id="confirm-panel">
@@ -2059,14 +2113,15 @@
       var a = pts[k], b = pts[k + 1];
       if (b <= a) continue;
       var inParen = parens.some(function (r) { return a >= r[0] && b <= r[1]; });
-      var scale = 1, flags = "";
-      runs.forEach(function (r) { if (a >= r[0] && b <= r[1]) { scale = r[2]; flags = r[3] || ""; } });
+      var scale = 1, flags = "", hl = "";
+      runs.forEach(function (r) { if (a >= r[0] && b <= r[1]) { scale = r[2]; flags = r[3] || ""; hl = r[4] || ""; } });
       var piece = line.slice(a, b);
-      if (!inParen && scale === 1 && !flags) { d.appendChild(document.createTextNode(piece)); continue; }
+      if (!inParen && scale === 1 && !flags && !hl) { d.appendChild(document.createTextNode(piece)); continue; }
       var sp = document.createElement("span");
       if (inParen) sp.className = "rl-paren";
       if (scale !== 1) { sp.setAttribute("data-s", String(scale)); sp.style.setProperty("--s", scale); }
       if (flags) sp.setAttribute("data-f", flags);
+      if (hl) sp.setAttribute("data-h", hl);
       sp.textContent = piece;
       d.appendChild(sp);
     }
@@ -2081,18 +2136,21 @@
   }
 
   // Read the Basic editor back into text + per-character styles.
-  // A style is a key "scale|flags", e.g. "1.2|bi"; plain text is "1|".
-  var PLAIN = "1|";
+  // A style is a key "scale|flags|highlight", e.g. "1.2|bi|yellow"; plain text is "1||".
+  var PLAIN = "1||";
+  function styleKey(st) { return (st.s || 1) + "|" + normFlags(st.f) + "|" + normHl(st.h); }
+  function parseKey(k) { var p = k.split("|"); return { s: parseFloat(p[0]) || 1, f: p[1] || "", h: p[2] || "" }; }
   function styleKeyOfNode(node, root) {
-    var el = node.nodeType === 1 ? node : node.parentNode, sc = null, f = null;
-    while (el && el !== root && (sc === null || f === null)) {
+    var el = node.nodeType === 1 ? node : node.parentNode, sc = null, f = null, h = null;
+    while (el && el !== root && (sc === null || f === null || h === null)) {
       if (el.nodeType === 1) {
         if (sc === null && el.hasAttribute("data-s")) sc = parseFloat(el.getAttribute("data-s")) || 1;
         if (f === null && el.hasAttribute("data-f")) f = el.getAttribute("data-f");
+        if (h === null && el.hasAttribute("data-h")) h = el.getAttribute("data-h");
       }
       el = el.parentNode;
     }
-    return (sc || 1) + "|" + normFlags(f);
+    return styleKey({ s: sc, f: f, h: h });
   }
   // points: optional [{node, offset}] DOM positions; each gets .index, its position in the text
   function walkEditor(root, points) {
@@ -2264,6 +2322,7 @@
   }
 
   function renderCanvas(song) {
+    document.getElementById("font-size-val").textContent = settings.fontSize;
     if (settings.viewMode === "read") { renderReading(song); return; }
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
@@ -2635,27 +2694,39 @@
   }
 
   // ---------- per-word text sizes ----------
-  // Each section may carry `fmt`, parallel to `lines`: null or a list of [start, end, scale, flags?] runs.
-  // flags is any of "b" bold, "i" italic, "u" underline, "s" strikethrough, e.g. "bu".
-  var SIZE_STEPS = [0.7, 0.85, 1, 1.2, 1.45, 1.75, 2.1, 2.6];
+  // Each section may carry `fmt`, parallel to `lines`: null or a list of [start, end, scale, flags?, highlight?] runs.
+  // scale is relative to the sheet's text size; flags is any of "b" bold, "i" italic, "u" underline,
+  // "s" strikethrough, e.g. "bu"; highlight is one of HL_COLORS.
+  // Font sizes offered for selected words, like a word processor's size list
+  var PT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72];
+  var HL_COLORS = ["yellow", "green", "blue", "pink", "orange"];
+  function ptOfScale(scale) { return Math.round(settings.fontSize * scale); }
+  function scaleOfPt(pt) { return pt === settings.fontSize ? 1 : Math.round(pt / settings.fontSize * 10000) / 10000; }
+  function ptSizes() {
+    var list = PT_SIZES.slice();
+    if (list.indexOf(settings.fontSize) === -1) list.push(settings.fontSize);
+    return list.sort(function (a, b) { return a - b; });
+  }
   function stepScale(cur, dir) {
     if (!dir) return 1;
-    var best = 0;
-    for (var i = 1; i < SIZE_STEPS.length; i++) if (Math.abs(SIZE_STEPS[i] - cur) < Math.abs(SIZE_STEPS[best] - cur)) best = i;
-    return SIZE_STEPS[Math.max(0, Math.min(SIZE_STEPS.length - 1, best + dir))];
+    var pt = ptOfScale(cur), list = ptSizes();
+    var next = dir > 0 ? list.filter(function (x) { return x > pt; })[0] : list.filter(function (x) { return x < pt; }).pop();
+    return next ? scaleOfPt(next) : cur;
   }
+  function normHl(h) { return h && HL_COLORS.indexOf(h) !== -1 ? h : ""; }
   function normFlags(f) {
     return f ? "bius".split("").filter(function (c) { return f.indexOf(c) !== -1; }).join("") : "";
   }
-  function makeRun(a, b, s, f) { return f ? [a, b, s, f] : [a, b, s]; }
+  function makeRun(a, b, s, f, h) { return h ? [a, b, s, f || "", h] : f ? [a, b, s, f] : [a, b, s]; }
   function normRuns(runs, len) {
     if (!runs || !runs.length) return null;
     var out = [];
     runs.slice().sort(function (a, b) { return a[0] - b[0]; }).forEach(function (r) {
-      var a = Math.max(0, Math.min(len, r[0])), b = Math.max(0, Math.min(len, r[1])), s = +r[2] || 1, f = normFlags(r[3]);
-      if (b <= a || (s === 1 && !f)) return;
+      var a = Math.max(0, Math.min(len, r[0])), b = Math.max(0, Math.min(len, r[1])), s = +r[2] || 1, f = normFlags(r[3]), h = normHl(r[4]);
+      if (b <= a || (s === 1 && !f && !h)) return;
       var last = out[out.length - 1];
-      if (last && last[1] === a && last[2] === s && (last[3] || "") === f) last[1] = b; else out.push(makeRun(a, b, s, f));
+      if (last && last[1] === a && last[2] === s && (last[3] || "") === f && (last[4] || "") === h) last[1] = b;
+      else out.push(makeRun(a, b, s, f, h));
     });
     return out.length ? out : null;
   }
@@ -2664,7 +2735,7 @@
     while (i < keys.length) {
       var k = keys[i], j = i;
       while (j < keys.length && keys[j] === k) j++;
-      if (k !== PLAIN) { var p = k.split("|"); runs.push(makeRun(i, j, parseFloat(p[0]) || 1, p[1])); }
+      if (k !== PLAIN) { var st = parseKey(k); runs.push(makeRun(i, j, st.s, st.f, st.h)); }
       i = j;
     }
     return runs.length ? runs : null;
@@ -3654,7 +3725,7 @@
     var ed = el && el.closest ? el.closest(".read-editor") : null;
     return ed && !ed.classList.contains("pv-sheet") ? ed : null;
   }
-  function hideSizeBar() { sizeBar.hidden = true; }
+  function hideSizeBar() { sizeBar.hidden = true; closeFmtMenu(); }
   function placeSizeBar(r) {
     var rects = r.getClientRects();
     var box = rects.length ? rects[rects.length - 1] : r.getBoundingClientRect();
@@ -3675,11 +3746,13 @@
     var r = sel.getRangeAt(0);
     if (r.collapsed || !editorOfRange(r)) { hideSizeBar(); return; }
     sizeSaved = r.cloneRange();
+    closeFmtMenu();
     placeSizeBar(r);
     refreshSizeBarState();
   });
   document.getElementById("canvas-wrap").addEventListener("scroll", function () {
     if (!sizeBar.hidden && sizeSaved) placeSizeBar(sizeSaved);
+    if (!fmtMenu.hidden) closeFmtMenu();
   }, { passive: true });
 
   // The selected characters of a Basic editor that can be styled (not section headers or line breaks)
@@ -3703,9 +3776,7 @@
     });
     return { ed: ed, w: w, a: a, b: b, idx: idx };
   }
-  function parseKey(k) { var p = k.split("|"); return { s: parseFloat(p[0]) || 1, f: p[1] || "" }; }
-
-  // Restyle the selected characters: fn({s, f}) returns the new {s, f}. Returns false if nothing was selected.
+  // Restyle the selected characters: fn({s, f, h}) returns the fields to change. Returns false if nothing was selected.
   function styleSelection(fn, allowSaved) {
     var info = selectionInfo(allowSaved);
     if (!info || !info.idx.length) return false;
@@ -3713,8 +3784,9 @@
     if (!song) return false;
     var keys = info.w.keys.slice();
     info.idx.forEach(function (i) {
-      var st = fn(parseKey(keys[i]));
-      keys[i] = st.s + "|" + normFlags(st.f);
+      var st = parseKey(keys[i]), ch = fn(st);
+      for (var k in ch) st[k] = ch[k];
+      keys[i] = styleKey(st);
     });
     var lines = [], start = 0;
     info.w.text.split("\n").forEach(function (t) {
@@ -3741,7 +3813,14 @@
 
   // dir: +1 bigger, -1 smaller, 0 back to normal
   function resizeSelection(dir, allowSaved) {
-    return styleSelection(function (st) { return { s: stepScale(st.s, dir), f: st.f }; }, allowSaved);
+    return styleSelection(function (st) { return { s: stepScale(st.s, dir) }; }, allowSaved);
+  }
+  function setSelectionPt(pt, allowSaved) {
+    return styleSelection(function () { return { s: scaleOfPt(pt) }; }, allowSaved);
+  }
+  // h: one of HL_COLORS, or "" for none
+  function setHighlight(h, allowSaved) {
+    return styleSelection(function () { return { h: h }; }, allowSaved);
   }
   // flag: "b", "i", "u" or "s". Turns it off if every selected character already has it.
   function toggleFormat(flag, allowSaved) {
@@ -3749,18 +3828,23 @@
     if (!info || !info.idx.length) return false;
     var all = info.idx.every(function (i) { return parseKey(info.w.keys[i]).f.indexOf(flag) !== -1; });
     return styleSelection(function (st) {
-      return { s: st.s, f: all ? st.f.replace(flag, "") : st.f + flag };
+      return { f: all ? st.f.replace(flag, "") : st.f + flag };
     }, allowSaved);
   }
 
-  // Show the selection's size and which of B/I/U/S are on
+  // Show the selection's font size, highlight and which of B/I/U/S are on
   var sizeLabel = document.getElementById("size-label");
+  var hlBar = document.getElementById("hl-bar");
+  var barState = { pt: null, h: null };
+  function same(list) { return list.every(function (x) { return x === list[0]; }) ? list[0] : null; }
   function updateSizeBarState(keys) {
     var styles = (keys || []).map(parseKey);
-    var sizes = {};
-    styles.forEach(function (st) { sizes[st.s] = true; });
-    var list = Object.keys(sizes);
-    sizeLabel.textContent = list.length > 1 ? "Mixed" : Math.round((list.length ? +list[0] : 1) * 100) + "%";
+    if (!styles.length) styles = [parseKey(PLAIN)];
+    barState.pt = same(styles.map(function (st) { return ptOfScale(st.s); }));
+    barState.h = same(styles.map(function (st) { return st.h; }));
+    sizeLabel.textContent = barState.pt === null ? "–" : barState.pt;   // blank-ish when sizes are mixed, like Word
+    if (barState.h) { hlBar.setAttribute("data-h", barState.h); hlBar.style.background = "var(--hl-" + barState.h + ")"; }
+    else { hlBar.removeAttribute("data-h"); hlBar.style.background = ""; }
     Array.prototype.forEach.call(sizeBar.querySelectorAll("[data-fmt]"), function (b) {
       var flag = b.getAttribute("data-fmt");
       var on = styles.length > 0 && styles.every(function (st) { return st.f.indexOf(flag) !== -1; });
@@ -3779,8 +3863,73 @@
   sizeBar.addEventListener("click", function (e) {
     var b = e.target.closest("button");
     if (!b) return;
+    if (b.id === "size-pick" || b.id === "hl-pick") { toggleFmtMenu(b.id === "size-pick" ? "size" : "hl"); return; }
+    closeFmtMenu();
     if (b.hasAttribute("data-fmt")) toggleFormat(b.getAttribute("data-fmt"), true);
     else resizeSelection(parseInt(b.getAttribute("data-size"), 10), true);
+  });
+
+  // Drop-down for the font size list and highlight colors
+  var fmtMenu = document.getElementById("fmt-menu");
+  var fmtMenuKind = null;
+  function closeFmtMenu() {
+    fmtMenu.hidden = true;
+    fmtMenuKind = null;
+    document.getElementById("size-pick").setAttribute("aria-expanded", "false");
+    document.getElementById("hl-pick").setAttribute("aria-expanded", "false");
+  }
+  function menuBtn(label, attrs) {
+    var b = document.createElement("button");
+    b.setAttribute("role", "menuitemradio");
+    b.textContent = label;
+    Object.keys(attrs).forEach(function (k) { b.setAttribute(k, attrs[k]); });
+    fmtMenu.appendChild(b);
+    return b;
+  }
+  function placeFmtMenu(anchor) {
+    var ar = anchor.getBoundingClientRect(), br = sizeBar.getBoundingClientRect();
+    var w = fmtMenu.offsetWidth, h = fmtMenu.offsetHeight;
+    var top = br.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = br.top - h - 6;
+    var left = Math.max(8, Math.min(window.innerWidth - w - 8, ar.left + ar.width / 2 - w / 2));
+    fmtMenu.style.top = Math.max(8, top) + "px";
+    fmtMenu.style.left = left + "px";
+  }
+  function toggleFmtMenu(kind) {
+    if (fmtMenuKind === kind) { closeFmtMenu(); return; }
+    closeFmtMenu();
+    fmtMenuKind = kind;
+    fmtMenu.innerHTML = "";
+    var anchor = document.getElementById(kind === "size" ? "size-pick" : "hl-pick");
+    if (kind === "size") {
+      fmtMenu.setAttribute("aria-label", "Font size");
+      ptSizes().forEach(function (pt) {
+        var b = menuBtn(String(pt), { "data-pt": pt, "aria-checked": String(barState.pt === pt) });
+        if (pt === settings.fontSize) b.title = "Normal size for this sheet";
+      });
+      menuBtn("Normal size (" + settings.fontSize + ")", { "data-pt": settings.fontSize, "class": "wide", "aria-checked": "false" });
+    } else {
+      fmtMenu.setAttribute("aria-label", "Highlight color");
+      HL_COLORS.forEach(function (c) {
+        var b = menuBtn("", { "data-hl": c, "data-h": c, "class": "swatch", "aria-checked": String(barState.h === c) });
+        b.setAttribute("aria-label", c.charAt(0).toUpperCase() + c.slice(1));
+        b.title = b.getAttribute("aria-label");
+      });
+      menuBtn("No highlight", { "data-hl": "", "class": "wide", "aria-checked": "false" });
+    }
+    anchor.setAttribute("aria-expanded", "true");
+    fmtMenu.hidden = false;
+    placeFmtMenu(anchor);
+  }
+  ["pointerdown", "mousedown", "touchstart"].forEach(function (ev) {
+    fmtMenu.addEventListener(ev, function (e) { e.preventDefault(); }, { passive: false });
+  });
+  fmtMenu.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    closeFmtMenu();
+    if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
+    else setHighlight(b.getAttribute("data-hl"), true);
   });
 
   // ---------- commands (Mac menu bar, right-click menu, keyboard) ----------
@@ -3817,6 +3966,8 @@
       case "italic": toggleFormat("i"); break;
       case "underline": toggleFormat("u"); break;
       case "strikethrough": toggleFormat("s"); break;
+      default:
+        if (cmd.indexOf("highlight-") === 0) setHighlight(normHl(cmd.slice(10)));
     }
   }
   if (window.lyricDesktop && window.lyricDesktop.onCommand) {

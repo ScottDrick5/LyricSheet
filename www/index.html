@@ -295,7 +295,18 @@
   .song-item:hover .del { opacity: 0.7; }
   .song-item .del:hover { opacity: 1; color: var(--danger); }
 
-  #song-search {
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-right: 32px !important; }
+  .search-wrap input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+  .search-clear {
+    position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+    width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
+    background: var(--shell-text-dim); color: var(--bg);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.8;
+  }
+  .search-clear:hover { opacity: 1; }
+  .search-clear[hidden] { display: none; }
+  #song-search, #folder-search {
     width: 100%;
     background: var(--bg);
     border: 1px solid var(--shell-border);
@@ -305,7 +316,7 @@
     font-size: 0.82rem;
     font-family: var(--font-ui);
   }
-  #song-search:focus { outline: none; border-color: var(--teal); }
+  #song-search:focus, #folder-search:focus { outline: none; border-color: var(--teal); }
   .song-item .info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .song-item .sub { font-size: 0.68rem; color: var(--shell-text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song-item .dup:hover { color: var(--accent) !important; }
@@ -1108,8 +1119,14 @@
   #size-bar .fmt-sep { width: 6px; border-left: 1px solid var(--shell-border); }
   #size-bar .fmt-sep + button { border-left: 1px solid var(--shell-border); }
   #size-pick { min-width: 52px; font-variant-numeric: tabular-nums; }
-  #size-pick .caret, #hl-pick .caret { font-size: 0.7em; margin-left: 3px; color: var(--shell-text-dim); }
+  #size-pick .caret, #hl-pick .caret, #swap-pick .caret { font-size: 0.7em; margin-left: 3px; color: var(--shell-text-dim); }
   #size-bar button[aria-expanded="true"] { background: var(--tint-2); }
+  /* selection inside a section header: the toolbar just offers Swap */
+  #swap-pick { display: none; padding: 0 16px; }
+  #size-bar.header-mode > * { display: none; }
+  #size-bar.header-mode > #swap-pick { display: block; }
+  #fmt-menu.swap-menu { grid-template-columns: repeat(2, 140px); }
+  #fmt-menu.swap-menu button { text-align: left; padding: 0 12px; white-space: nowrap; }
   #hl-pick { position: relative; }
   #hl-pick svg { display: block; margin: 0 auto 3px; }
   #hl-bar {
@@ -1607,6 +1624,7 @@
     </div>
     <div id="folders-view" class="nav-view" hidden>
       <h2 class="nav-title">Folders</h2>
+      <div class="search-wrap"><input id="folder-search" type="search" placeholder="Search all songs and lyrics" aria-label="Search all songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
       <div id="folder-list"></div>
       <button id="new-folder-btn" class="nav-add">+ New folder</button>
     </div>
@@ -1619,7 +1637,7 @@
           <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
         </div>
       </div>
-      <input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off">
+      <div class="search-wrap"><input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
       <div id="song-list"></div>
       <button id="new-song-btn">+ New song</button>
     </div>
@@ -1821,6 +1839,7 @@
 </div>
 
 <div id="size-bar" role="toolbar" aria-label="Format selected text" hidden>
+  <button id="swap-pick" aria-haspopup="true" aria-expanded="false" title="Change this section to another one">Swap<span class="caret">▾</span></button>
   <button data-size="-1" aria-label="Make selected text smaller" title="Smaller">A<span class="minus">−</span></button>
   <button id="size-pick" aria-haspopup="true" aria-expanded="false" aria-label="Font size" title="Font size"><span id="size-label">17</span><span class="caret">▾</span></button>
   <button data-size="1" aria-label="Make selected text bigger" title="Bigger"><span class="big">A</span>+</button>
@@ -1955,6 +1974,7 @@
   function openSong(id) {
     maybeSnapshotOnLeave();
     searchScrollPending = true;
+    searchHlDismissed = false;
     galleryOpen = false;
     state.activeId = id;
     settings.lastOpenId = id;
@@ -2124,6 +2144,7 @@
     settings.navFolder = nav.folder;
     persistSettings();
     document.getElementById("song-search").value = "";
+    syncSearchClears();
     if (folder !== undefined && galleryWanted()) { flushReadSync(); galleryOpen = true; renderSidebar(); renderEditor(); return; }
     renderSidebar();
   }
@@ -2485,7 +2506,38 @@
       list.appendChild(item);
     });
   }
+  // Clear (x) buttons in the search boxes
+  Array.prototype.forEach.call(document.querySelectorAll(".search-wrap"), function (wrap) {
+    var input = wrap.querySelector("input"), btn = wrap.querySelector(".search-clear");
+    function sync() { btn.hidden = !input.value; }
+    input.addEventListener("input", sync);
+    btn.addEventListener("mousedown", function (e) { e.preventDefault(); });   // keep the keyboard up
+    btn.addEventListener("click", function () {
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    });
+    wrap.syncClear = sync;
+  });
+  function syncSearchClears() {
+    Array.prototype.forEach.call(document.querySelectorAll(".search-wrap"), function (w) { if (w.syncClear) w.syncClear(); });
+  }
+  // Searching from the Folders page searches every song: jump to All Songs with the text carried over
+  document.getElementById("folder-search").addEventListener("input", function (e) {
+    var v = e.target.value;
+    if (!v) return;
+    e.target.value = "";
+    setNav("songs", "all");
+    var box = document.getElementById("song-search");
+    box.value = v;
+    box.focus();
+    try { box.setSelectionRange(v.length, v.length); } catch (err) {}
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    syncSearchClears();
+  });
+
   document.getElementById("song-search").addEventListener("input", function () {
+    searchHlDismissed = false;
     if (galleryWanted() && !galleryOpen) { flushReadSync(); galleryOpen = true; renderEditor(); }
     renderSidebar();
     searchScrollPending = true;
@@ -2497,6 +2549,7 @@
   // and opening a song from the results scrolls to the first one. Basic view uses the CSS Custom
   // Highlight API so the lyrics' own markup is never touched; Advanced view tints the matching lines.
   var searchScrollPending = false;
+  var searchHlDismissed = false;   // set once you start writing in the song; a new search or song brings highlights back
   var canHighlight = !!(window.CSS && CSS.highlights && typeof Highlight === "function");
   function searchQuery() { return (document.getElementById("song-search").value || "").trim().toLowerCase(); }
   function rangeInEl(el, start, end) {
@@ -2512,7 +2565,7 @@
   function applySearchHighlight() {
     var scroll = searchScrollPending;
     searchScrollPending = false;
-    var q = searchQuery();
+    var q = searchHlDismissed ? "" : searchQuery();
     if (canHighlight) { CSS.highlights.delete("search-hit"); CSS.highlights.delete("search-line"); }
     Array.prototype.forEach.call(document.querySelectorAll("#canvas .search-line"), function (r) { r.classList.remove("search-line"); });
     if (!q) return;
@@ -4726,9 +4779,17 @@
       r.endContainer !== sizeSaved.endContainer || r.endOffset !== sizeSaved.endOffset;
     sizeSaved = r.cloneRange();
     if (moved) closeFmtMenu();
-    placeSizeBar(r);
     refreshSizeBarState();
+    placeSizeBar(r);
   });
+  // Writing in the song (typing, deleting, Return, paste) clears the search highlights
+  function dismissSearchHighlight() {
+    if (searchHlDismissed || !searchQuery()) return;
+    searchHlDismissed = true;
+    applySearchHighlight();
+  }
+  document.getElementById("canvas").addEventListener("beforeinput", dismissSearchHighlight, true);
+  document.getElementById("canvas").addEventListener("paste", dismissSearchHighlight, true);
   document.getElementById("canvas").addEventListener("input", function (e) {
     if (e.target.classList && e.target.classList.contains("line-input") && searchQuery()) applySearchHighlight();
   });
@@ -4756,16 +4817,64 @@
       return null;
     }
     if (b <= a) return null;
-    var idx = [], lineStart = 0;
+    var idx = [], lineStart = 0, header = null;
     w.text.split("\n").forEach(function (t) {
       var lineEnd = lineStart + t.length;
-      if (lineEnd > a && lineStart < b && t.trim() && !detectHeader(t)) {
+      var h = t.trim() ? detectHeader(t) : null;
+      if (lineEnd > a && lineStart < b && t.trim() && !h) {
         for (var i = Math.max(a, lineStart); i < Math.min(b, lineEnd); i++) idx.push(i);
       }
+      // the whole selection sits inside one header line
+      if (h && a >= lineStart && b <= lineEnd) header = { start: lineStart, text: t, name: h.name };
       lineStart = lineEnd + 1;
     });
-    return { ed: ed, w: w, a: a, b: b, idx: idx };
+    return { ed: ed, w: w, a: a, b: b, idx: idx, header: header };
   }
+  // ---------- Swap a section header for another ----------
+  var SWAP_NAMES = ["Intro", "Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Hook", "Bridge", "Breakdown", "Refrain", "Interlude", "Outro"];
+  // New text for a header line with its name replaced, keeping its brackets, colon and note
+  function swappedHeaderLine(t, name) {
+    var c = t.charAt(0);
+    if (c === "[") return { text: "[" + name + t.slice(t.indexOf("]")), nameAt: 1 };
+    if (c === "(" || c === "{") return { text: c + name + t.slice(t.indexOf(c === "(" ? ")" : "}")), nameAt: 1 };
+    var m = t.match(/^([^\(\):]+?)(\s*[:\(].*)?$/);
+    return { text: name + (m && m[2] ? m[2] : ""), nameAt: 0 };
+  }
+  function swapHeader(name) {
+    var info = selectionInfo(true);
+    var song = getActiveSong();
+    if (!info || !info.header || !song) return;
+    var h = info.header, lead = h.text.length - h.text.replace(/^\s+/, "").length;
+    var sw = swappedHeaderLine(h.text.trim(), name);
+    var start = h.start + lead, oldLen = h.text.trim().length;
+    var S = info.w.text.slice(0, start) + sw.text + info.w.text.slice(start + oldLen);
+    var keys = info.w.keys.slice(0, start).concat(sw.text.split("").map(function () { return PLAIN; }), info.w.keys.slice(start + oldLen));
+    undo.boundary = true;
+    // keep the new name selected, so you can swap again
+    redrawEditor(song, info.ed, S, keys, start + sw.nameAt, start + sw.nameAt + name.length);
+    undo.boundary = true;
+  }
+  // Redraw the Basic editor from text + per-character styles and put the selection at [a, b]
+  function redrawEditor(song, ed, S, keys, a, b) {
+    var lines = [], pos = 0;
+    S.split("\n").forEach(function (t) {
+      lines.push({ text: t, runs: runsFromKeys(keys.slice(pos, pos + t.length)) });
+      pos += t.length + 1;
+    });
+    ed.innerHTML = "";
+    lines.forEach(function (l) { ed.appendChild(readLineEl(l.text, l.runs)); });
+    ed.classList.toggle("is-empty", !S.trim());
+    var p0 = editorPointAt(ed, a), p1 = editorPointAt(ed, b);
+    var nr = document.createRange();
+    nr.setStart(p0.node, p0.offset);
+    nr.setEnd(p1.node, p1.offset);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(nr);
+    savedSel = { ed: ed, a: a, b: b };
+    readEdited(song, ed);
+  }
+
   // Restyle the selected characters: fn({s, f, h}) returns the fields to change. Returns false if nothing was selected.
   function styleSelection(fn, allowSaved) {
     var info = selectionInfo(allowSaved);
@@ -4845,6 +4954,7 @@
   }
   function refreshSizeBarState() {
     var info = selectionInfo(false);
+    sizeBar.classList.toggle("header-mode", !!(info && info.header));
     updateSizeBarState(info ? info.idx.map(function (i) { return info.w.keys[i]; }) : []);
   }
 
@@ -4886,7 +4996,10 @@
     if (window.console) console.error(err);
   }
   onPress(sizeBar, function (b) {
-    if (b.id === "size-pick" || b.id === "hl-pick") { toggleFmtMenu(b.id === "size-pick" ? "size" : "hl"); return; }
+    if (b.id === "size-pick" || b.id === "hl-pick" || b.id === "swap-pick") {
+      toggleFmtMenu(b.id === "size-pick" ? "size" : b.id === "hl-pick" ? "hl" : "swap");
+      return;
+    }
     closeFmtMenu();
     if (b.hasAttribute("data-fmt")) toggleFormat(b.getAttribute("data-fmt"), true);
     else resizeSelection(parseInt(b.getAttribute("data-size"), 10), true);
@@ -4900,6 +5013,8 @@
     fmtMenuKind = null;
     document.getElementById("size-pick").setAttribute("aria-expanded", "false");
     document.getElementById("hl-pick").setAttribute("aria-expanded", "false");
+    document.getElementById("swap-pick").setAttribute("aria-expanded", "false");
+    fmtMenu.classList.remove("swap-menu");
   }
   function menuBtn(label, attrs) {
     var b = document.createElement("button");
@@ -4924,8 +5039,16 @@
     closeFmtMenu();
     fmtMenuKind = kind;
     fmtMenu.innerHTML = "";
-    var anchor = document.getElementById(kind === "size" ? "size-pick" : "hl-pick");
-    if (kind === "size") {
+    var anchor = document.getElementById(kind === "size" ? "size-pick" : kind === "hl" ? "hl-pick" : "swap-pick");
+    if (kind === "swap") {
+      var info = selectionInfo(true);
+      var current = info && info.header ? info.header.name.toLowerCase() : "";
+      fmtMenu.setAttribute("aria-label", "Swap section");
+      fmtMenu.classList.add("swap-menu");
+      SWAP_NAMES.concat(settings.savedHeaders || []).forEach(function (n) {
+        if (n.toLowerCase() !== current) menuBtn(n, { "data-swap": n, "aria-checked": "false" });
+      });
+    } else if (kind === "size") {
       fmtMenu.setAttribute("aria-label", "Font size");
       ptSizes().forEach(function (pt) {
         var b = menuBtn(String(pt), { "data-pt": pt, "aria-checked": String(barState.pt === pt) });
@@ -4946,7 +5069,8 @@
     placeFmtMenu(anchor);
   }
   onPress(fmtMenu, function (b) {
-    if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
+    if (b.hasAttribute("data-swap")) swapHeader(b.getAttribute("data-swap"));
+    else if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
     else setHighlight(b.getAttribute("data-hl"), true);
     // close once the finger has lifted: hiding the menu mid-tap lets iOS pass the tap to the lyrics underneath
     clearTimeout(fmtCloseTimer);

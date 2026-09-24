@@ -1491,6 +1491,63 @@
   ::highlight(search-hit) { background-color: var(--hl-yellow); color: #1D1B16; }
   ::highlight(search-line) { background-color: rgba(255, 214, 0, 0.14); }
   #canvas .line-row.search-line { background: rgba(255, 214, 0, 0.14); border-radius: 6px; }
+  /* List / gallery switch (wide screens and the Mac app) */
+  .songs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+  #view-style { display: none; flex-shrink: 0; border: 1px solid var(--shell-border); border-radius: 8px; overflow: hidden; }
+  #view-style button {
+    background: none; border: none; color: var(--shell-text-dim);
+    width: 30px; height: 26px; padding: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #view-style button + button { border-left: 1px solid var(--shell-border); }
+  #view-style button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
+  @media (min-width: 900px) { #view-style { display: flex; } }
+  #gallery-back {
+    background: none; border: 1px solid var(--shell-border); color: var(--accent);
+    font-family: var(--font-ui); font-size: 0.8rem; border-radius: var(--radius-sm);
+    padding: 6px 10px; cursor: pointer; align-self: center;
+  }
+  #gallery-back[hidden] { display: none; }
+  /* Gallery: a grid of sheet previews in the main area */
+  #gallery { flex: 1; overflow-y: auto; padding: 26px 30px 110px; }
+  #gallery[hidden] { display: none; }
+  #gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 20px; }
+  .gallery-group {
+    grid-column: 1 / -1; margin: 10px 2px -8px;
+    font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--shell-text-dim);
+  }
+  .gallery-group:first-child { margin-top: 0; }
+  .g-card { position: relative; cursor: pointer; min-width: 0; outline: none; }
+  .g-thumb {
+    aspect-ratio: 3 / 4;
+    background: var(--paper);
+    border: 1px solid var(--shell-border);
+    border-radius: 10px;
+    padding: 12px 12px 0;
+    overflow: hidden;
+    color: var(--ink);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    transition: transform 0.12s ease, border-color 0.12s ease;
+    -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent);
+    mask-image: linear-gradient(to bottom, #000 78%, transparent);
+  }
+  .g-card:hover .g-thumb, .g-card:focus-visible .g-thumb { transform: translateY(-2px); border-color: var(--accent-dim); }
+  .g-card.active .g-thumb { border: 2px solid var(--accent); }
+  .g-thumb .g-title { font-family: var(--font-lyric); font-weight: 600; font-size: 12px; margin: 0 0 6px; }
+  .g-thumb .g-lines { font-family: var(--font-lyric); font-size: 9px; line-height: 1.45; pointer-events: none; --lyric-px: 9px; }
+  .g-thumb .g-lines > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.45em; }
+  .g-name { margin: 8px 2px 0; font-size: 0.85rem; color: var(--shell-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .g-date { margin: 2px 2px 0; font-size: 0.72rem; color: var(--shell-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .g-more {
+    position: absolute; top: 6px; right: 6px;
+    width: 28px; height: 24px; border-radius: 6px; border: none;
+    background: var(--bg-raised); color: var(--shell-text); opacity: 0; cursor: pointer;
+    font-size: 1rem; letter-spacing: 1px; line-height: 1;
+  }
+  .g-card:hover .g-more, .g-more:focus-visible { opacity: 0.9; }
+  .gallery-empty { grid-column: 1 / -1; color: var(--shell-text-dim); font-size: 0.9rem; }
+  @media (prefers-reduced-motion: reduce) { .g-thumb { transition: none; } }
 </style>
 </head>
 <body>
@@ -1511,7 +1568,13 @@
     </div>
     <div id="songs-view" class="nav-view">
       <button id="folders-back" class="folders-back">‹ Folders</button>
-      <h2 id="folder-title" class="nav-title">All Songs</h2>
+      <div class="songs-head">
+        <h2 id="folder-title" class="nav-title">All Songs</h2>
+        <div id="view-style" role="group" aria-label="Show songs as">
+          <button data-style="list" aria-label="List" title="List"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg></button>
+          <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+        </div>
+      </div>
       <input id="song-search" type="search" placeholder="Search songs and lyrics" aria-label="Search songs" autocomplete="off">
       <div id="song-list"></div>
       <button id="new-song-btn">+ New song</button>
@@ -1526,6 +1589,7 @@
       <p><button id="empty-new-btn" class="add-section-btn" style="color:var(--shell-text);border-color:var(--shell-border);background:none;">+ New song</button></p>
     </div>
 
+    <div id="gallery" hidden><div id="gallery-grid"></div></div>
     <div id="editor">
       <button id="songs-fab" aria-label="Songs">☰ Songs</button>
       <div id="mode-fab" role="group" aria-label="View">
@@ -1539,6 +1603,7 @@
       <button id="hud-show" class="hud-icon" aria-label="Show top bar" title="Show top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 6l4.5 4.5 4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div id="meta-bar">
         <button id="hud-hide" class="hud-icon" aria-label="Hide top bar" title="Hide top bar"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 10l4.5-4.5 4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="gallery-back" hidden>‹ Gallery</button>
         <button id="songs-toggle">☰ Songs</button>
         <div class="meta-field" style="min-width:200px;">
           <label>Title</label>
@@ -1824,6 +1889,7 @@
   function openSong(id) {
     maybeSnapshotOnLeave();
     searchScrollPending = true;
+    galleryOpen = false;
     state.activeId = id;
     settings.lastOpenId = id;
     persistSettings();
@@ -1992,6 +2058,7 @@
     settings.navFolder = nav.folder;
     persistSettings();
     document.getElementById("song-search").value = "";
+    if (folder !== undefined && galleryWanted()) { flushReadSync(); galleryOpen = true; renderSidebar(); renderEditor(); return; }
     renderSidebar();
   }
 
@@ -2175,6 +2242,108 @@
     return String(d.getFullYear());
   }
 
+  // The songs shown for the current folder and search, newest first
+  function navSongs() {
+    var folder = nav.folder === "all" || nav.folder === "trash" ? null : folderById(nav.folder);
+    var q = searchQuery();
+    var sorted = state.songs.slice().sort(function (a, b) { return b.lastEditedAt - a.lastEditedAt; });
+    if (folder) sorted = sorted.filter(function (s) { return s.folderId === folder.id; });
+    if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
+    return sorted;
+  }
+
+  // ---------- gallery view (wide screens and the Mac app) ----------
+  // Songs show as a grid of sheet previews in the main area; clicking one opens it, and
+  // "‹ Gallery" goes back to the grid.
+  var galleryOpen = false;
+  var wideQuery = window.matchMedia ? window.matchMedia("(min-width: 900px)") : null;
+  function galleryWanted() {
+    return settings.songView === "gallery" && !!(wideQuery && wideQuery.matches) && nav.folder !== "trash";
+  }
+  function updateViewStyleButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll("#view-style button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-style") === (settings.songView || "list")));
+    });
+  }
+  function setSongView(style) {
+    settings.songView = style;
+    persistSettings();
+    flushReadSync();
+    galleryOpen = style === "gallery";
+    renderAll();
+  }
+  function renderGallery(songs, q, folder) {
+    var grid = document.getElementById("gallery-grid");
+    grid.innerHTML = "";
+    if (!songs.length) {
+      var none = document.createElement("p");
+      none.className = "gallery-empty";
+      none.textContent = q ? "No songs match \u201C" + q + "\u201D." : folder ? "No songs in this folder yet." : "No songs yet.";
+      grid.appendChild(none);
+      return;
+    }
+    var lastGroup = null, now = new Date();
+    songs.forEach(function (song) {
+      var group = editGroup(song.lastEditedAt, now);
+      if (group !== lastGroup) {
+        var gh = document.createElement("h3");
+        gh.className = "gallery-group";
+        gh.textContent = group;
+        grid.appendChild(gh);
+        lastGroup = group;
+      }
+      var card = document.createElement("div");
+      card.className = "g-card" + (song.id === state.activeId ? " active" : "");
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", "Open " + (song.title || "Untitled song"));
+      var thumb = document.createElement("div");
+      thumb.className = "g-thumb";
+      if (song.title.trim()) {
+        var t = document.createElement("p");
+        t.className = "g-title";
+        t.textContent = song.title;
+        thumb.appendChild(t);
+      }
+      var lines = document.createElement("div");
+      lines.className = "read-editor pv-sheet g-lines";
+      sectionsAsLines(song).slice(0, 24).forEach(function (l) { lines.appendChild(readLineEl(l.text, l.runs)); });
+      thumb.appendChild(lines);
+      var name = document.createElement("div");
+      name.className = "g-name";
+      name.textContent = song.title || "Untitled song";
+      var date = document.createElement("div");
+      date.className = "g-date";
+      var bits = [fmtShort(song.lastEditedAt)];
+      if (song.key && song.key !== "\u2014") bits.push(song.key);
+      if (song.bpm) bits.push(song.bpm + " BPM");
+      date.textContent = bits.join(" \u00B7 ");
+      var more = document.createElement("button");
+      more.className = "g-more";
+      more.textContent = "\u22EF";
+      more.title = "Song options";
+      more.setAttribute("aria-label", "Options for " + (song.title || "Untitled song"));
+      more.addEventListener("click", function (e) { e.stopPropagation(); songMenu(song); });
+      card.appendChild(thumb); card.appendChild(name); card.appendChild(date); card.appendChild(more);
+      card.addEventListener("click", function () { openSong(song.id); });
+      card.addEventListener("keydown", function (e) { if ((e.key === "Enter" || e.key === " ") && e.target === card) { e.preventDefault(); openSong(song.id); } });
+      grid.appendChild(card);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("#view-style button"), function (b) {
+    b.addEventListener("click", function () { setSongView(b.getAttribute("data-style")); });
+  });
+  document.getElementById("gallery-back").addEventListener("click", function () {
+    flushReadSync();
+    maybeSnapshotOnLeave();
+    galleryOpen = true;
+    renderAll();
+  });
+  if (wideQuery) {
+    var onWide = function () { if (settings.songView === "gallery") renderAll(); };
+    if (wideQuery.addEventListener) wideQuery.addEventListener("change", onWide); else if (wideQuery.addListener) wideQuery.addListener(onWide);
+  }
+
   function renderSidebar() {
     // don't redraw under someone who is naming a folder
     var ae = document.activeElement;
@@ -2191,10 +2360,11 @@
     var list = document.getElementById("song-list");
     list.innerHTML = "";
     var q = (document.getElementById("song-search").value || "").trim().toLowerCase();
+    updateViewStyleButtons();
+    list.hidden = false;
     if (inTrash) { renderTrashList(list, q); return; }
-    var sorted = state.songs.slice().sort(function(a,b){ return b.lastEditedAt - a.lastEditedAt; });
-    if (folder) sorted = sorted.filter(function (s) { return s.folderId === folder.id; });
-    if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
+    var sorted = navSongs();
+    if (galleryWanted()) { list.hidden = true; renderGallery(sorted, q, folder); return; }
     if (!sorted.length) {
       var none = document.createElement("p");
       none.className = "no-match";
@@ -2250,6 +2420,7 @@
     });
   }
   document.getElementById("song-search").addEventListener("input", function () {
+    if (galleryWanted() && !galleryOpen) { flushReadSync(); galleryOpen = true; renderEditor(); }
     renderSidebar();
     searchScrollPending = true;
     applySearchHighlight();
@@ -2315,6 +2486,15 @@
     var editorEl = document.getElementById("editor");
     var emptyEl = document.getElementById("empty-state");
     if (song && undo.id !== song.id) resetUndo(song);
+
+    var showGallery = galleryWanted() && galleryOpen;
+    document.getElementById("gallery").hidden = !showGallery;
+    document.getElementById("gallery-back").hidden = !galleryWanted() || showGallery;
+    if (showGallery) {
+      editorEl.classList.remove("visible");
+      emptyEl.style.display = "none";
+      return;
+    }
 
     if (!song) {
       editorEl.classList.remove("visible");
@@ -3774,6 +3954,7 @@
     var song = newSong();
     if (nav.folder !== "all" && folderById(nav.folder)) song.folderId = nav.folder;
     if (nav.folder === "trash") nav.folder = "all";
+    galleryOpen = false;
     state.songs.push(song);
     state.activeId = song.id;
     settings.lastOpenId = song.id;
@@ -4550,6 +4731,8 @@
       case "copy-lyrics": if (song) { flushReadSync(); copyText(songAsText(song), { textContent: "" }); } break;
       case "duplicate-song": if (song) duplicateSong(song); break;
       case "mode-basic": setViewMode("read"); break;
+      case "view-list": setSongView("list"); break;
+      case "view-gallery": setSongView("gallery"); break;
       case "mode-advanced": setViewMode("edit"); break;
       case "toggle-bar": document.getElementById(hud.hidden ? "hud-show" : "hud-hide").click(); break;
       case "history": if (song) setHistoryOpen(!historyOpen); break;
@@ -4623,6 +4806,7 @@
     var reopen = state.songs.filter(function (s) { return s.id === settings.lastOpenId; })[0];
     state.activeId = reopen ? reopen.id : state.songs.slice().sort(function(a,b){return b.lastEditedAt-a.lastEditedAt;})[0].id;
   }
+  galleryOpen = settings.songView === "gallery";
   applyTheme();
   openInBasic();
   measureHud();

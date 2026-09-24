@@ -2375,6 +2375,30 @@
     readEdited(song, ed);
   }
 
+  // When the cursor leaves a line, redraw it if its styling is out of date: a line you've just typed
+  // "Chorus" or "Verse 2" on becomes a header, and a header edited into a lyric goes back to plain.
+  var caretLine = null;
+  function lineOfNode(ed, node) {
+    var n = node;
+    while (n && n.parentNode !== ed) n = n.parentNode;
+    return n && n.nodeType === 1 ? n : null;
+  }
+  function restyleLine(ed, div) {
+    if (!div || div.parentNode !== ed) return;
+    var w = walkEditor(div);
+    if (w.lines.length !== 1) return;
+    var fresh = readLineEl(w.lines[0].text, w.lines[0].runs);
+    if (fresh.innerHTML !== div.innerHTML) ed.replaceChild(fresh, div);
+  }
+  document.addEventListener("selectionchange", function () {
+    var sel = window.getSelection();
+    if (!sel.rangeCount || !sel.getRangeAt(0).collapsed) return;
+    var r = sel.getRangeAt(0), ed = editorOfRange(r);
+    var line = ed ? lineOfNode(ed, r.startContainer) : null;
+    if (caretLine && caretLine !== line && caretLine.parentNode) restyleLine(caretLine.parentNode, caretLine);
+    caretLine = line;
+  });
+
   function fillReadEditor(el, lineObjs) {
     el.innerHTML = "";
     if (!lineObjs.some(function (l) { return l.text.trim(); })) { el.classList.add("is-empty"); return; }

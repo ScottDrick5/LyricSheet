@@ -228,7 +228,7 @@ function createWindow() {
 // Music / Spotify controls for the page (Mac only; see music.js)
 ipcMain.handle("music", (_event, method, options) => {
   if (!isMac) throw new Error("Music controls are only available on the Mac");
-  const allowed = ["getState", "requestAccess", "play", "pause", "next", "previous", "seek"];
+  const allowed = ["getState", "requestAccess", "play", "pause", "next", "previous", "seek", "setRepeat"];
   if (allowed.indexOf(method) === -1) throw new Error("Unknown music command");
   return music.call(method, options);
 });

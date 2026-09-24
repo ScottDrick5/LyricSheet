@@ -1700,6 +1700,15 @@
   }
   .mb-controls button:active { background: var(--shell-hover); }
   .mb-play .ico-pause, .mb-play.playing .ico-play { display: none; }
+  .mb-repeat { position: relative; color: var(--shell-text-dim) !important; }
+  .mb-repeat.on { color: var(--accent) !important; }
+  .mb-repeat .mb-one {
+    display: none; position: absolute; top: 7px; right: 6px;
+    font-family: var(--font-ui); font-size: 0.55rem; font-weight: 700; line-height: 1;
+    background: var(--accent); color: var(--on-accent); border-radius: 6px; padding: 1px 3px;
+  }
+  .mb-repeat.one .mb-one { display: block; }
+  @media (max-width: 400px) { .mb-controls button { width: 38px; } }
   .mb-play.playing .ico-pause { display: block; }
   #music-bar { flex-wrap: wrap; row-gap: 6px; }
   .mb-art, .mb-info { cursor: pointer; }
@@ -1810,6 +1819,7 @@
       <button data-music="previous" aria-label="Previous"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M19 5.5v13L9 12z" fill="currentColor"/></svg></button>
       <button data-music="toggle" class="mb-play" aria-label="Play"><svg class="ico-play" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M7 4.5v15L19.5 12z" fill="currentColor"/></svg><svg class="ico-pause" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor"/></svg></button>
       <button data-music="next" aria-label="Next"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M18 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M5 5.5v13L15 12z" fill="currentColor"/></svg></button>
+      <button data-music="repeat" class="mb-repeat" aria-label="Repeat: off" title="Repeat"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 11V9a3 3 0 013-3h11" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M15 3l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 13v2a3 3 0 01-3 3H6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M9 21l-3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="mb-one">1</span></button>
     </div>
     <div class="mb-progress" aria-hidden="true"><span></span></div>
     <div class="mb-scrub" hidden>
@@ -5694,6 +5704,10 @@
       artist.textContent = "";
     }
     var playing = !!(st && st.playing);
+    var rpt = (st && st.repeat) || "off", rb = musicBar.querySelector(".mb-repeat");
+    rb.classList.toggle("on", rpt !== "off");
+    rb.classList.toggle("one", rpt === "one");
+    rb.setAttribute("aria-label", "Repeat: " + (rpt === "one" ? "one song" : rpt === "all" ? "all" : "off"));
     play.classList.toggle("playing", playing);
     musicPill.classList.toggle("playing", playing);
     musicPill.setAttribute("aria-label", "Show music controls" + (st && st.id && st.title ? " (" + st.title + ")" : ""));
@@ -5748,12 +5762,16 @@
     scrub.pos = has ? st.position || 0 : 0;
     scrub.at = Date.now();
     scrub.playing = has && !!st.playing;
-    if (!has && scrub.open) setScrubOpen(false);
+    // the timeline shows by default (tap the song to hide it; that choice is remembered)
+    var want = settings.musicScrub !== false;
+    if (has && want && !scrub.open) setScrubOpen(true);
+    else if (!has && scrub.open) { setScrubOpen(false); }
     musicBar.querySelector(".mb-progress").style.display = has ? "" : "none";
     if (!scrub.dragging) drawScrub(scrubNow());
   }
   function setScrubOpen(open) {
     scrub.open = open && scrub.dur > 0;
+    scrub.wanted = open;
     scrubRow.hidden = !scrub.open;
     document.body.classList.toggle("music-scrub", scrub.open);
     musicBar.querySelector(".mb-info").setAttribute("aria-expanded", String(scrub.open));
@@ -5774,10 +5792,23 @@
       setTimeout(refreshMusic, 300);
     });
   });
-  function toggleScrub() { if (scrub.dur > 0) setScrubOpen(!scrub.open); }
+  function toggleScrub() {
+    if (!(scrub.dur > 0)) return;
+    settings.musicScrub = !scrub.open;
+    persistSettings();
+    setScrubOpen(!scrub.open);
+  }
 
   function musicCommand(which) {
     var st = music.state || {};
+    if (which === "repeat") {   // off -> all -> one -> off (Spotify has no repeat-one)
+      var modes = st.repeatModes || ["off", "all", "one"];
+      var nextMode = modes[(modes.indexOf(st.repeat || "off") + 1) % modes.length];
+      st.repeat = nextMode;
+      renderMusic(st);
+      musicCall("setRepeat", { mode: nextMode }).catch(function (err) { showFmtError(err); }).then(function () { setTimeout(refreshMusic, 350); });
+      return;
+    }
     var method = which === "toggle" ? (st.playing ? "pause" : "play") : which;
     if (which === "toggle") {   // flip the button right away; the next refresh confirms it
       st.playing = !st.playing;

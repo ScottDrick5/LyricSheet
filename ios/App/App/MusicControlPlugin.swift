@@ -16,7 +16,8 @@ public class MusicControlPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "pause", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "next", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "previous", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "seek", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "seek", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setRepeat", returnType: CAPPluginReturnPromise)
     ]
 
     private var player: MPMusicPlayerController { MPMusicPlayerController.systemMusicPlayer }
@@ -41,6 +42,8 @@ public class MusicControlPlugin: CAPPlugin, CAPBridgedPlugin {
             if status == .authorized {
                 let p = self.player
                 result["playing"] = p.playbackState == .playing
+                result["repeat"] = Self.repeatName(p.repeatMode)
+                result["repeatModes"] = ["off", "all", "one"]
                 if let item = p.nowPlayingItem {
                     result["id"] = String(item.persistentID)
                     result["title"] = item.title ?? ""
@@ -108,6 +111,29 @@ extension MusicControlPlugin {
         let position = call.getDouble("position") ?? 0
         DispatchQueue.main.async {
             self.player.currentPlaybackTime = max(0, position)
+            call.resolve()
+        }
+    }
+}
+
+extension MusicControlPlugin {
+    static func repeatName(_ mode: MPMusicRepeatMode) -> String {
+        switch mode {
+        case .one: return "one"
+        case .all: return "all"
+        default: return "off"   // .none, or .default (the Music app's own setting)
+        }
+    }
+
+    /// Repeat: { mode: "off" | "all" | "one" }
+    @objc func setRepeat(_ call: CAPPluginCall) {
+        let mode = call.getString("mode") ?? "off"
+        DispatchQueue.main.async {
+            switch mode {
+            case "one": self.player.repeatMode = .one
+            case "all": self.player.repeatMode = .all
+            default: self.player.repeatMode = .none
+            }
             call.resolve()
         }
     }

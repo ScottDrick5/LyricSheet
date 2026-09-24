@@ -31,17 +31,20 @@ function notAllowed(err) { return /-1743|not allowed|Not authorized/i.test((err 
 async function readApp(name) {
   const durExpr = name === "Spotify" ? "((duration of t) / 1000)" : "(duration of t)";
   const idExpr = name === "Spotify" ? "(id of t)" : "(persistent ID of t)";
+  // Music: song repeat is off / one / all. Spotify only has repeating on or off.
+  const repeatExpr = name === "Spotify" ? "(repeating as text)" : "(song repeat as text)";
   const out = await osa([
     `tell application "${name}"`,
     "  set ps to (player state as text)",
     "  if ps is \"stopped\" then return ps",
     "  set t to current track",
-    `  return ps & tab & (name of t) & tab & (artist of t) & tab & (album of t) & tab & ${durExpr} & tab & (player position) & tab & ${idExpr}`,
+    `  return ps & tab & (name of t) & tab & (artist of t) & tab & (album of t) & tab & ${durExpr} & tab & (player position) & tab & ${idExpr} & tab & ${repeatExpr}`,
     "end tell"
   ]);
   const f = out.split("\t");
   return { app: name, state: f[0], title: f[1] || "", artist: f[2] || "", album: f[3] || "",
-           duration: num(f[4]), position: num(f[5]), id: f[6] ? name + ":" + f[6] : "" };
+           duration: num(f[4]), position: num(f[5]), id: f[6] ? name + ":" + f[6] : "",
+           repeat: name === "Spotify" ? (f[7] === "true" ? "all" : "off") : (/^(one|all)$/.test(f[7] || "") ? f[7] : "off") };
 }
 
 async function artwork(name) {
@@ -83,7 +86,8 @@ async function getState(opts) {
   const res = { access: "authorized", app: pick.app, playing: pick.state === "playing" };
   if (pick.state !== "stopped" && pick.title) {
     Object.assign(res, { id: pick.id, title: pick.title, artist: pick.artist, album: pick.album,
-                         duration: pick.duration, position: pick.position });
+                         duration: pick.duration, position: pick.position, repeat: pick.repeat,
+                         repeatModes: pick.app === "Spotify" ? ["off", "all"] : ["off", "all", "one"] });
     if (opts && opts.artwork) res.artwork = await artwork(pick.app);
   }
   return res;
@@ -95,6 +99,12 @@ async function command(method, opts) {
   const a = target();
   // Music's "back track" is its ⏮ button: back to the start of the song, or to the previous one
   const verbs = { play: "play", pause: "pause", next: "next track", previous: a === "Music" ? "back track" : "previous track" };
+  if (method === "setRepeat") {
+    const mode = (opts && opts.mode) || "off";
+    if (a === "Spotify") return osa([`tell application "Spotify" to set repeating to ${mode === "off" ? "false" : "true"}`]);
+    const value = mode === "one" ? "one" : mode === "all" ? "all" : "off";
+    return osa([`tell application "Music" to set song repeat to ${value}`]);
+  }
   if (method === "seek") {
     // whole seconds: a decimal point would be misread on Macs set to a decimal-comma language
     const pos = Math.max(0, Math.round(Number(opts && opts.position) || 0));

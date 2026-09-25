@@ -2519,6 +2519,72 @@
   var historyOpen = false;
 
   // ---------- persistence ----------
+  // Songs and the bin are kept in two places: localStorage (read instantly at startup) and IndexedDB.
+  // An iPhone's localStorage holds only ~5 MB (about half a Mac's), which a few hundred songs with their
+  // version history can outgrow; IndexedDB has room for far more. Each copy is stamped with the time it
+  // was saved, and at startup the newest one wins (see loadBig).
+  var bigDb = null, bigDbOpening = null, storageProblem = "";
+  function openBigDb() {
+    if (bigDb) return Promise.resolve(bigDb);
+    if (bigDbOpening) return bigDbOpening;
+    bigDbOpening = new Promise(function (resolve) {
+      try {
+        var req = indexedDB.open("lyricsheet", 1);
+        req.onupgradeneeded = function () { req.result.createObjectStore("kv"); };
+        req.onsuccess = function () { bigDb = req.result; resolve(bigDb); };
+        req.onerror = req.onblocked = function () { resolve(null); };
+      } catch (e) { resolve(null); }
+    });
+    return bigDbOpening;
+  }
+  function idbPut(key, value) {
+    return openBigDb().then(function (db) {
+      if (!db) return false;
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction("kv", "readwrite");
+          tx.objectStore("kv").put(value, key);
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = tx.onabort = function () { resolve(false); };
+        } catch (e) { resolve(false); }
+      });
+    });
+  }
+  function idbGet(key) {
+    return openBigDb().then(function (db) {
+      if (!db) return null;
+      return new Promise(function (resolve) {
+        try {
+          var req = db.transaction("kv", "readonly").objectStore("kv").get(key);
+          req.onsuccess = function () { resolve(req.result || null); };
+          req.onerror = function () { resolve(null); };
+        } catch (e) { resolve(null); }
+      });
+    });
+  }
+  // Save one big value to both places. localStorage's copy (and its time stamp) is only replaced when
+  // the whole thing fits, so an older complete copy is never swapped for nothing.
+  var bigReady = false, bigPending = {};   // saves wait until startup has read IndexedDB's copy
+  function saveBig(key, value) {
+    if (!bigReady) { bigPending[key] = true; return; }
+    var text = JSON.stringify(value), at = Date.now(), fits = true;
+    try { localStorage.setItem(key, text); localStorage.setItem(key + "_at", String(at)); }
+    catch (e) { fits = false; }
+    idbPut(key, { at: at, text: text }).then(function (ok) {
+      var was = storageProblem;
+      storageProblem = ok ? "" : fits ? "" : "This device ran out of space to save your songs. Recent changes may be lost if the app closes.";
+      if (storageProblem !== was && typeof renderSyncSettings === "function") renderSyncSettings();
+    });
+  }
+  // The newer of the two copies, or null when localStorage's is already the newest.
+  function loadBig(key) {
+    var lsAt = +(localStorage.getItem(key + "_at") || 0);
+    return idbGet(key).then(function (rec) {
+      if (!rec || !(rec.at > lsAt)) return null;
+      try { return JSON.parse(rec.text); } catch (e) { return null; }
+    });
+  }
+
   function loadAll() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -2532,8 +2598,7 @@
     if (!Array.isArray(settings.savedHeaders)) settings.savedHeaders = [];
   }
   function persistSongs(fromSync) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.songs)); }
-    catch (e) { console.warn("Save failed", e); }
+    saveBig(STORAGE_KEY, state.songs);
     if (!fromSync && typeof scheduleSync === "function") scheduleSync(4000);
   }
   function persistSettings() {
@@ -2713,7 +2778,7 @@
     purgeTrash();
   }
   function saveTrash() {
-    try { localStorage.setItem(TRASH_KEY, JSON.stringify(trash)); } catch (e) { console.warn("Save failed", e); }
+    saveBig(TRASH_KEY, trash);
   }
   function purgeTrash() {
     var cutoff = Date.now() - TRASH_DAYS * DAY_MS;
@@ -5308,7 +5373,8 @@
   // Songs are packed into a fixed set of bundle files: GitHub only lists the first 300 files of a gist,
   // so one file per song (the old layout, "song-<id>.json") hid every song past the 299th.
   // A song always lands in the same bundle, so an edit only re-uploads that one file.
-  var BUNDLES = 16;
+  // 64 keeps each bundle well under the 1 MB GitHub sends inline (bigger files are fetched separately).
+  var BUNDLES = 64;
   function bundleName(i) { return "songs-" + (i < 10 ? "0" : "") + i + ".json"; }
   function bundleOf(id) {
     var h = 0;
@@ -5349,7 +5415,10 @@
   }
   function fileText(f) {
     if (!f.truncated && typeof f.content === "string") return Promise.resolve(f.content);
-    return fetch(f.raw_url, { cache: "no-store" }).then(function (r) { return r.text(); });
+    return fetch(f.raw_url, { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new SyncError("http", r.status);
+      return r.text();
+    }, function () { throw new SyncError("network"); });
   }
   function findOrCreateGist() {
     return gh("GET", "/gists?per_page=100").then(function (list) {
@@ -5367,6 +5436,7 @@
     switch (err && err.kind) {
       case "auth": return "GitHub didn't accept the token. Make sure it has the \u201Cgist\u201D permission and hasn't expired.";
       case "network": return "Can't reach GitHub right now. Your songs are saved on this device and will sync when you're back online.";
+      case "unreadable": return "Part of the sync copy on GitHub couldn't be read, so nothing was changed. It will try again.";
       case "limited": return "GitHub refused the request. Check the token has the \u201Cgist\u201D permission, or wait a few minutes.";
       default: return "Sync hit a problem" + (err && err.status ? " (GitHub error " + err.status + ")" : "") + ". It will try again.";
     }
@@ -5393,6 +5463,11 @@
       : sync.state === "syncing" ? "Syncing\u2026"
       : sync.lastSync ? "Connected. Last synced " + fmtDateTime(sync.lastSync) + "."
       : "Connected.";
+    if (on && sync.counts && sync.state !== "error") {
+      d.textContent += " " + sync.counts.device + (sync.counts.device === 1 ? " song" : " songs") + " on this device, "
+        + sync.counts.synced + " in the sync copy.";
+    }
+    if (storageProblem) { d.textContent += " " + storageProblem; d.classList.add("error"); }
     document.getElementById("sync-summary").textContent = on ? (sync.state === "error" ? "Needs attention" : "On") : "GitHub Gist sync, for testing";
   }
 
@@ -5445,7 +5520,10 @@
         } catch (e) {}
       } else if (/^songs-\d+\.json$/.test(n)) {
         bundleRaw[n] = c;
-        try { var b = JSON.parse(c); (b && b.songs || []).forEach(addRemote); } catch (e) {}
+        // a bundle that can't be read stops the sync: writing it back would drop the songs in it
+        var b;
+        try { b = JSON.parse(c); } catch (e) { throw new SyncError("unreadable"); }
+        (b && b.songs || []).forEach(addRemote);
       } else if (/^song-.+\.json$/.test(n)) {
         // old one-file-per-song layout: read it in, then delete the file (its song moves into a bundle)
         legacy.push(n);
@@ -5513,6 +5591,7 @@
     });
     legacy.forEach(function (n) { patch[n] = null; patchCount++; });
     sync.legacyLeft = legacy.length > 0;
+    sync.counts = { device: next.length, synced: bundles.reduce(function (n, l) { return n + l.length; }, 0) };
 
     // saved headers follow you between devices
     var headers = settings.savedHeaders.slice();
@@ -5553,6 +5632,23 @@
     return patchCount ? patch : null;
   }
 
+  // Send changes a few MB at a time (the first sync after an update rewrites every song),
+  // new and changed files first and deletions last, so a failure part-way never loses a song.
+  var PATCH_BYTES = 3 * 1024 * 1024;
+  function sendPatch(patch) {
+    var names = Object.keys(patch).sort(function (a, b) { return (patch[a] === null) - (patch[b] === null); });
+    var chunks = [], cur = {}, size = 0;
+    names.forEach(function (n) {
+      var len = patch[n] ? patch[n].content.length : 100;
+      if (size && size + len > PATCH_BYTES) { chunks.push(cur); cur = {}; size = 0; }
+      cur[n] = patch[n]; size += len;
+    });
+    if (size) chunks.push(cur);
+    return chunks.reduce(function (p, files) {
+      return p.then(function () { return gh("PATCH", "/gists/" + sync.gistId, { files: files }); });
+    }, Promise.resolve());
+  }
+
   function syncNow() {
     clearTimeout(sync.timer);
     if (!sync.token) { setSyncState("off"); return Promise.resolve(); }
@@ -5568,7 +5664,7 @@
       })
       .then(function (pairs) {
         var patch = mergeRemote(pairs);
-        if (patch) return gh("PATCH", "/gists/" + sync.gistId, { files: patch });
+        if (patch) return sendPatch(patch);
       })
       .then(function () {
         sync.lastSync = Date.now(); saveSync(); setSyncState("ok");
@@ -7773,7 +7869,25 @@
   renderAll();
   loadSync();
   setSyncState(sync.token ? "ok" : "off");
-  if (sync.token) syncNow();
+  // songs that didn't fit in localStorage last time: take IndexedDB's newer copy, then sync
+  Promise.all([loadBig(STORAGE_KEY), loadBig(TRASH_KEY)]).then(function (got) {
+    if (got[1]) { trash = got[1]; purgeTrash(); }
+    if (got[0]) {
+      state.songs = got[0];
+      if (!getActiveSong()) {
+        var again = state.songs.filter(function (s) { return s.id === settings.lastOpenId; })[0]
+          || state.songs.slice().sort(function (a, b) { return b.lastEditedAt - a.lastEditedAt; })[0];
+        state.activeId = again ? again.id : null;
+      }
+    }
+    if (got[0] || got[1]) renderAll();
+  }).then(function () {
+    bigReady = true;
+    if (bigPending[STORAGE_KEY]) persistSongs(true);
+    if (bigPending[TRASH_KEY]) saveTrash();
+    bigPending = {};
+    if (sync.token) syncNow();
+  });
   if (music.available) {
     document.getElementById("music-switch").setAttribute("aria-checked", String(settings.musicBar === true));
     refreshMusic();

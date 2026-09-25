@@ -6408,6 +6408,13 @@
     }
     return (dict.maps = maps);
   }
+  // What follows a word's main vowel: nothing (me, you), a nasal (m/n/ng), r, l, or a voiced / unvoiced consonant
+  function codaType(p) {
+    if (!p || p.stress >= 0) return "open";
+    if (/^(M|N|NG)$/.test(p.name)) return "nasal";
+    if (p.name === "R" || p.name === "L") return p.name;
+    return /^(P|T|K|CH|F|TH|S|SH|HH)$/.test(p.name) ? "unvoiced" : "voiced";
+  }
   // For slant rhymes, a final t/d/k-type sound after another consonant doesn't count ("soul" / "gold", "time" / "mind")
   function slantEnd(rest) {
     var n = rest.length;
@@ -6452,6 +6459,7 @@
     return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after, fem: fem, nasV: nasV, nasC: nasC,
              asson: after === 0 ? tail[0].name : null,
              vowelSound: tail[0].name === "ER" || tail[0].name === "AA" ? "AH" : tail[0].name,
+             codaType: codaType(tail[1]),
              // an open "ee": stressed in me / see / free, unstressed at the end of ugly / heavy / crazy
              eeS: tail.length === 1 && tail[0].name === "IY", eeU: after >= 1 && lastP.name === "IY" && lastP.stress === 0,
              slant: (VOWEL_FAMILY[tail[0].name] || tail[0].name) + " " + slantEnd(near.slice(1)).join(" "),
@@ -6591,28 +6599,38 @@
         if (cls != null) { t.color = cls; L.innerOut.push({ start: t.start, end: t.end, cls: "rh-" + (cls % 8) }); }
       });
     });
-    // Rhyme sounds (like Rhymers Block): in each stanza, words are grouped by their main vowel sound,
-    // and every sound heard two or more times is highlighted. Each sound has its own color throughout
-    // the song ("you" is always violet), so a rhyme that carries on into the next stanza stands out.
+    // Rhyme sounds (like Rhymers Block): a word is highlighted when its main vowel sound comes back in
+    // the same line or a line beside it. Short vowels (the i in "did", e in "when", a in "that", u in
+    // "love") are so common they only count when the sound after them matches too (didn't / different).
+    // Each sound has its own color throughout the song ("you" is always violet), so a rhyme that carries
+    // on into the next stanza stands out. On a song checked against Rhymers Block this agrees on ~3/4 of words.
+    var SHORT_VOWEL = { IH: true, EH: true, AH: true, AE: true, UH: true };
     var boxesByLine = [], li = 0;
     stanzas.forEach(function (st) {
-      var groups = {}, order = [], perLine = [];
-      st.forEach(function (text) {
+      var perLine = st.map(function (text) {
         var words = [];
         lineWords(text, true).forEach(function (w) {
           if (!w.word || SOUND_SKIP[w.word]) return;
           var ph = pronOf(dict, w.word);
           if (!ph) return;
-          var v = rhymeKeys(ph).vowelSound;
-          if (!(v in groups)) { groups[v] = 0; order.push(v); }
-          groups[v]++;
-          words.push({ start: w.start, end: w.end, v: v });
+          var k = rhymeKeys(ph);
+          words.push({ start: w.start, end: w.end, v: k.vowelSound, coda: k.codaType });
         });
-        perLine.push(words);
+        return words;
       });
-      perLine.forEach(function (words) {
-        boxesByLine[li++] = words.filter(function (w) { return groups[w.v] >= 2; })
-          .map(function (w) { return { start: w.start, end: w.end, cls: "rv-" + w.v }; });
+      perLine.forEach(function (words, i) {
+        boxesByLine[li++] = words.filter(function (w) {
+          for (var j = i - 1; j <= i + 1; j++) {
+            var line = perLine[j];
+            if (!line) continue;
+            for (var n = 0; n < line.length; n++) {
+              var o = line[n];
+              if (o === w || o.v !== w.v) continue;
+              if (!SHORT_VOWEL[w.v] || o.coda === w.coda) return true;
+            }
+          }
+          return false;
+        }).map(function (w) { return { start: w.start, end: w.end, cls: "rv-" + w.v }; });
       });
     });
     var res = [], n = 0;
@@ -7213,7 +7231,7 @@
       b.setAttribute("aria-pressed", String(b.getAttribute("data-rhyme-style") === rhymeStyle()));
     });
     document.getElementById("rhymestyle-help").textContent = rhymeStyle() === "sounds"
-      ? "Like Rhymers Block: every sound that repeats in a stanza gets its own highlight color."
+      ? "Like Rhymers Block: words whose vowel sound comes back in nearby lines are highlighted, one color per sound."
       : "Only rhymes at the ends of lines, and real rhymes inside lines, are colored.";
     if (!rhymeFinderOn()) { closeRhymePanel(); hideRhymeBar(); }
     updateRhymeButton();

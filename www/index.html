@@ -6357,6 +6357,8 @@
     }
     return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after, fem: fem, nasV: nasV, nasC: nasC,
              asson: after === 0 ? tail[0].name : null,
+             // an open "ee": stressed in me / see / free, unstressed at the end of ugly / heavy / crazy
+             eeS: tail.length === 1 && tail[0].name === "IY", eeU: after >= 1 && lastP.name === "IY" && lastP.stress === 0,
              slant: (VOWEL_FAMILY[tail[0].name] || tail[0].name) + " " + slantEnd(near.slice(1)).join(" "),
              syllables: ph.filter(function (p) { return p.stress >= 0; }).length };
   }
@@ -6442,7 +6444,8 @@
   function endsRhyme(a, b) {
     var x = a.k, y = b.k;
     return a.stem === b.stem || x.near === y.near || x.slant === y.slant || (x.fem && x.fem === y.fem) ||
-      (x.nasV && x.nasV === y.nasV) || (x.nasC && x.nasC === y.nasC) || (x.asson && x.asson === y.asson);
+      (x.nasV && x.nasV === y.nasV) || (x.nasC && x.nasC === y.nasC) || (x.asson && x.asson === y.asson) ||
+      (x.eeS && y.eeU) || (x.eeU && y.eeS);           // me / ugly
   }
   function wordsRhyme(a, b) {
     return a.stem !== b.stem && (a.k.near === b.k.near || (a.k.fem && a.k.fem === b.k.fem));

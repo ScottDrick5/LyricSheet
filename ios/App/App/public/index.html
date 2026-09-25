@@ -2149,7 +2149,7 @@
       <button id="songs-fab" aria-label="Back to songs"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-label">All Songs</span></button>
       <div id="mode-fab" role="group" aria-label="View">
         <button data-mode="read" aria-pressed="true" title="Write and read the song as plain text">Write</button>
-        <button data-mode="edit" aria-pressed="false" title="Work section by section, with syllable counts and line tools">Sections</button>
+        <button data-mode="edit" aria-pressed="false" title="Build the song section by section, with syllable counts and line tools">Build</button>
       </div>
       <div id="undo-fab" class="undo-group" role="group" aria-label="Undo and redo">
         <button data-undo="undo" aria-label="Undo" title="Undo" disabled><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 5L3.5 9l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h7.5a4.5 4.5 0 010 9H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -2201,7 +2201,7 @@
         </div>
         <div id="view-toggle" data-hud="view" role="group" aria-label="View">
           <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Write</button>
-          <button id="view-edit" aria-pressed="false" title="Work section by section, with syllable counts and line tools">Sections</button>
+          <button id="view-edit" aria-pressed="false" title="Build the song section by section, with syllable counts and line tools">Build</button>
         </div>
         <button id="paste-btn" data-hud="import">Import New Lyrics</button>
         <button id="history-toggle" data-hud="history">Version history</button>
@@ -3703,7 +3703,7 @@
     canvas.appendChild(sheet);
   }
 
-  // Write (Basic) = "read", Sections (Advanced) = "edit". Every song opens in Write.
+  // Write (Basic) = "read", Build (Advanced) = "edit". Every song opens in Write.
   function markViewButtons(mode) {
     var fb = document.querySelectorAll("#mode-fab button");
     for (var i = 0; i < fb.length; i++) fb[i].setAttribute("aria-pressed", fb[i].getAttribute("data-mode") === (mode === "read" ? "read" : "edit") ? "true" : "false");
@@ -4554,7 +4554,7 @@
   var HUD_TOOLS = [
     { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
     { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "wordcount", name: "Word Count" },
-    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Sections" }, { id: "import", name: "Import New Lyrics" },
+    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Build" }, { id: "import", name: "Import New Lyrics" },
     { id: "history", name: "Version History" }, { id: "details", name: "Details" }, { id: "rhymes", name: "Rhymes" }
   ];
   var HUD_BUILTIN = ["title", "bpm", "key", "textsize", "undo", "view", "import", "history", "details", "rhymes"];

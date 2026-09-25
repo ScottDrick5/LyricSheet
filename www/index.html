@@ -2178,10 +2178,22 @@
   .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(2) { background: #62b1ee; }
   .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(3) { background: #ea7aa3; }
   .read-toolbar .read-copy { align-self: flex-start; }
+  /* Share and Copy match the ABC / color / 123 switches beside them */
+  .read-toolbar .read-copy {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 36px; height: 29px; padding: 0 10px;
+    background: none; border: 1px solid var(--paper-edge); border-radius: var(--radius-sm);
+    color: var(--ink-dim); font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+    opacity: 0.75;
+  }
+  .read-toolbar .read-share { padding: 0 8px; }
+  .read-toolbar { gap: 6px; }
+  .read-toolbar .read-hint { margin-right: auto; padding-right: 12px; }
+  .read-toolbar .read-copy:hover { opacity: 1; color: var(--ink); background: var(--tint-1); }
   .sections-toolbar { margin-bottom: 4px; }
   @media (max-width: 640px) {
-    .rhyme-toggles button { height: 34px; min-width: 40px; }
-    .read-toolbar { flex-wrap: wrap; row-gap: 8px; }
+    .rhyme-toggles button, .read-toolbar .read-copy { height: 34px; min-width: 40px; }
+    .read-toolbar { flex-wrap: wrap; row-gap: 8px; gap: 6px; }
     .read-toolbar .read-hint { flex-basis: 100%; }
     .read-toolbar .rhyme-toggles { margin-left: auto; }
   }
@@ -4087,11 +4099,12 @@
     hint.textContent = note ? "Type anywhere." : "Type anywhere. Start a section with [Verse], [Chorus]…";
     var copyBtn = document.createElement("button");
     copyBtn.className = "read-copy";
-    copyBtn.textContent = note ? "Copy note" : "Copy lyrics";
+    copyBtn.textContent = note ? "Copy Note" : "Copy Lyrics";
     copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
     var shareBtn = document.createElement("button");
     shareBtn.className = "read-copy read-share";
-    shareBtn.textContent = "Share";
+    shareBtn.innerHTML = '<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 12.5V2.8M6.6 6.1L10 2.7l3.4 3.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 8.5H5.4c-.8 0-1.4.6-1.4 1.4v6.2c0 .8.6 1.4 1.4 1.4h9.2c.8 0 1.4-.6 1.4-1.4V9.9c0-.8-.6-1.4-1.4-1.4H13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+    shareBtn.setAttribute("aria-label", "Share");
     shareBtn.title = note ? "Send this note to someone" : "Send these lyrics to someone";
     shareBtn.addEventListener("click", function () { shareSong(song, shareBtn); });
     bar.appendChild(hint);

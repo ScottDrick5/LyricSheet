@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const music = require("./music");
 const updater = require("./updater");
+const notes = require("./notes");
 
 const isMac = process.platform === "darwin";
 
@@ -43,6 +44,7 @@ function buildMenu() {
         cmd("Duplicate Song", "CmdOrCtrl+D", "duplicate-song"),
         { type: "separator" },
         cmd("Import New Lyrics…", "Shift+CmdOrCtrl+V", "paste-song"),
+        ...(isMac ? [cmd("Import from Apple Notes…", undefined, "import-notes")] : []),
         cmd("Copy Lyrics", "Shift+CmdOrCtrl+C", "copy-lyrics"),
         { type: "separator" },
         cmd("Sync Now", "Shift+CmdOrCtrl+S", "sync-now"),
@@ -238,6 +240,12 @@ ipcMain.handle("music", (_event, method, options) => {
   const allowed = ["getState", "requestAccess", "play", "pause", "next", "previous", "seek", "setRepeat"];
   if (allowed.indexOf(method) === -1) throw new Error("Unknown music command");
   return music.call(method, options);
+});
+
+// File > Import from Apple Notes (see notes.js)
+ipcMain.handle("notes", (_event, action, arg) => {
+  if (!isMac) throw new Error("Importing from Apple Notes needs the Mac app");
+  return notes.call(action, arg);
 });
 
 // Settings > Backup: save the backup file wherever the user picks

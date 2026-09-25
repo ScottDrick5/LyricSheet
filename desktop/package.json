@@ -16,6 +16,7 @@
       "preload.js",
       "music.js",
       "updater.js",
+      "notes.js",
       "app/**/*"
     ],
     "directories": {
@@ -26,7 +27,7 @@
       "category": "public.app-category.music",
       "identity": null,
       "extendInfo": {
-        "NSAppleEventsUsageDescription": "Lyric Sheet shows what's playing in Music or Spotify and lets you play, pause, skip and scrub while you write."
+        "NSAppleEventsUsageDescription": "Lyric Sheet shows what's playing in Music or Spotify and lets you play, pause, skip and scrub while you write, and can import your notes from Notes."
       },
       "target": [
         "dir"

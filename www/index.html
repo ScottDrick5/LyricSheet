@@ -1859,7 +1859,12 @@
     color: var(--accent); font: inherit; font-size: 0.8rem; font-weight: 600;
   }
   /* wider screens: the rhyme panel sits beside the sheet, so move the sheet over to make room */
-  @media (min-width: 641px) { body.rhyme-panel-open #canvas-wrap { padding-right: 330px; } }
+  @media (min-width: 641px) {
+    body.rhyme-panel-open #canvas-wrap { padding-right: 330px; }
+    /* sit above the music player when it's showing, and keep the New Note button beside the panel */
+    body.music-on #rhyme-panel { bottom: calc(var(--music-h, 64px) + 12px); }
+    body.rhyme-panel-open #new-fab { right: calc(18px + 300px + 16px); }
+  }
   #more-tools #rhymes-btn { align-self: flex-start; }
   #rhyme-pick { font-size: 0.8rem; font-weight: 600; padding: 0 10px; }
   /* phones: slimmer buttons so the whole format bar (with Rhyme) fits across the screen */
@@ -1934,9 +1939,41 @@
   .rhyme-badge:empty { display: none; }
   .paired.rh-0 { color: #d9a441; } .paired.rh-1 { color: #5aa9e6; } .paired.rh-2 { color: #e0719a; }
   .paired.rh-3 { color: #5fbf8f; } .paired.rh-4 { color: #a98be6; } .paired.rh-5 { color: #e38a4f; }
+  .paired.rh-6 { color: #4cc3bd; } .paired.rh-7 { color: #b9c850; }
   html[data-theme="light"] .paired.rh-0 { color: #b07d16; } html[data-theme="light"] .paired.rh-1 { color: #2a7bbf; }
   html[data-theme="light"] .paired.rh-2 { color: #c2456f; } html[data-theme="light"] .paired.rh-3 { color: #2f8f5f; }
   html[data-theme="light"] .paired.rh-4 { color: #7a5cc2; } html[data-theme="light"] .paired.rh-5 { color: #c2601f; }
+  html[data-theme="light"] .paired.rh-6 { color: #1d8a84; } html[data-theme="light"] .paired.rh-7 { color: #6b8212; }
+  /* rhyming end words, colored like their letter (drawn over the text; the lyrics aren't changed) */
+  ::highlight(rh-0) { color: #e0ad4a; } ::highlight(rh-1) { color: #62b1ee; } ::highlight(rh-2) { color: #ea7aa3; }
+  ::highlight(rh-3) { color: #66c897; } ::highlight(rh-4) { color: #b196ee; } ::highlight(rh-5) { color: #ec9358; }
+  ::highlight(rh-6) { color: #52cbc5; } ::highlight(rh-7) { color: #bfcf55; }
+  html[data-theme="light"] ::highlight(rh-0) { color: #a87412; } html[data-theme="light"] ::highlight(rh-1) { color: #2272b5; }
+  html[data-theme="light"] ::highlight(rh-2) { color: #b93d67; } html[data-theme="light"] ::highlight(rh-3) { color: #28855a; }
+  html[data-theme="light"] ::highlight(rh-4) { color: #7254ba; } html[data-theme="light"] ::highlight(rh-5) { color: #b9591a; }
+  html[data-theme="light"] ::highlight(rh-6) { color: #1a827c; } html[data-theme="light"] ::highlight(rh-7) { color: #64790f; }
+  /* quick switches on the sheet for the rhyme letters and colors */
+  .rhyme-toggles { display: flex; gap: 6px; flex-shrink: 0; align-self: flex-start; }
+  .rhyme-toggles button {
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+    min-width: 36px; height: 29px; padding: 0 8px;
+    background: none; border: 1px solid var(--paper-edge); border-radius: var(--radius-sm);
+    color: var(--ink-dim); font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+    cursor: pointer; opacity: 0.75;
+  }
+  .rhyme-toggles button[aria-pressed="true"] { background: var(--tint-2); border-color: var(--accent-dim); color: var(--accent); opacity: 1; }
+  .rhyme-toggles .rt-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(1) { background: #e0ad4a; }
+  .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(2) { background: #62b1ee; }
+  .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(3) { background: #ea7aa3; }
+  .read-toolbar .read-copy { align-self: flex-start; }
+  .sections-toolbar { margin-bottom: 4px; }
+  @media (max-width: 640px) {
+    .rhyme-toggles button { height: 34px; min-width: 40px; }
+    .read-toolbar { flex-wrap: wrap; row-gap: 8px; }
+    .read-toolbar .read-hint { flex-basis: 100%; }
+    .read-toolbar .rhyme-toggles { margin-left: auto; }
+  }
   .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   #backup-status:empty { display: none; }
 </style>
@@ -1947,7 +1984,7 @@
   <div id="sidebar-backdrop"></div>
   <div id="music-bar" role="region" aria-label="Apple Music" hidden>
     <div class="mb-handle" aria-hidden="true"></div>
-    <div class="mb-art" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg></div>
+    <div class="mb-art"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="16.5" cy="16" r="2.5" fill="currentColor"/></svg></div>
     <div class="mb-info"><span class="mb-title"></span><span class="mb-artist"></span></div>
     <button class="mb-connect" hidden>Connect</button>
     <div class="mb-controls">
@@ -2140,9 +2177,16 @@
     <div class="setting-row switch-row">
       <div>
         <span class="setting-label" id="rhymeletters-label">Rhyme letters</span>
-        <p class="setting-help">Letters beside each line show the rhyme scheme (AABB, ABAB…). Lines that rhyme share a letter and a color.</p>
+        <p class="setting-help">Letters beside each line show the rhyme scheme (AABB, ABAB…). A rhyme sound keeps its letter through the whole song, so a stanza that carries on the last one's rhyme shows it.</p>
       </div>
       <button id="rhymeletters-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymeletters-label"><span></span></button>
+    </div>
+    <div class="setting-row switch-row">
+      <div>
+        <span class="setting-label" id="rhymecolors-label">Rhyme colors</span>
+        <p class="setting-help">Colors rhyming words to match their letter: the words at the ends of lines, and rhymes inside lines too.</p>
+      </div>
+      <button id="rhymecolors-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymecolors-label"><span></span></button>
     </div>
     <div class="setting-row switch-row" id="music-setting" hidden>
       <div>
@@ -3435,6 +3479,7 @@
     copyBtn.textContent = "Copy lyrics";
     copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
     bar.appendChild(hint);
+    bar.appendChild(rhymeToggles());
     bar.appendChild(copyBtn);
     canvas.appendChild(bar);
 
@@ -3524,6 +3569,10 @@
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
     canvas.style.setProperty("--lyric-size", settings.fontSize + "px");
+    var topBar = document.createElement("div");
+    topBar.className = "read-toolbar sections-toolbar";
+    topBar.appendChild(rhymeToggles());
+    canvas.appendChild(topBar);
 
     song.sections.forEach(function (section, sIdx) {
       var block = document.createElement("div");
@@ -5760,6 +5809,8 @@
       case "mode-basic": setViewMode("read"); break;
       case "view-list": setSongView("list"); break;
       case "customize-bar": openHudPanel(); break;
+      case "rhyme-letters": settings.rhymeLetters = !rhymeLettersOn(); persistSettings(); applyRhymeSettings(); break;
+      case "rhyme-colors": settings.rhymeColors = !rhymeColorsOn(); persistSettings(); applyRhymeSettings(); break;
       case "rhymes": if (rhymeFinderOn()) { if (rhymeBarOn()) openRhymePanel(); else setRhymeBar(true); } break;
       case "view-gallery": setSongView("gallery"); break;
       case "mode-advanced": setViewMode("edit"); break;
@@ -5866,8 +5917,14 @@
     musicBar.hidden = !on || collapsed;
     musicPill.hidden = !on || !collapsed;
     document.body.classList.toggle("music-on", on && !collapsed);
+    noteMusicHeight();
     return on;
   }
+  // The player's height (it grows when the timeline shows), for things that sit above it
+  function noteMusicHeight() {
+    if (!musicBar.hidden && musicBar.offsetHeight) document.body.style.setProperty("--music-h", musicBar.offsetHeight + "px");
+  }
+  if (window.ResizeObserver) new ResizeObserver(noteMusicHeight).observe(musicBar);
   // Swipe the player down (or tap its hide button) to shrink it to the round music button;
   // tap that button (or swipe it up) to bring the player back.
   function setMusicCollapsed(c) {
@@ -6066,11 +6123,15 @@
     document.getElementById("music-switch").addEventListener("click", function () { setMusicBar(settings.musicBar !== true); });
     musicBar.querySelector(".mb-hide").addEventListener("click", function () { setMusicCollapsed(true); });
     musicPill.addEventListener("click", function () { setMusicCollapsed(false); });
-    // tap the song (title or artwork) to open or close the timeline
+    // tap the song name to open or close the timeline; tap the cover art to tuck the whole player away
     musicBar.querySelector(".mb-info").setAttribute("role", "button");
     musicBar.querySelector(".mb-info").setAttribute("aria-label", "Show song position");
     musicBar.querySelector(".mb-info").addEventListener("click", toggleScrub);
-    musicBar.querySelector(".mb-art").addEventListener("click", toggleScrub);
+    var artBtn = musicBar.querySelector(".mb-art");
+    artBtn.setAttribute("role", "button");
+    artBtn.setAttribute("aria-label", "Hide the music player");
+    artBtn.title = "Hide the player";
+    artBtn.addEventListener("click", function () { setMusicCollapsed(true); });
     (function () {
       var y0 = null;
       musicBar.addEventListener("touchstart", function (e) {
@@ -6190,7 +6251,11 @@
   }
   // Sounds that are close enough for a near rhyme ("time" / "mine", "love" / "enough", "heart" / "dark")
   var NEAR_CLASS = { M: "N", N: "N", NG: "N", P: "K", B: "K", T: "K", D: "K", K: "K", G: "K",
-    F: "F", V: "F", TH: "F", DH: "F", S: "S", Z: "S", SH: "C", ZH: "C", CH: "C", JH: "C" };
+    F: "F", V: "F", TH: "F", DH: "F", S: "S", Z: "S", SH: "S", ZH: "S", CH: "S", JH: "S" };
+  var VOICE_PAIR = { B: "P", D: "T", G: "K", V: "F", Z: "S", ZH: "SH", JH: "CH", DH: "TH" };
+  // Vowels close enough for a slant rhyme ("satisfied" / "God", "pain" / "again")
+  var VOWEL_FAMILY = { AA: "a", AO: "a", AW: "a", AY: "a", AE: "e", EH: "e", EY: "e", IH: "i", IY: "i",
+    UH: "u", UW: "u", OW: "u", AH: "ah", ER: "er", OY: "oy" };
   function buildRhymeDict(raw) {
     var sym = raw.symbols.split(" "), alpha = raw.alphabet, info = {};
     for (var i = 0; i < sym.length; i++) {
@@ -6222,15 +6287,21 @@
     }
     return (dict.maps = maps);
   }
-  // The rhyming part of a word: from its last stressed vowel to the end
+  // For slant rhymes, a final t/d/k-type sound after another consonant doesn't count ("soul" / "gold", "time" / "mind")
+  function slantEnd(rest) {
+    var n = rest.length;
+    return n >= 2 && rest[n - 1] === "K" && rest[n - 2] !== "@" ? rest.slice(0, -1) : rest;
+  }
+  // The rhyming part of a word: from its last stressed vowel to the end. That includes a lighter
+  // (secondary) stress, the way songs rhyme: "satisfied" rhymes on "-fied", "sunshine" on "-shine".
   function rhymeKeys(ph) {
-    var at = -1, best = -1;
+    var at = -1, last = -1;
     for (var i = 0; i < ph.length; i++) {
       if (ph[i].stress < 0) continue;
-      var rank = ph[i].stress === 1 ? 3 : ph[i].stress === 2 ? 2 : 1;
-      if (rank >= best) { best = rank; at = i; }
+      last = i;
+      if (ph[i].stress > 0) at = i;
     }
-    if (at < 0) at = 0;
+    if (at < 0) at = last < 0 ? 0 : last;
     var tail = ph.slice(at), perfect = [], near = [], after = 0;
     tail.forEach(function (p, j) {
       if (p.stress >= 0) {
@@ -6243,8 +6314,13 @@
       }
     });
     // a final s/z (plurals, "lines" / "time") doesn't stop a near rhyme
-    if (near.length > 1 && near[near.length - 1] === "S") near.pop();
-    return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after,
+    var end = tail[tail.length - 1].name;
+    if (near.length > 1 && (end === "S" || end === "Z")) near.pop();
+    // two-syllable "-ee" endings with the same (or voiced/unvoiced) consonant: crazy / Lacey / Fugazi, baby / maybe
+    var fem = null, lastP = ph[ph.length - 1], beforeP = ph[ph.length - 2];
+    if (after >= 1 && lastP.name === "IY" && lastP.stress === 0 && beforeP && beforeP.stress < 0) fem = (VOICE_PAIR[beforeP.name] || beforeP.name) + " IY";
+    return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after, fem: fem,
+             slant: (VOWEL_FAMILY[tail[0].name] || tail[0].name) + " " + slantEnd(near.slice(1)).join(" "),
              syllables: ph.filter(function (p) { return p.stress >= 0; }).length };
   }
   function cleanWord(w) {
@@ -6301,21 +6377,94 @@
     for (var i = t.length - 1; i >= 0; i--) if (cleanWord(t[i])) return cleanWord(t[i]);
     return "";
   }
-  function rhymeLetters(dict, lines) {
-    var keys = [], letters = [], next = 0, count = {};
-    lines.forEach(function (line, i) {
-      if (line == null) { letters.push(""); keys.push(null); return; }
-      var ph = pronOf(dict, lastWordOf(line));
-      var key = ph ? rhymeKeys(ph).near : "?" + i;
-      keys.push(key);
-      var j = keys.indexOf(key);
-      letters.push(j < i ? letters[j] : String.fromCharCode(65 + (next++ % 26)));
-      count[key] = (count[key] || 0) + 1;
+  // ---------- Rhyme scheme ----------
+  // Every word's rhyme sound is grouped with the words it rhymes with (near, slant or "-ee" rhymes).
+  // Line-end words get letters that carry on through the song: a sound keeps its letter (and color)
+  // wherever it comes back, so a stanza that continues the last one's rhyme shows it. Words inside
+  // lines are colored when they rhyme with a word in the same or a neighboring stanza.
+  var RHYME_SKIP = {};
+  ("a an the and or but nor of to in on at by for with from into onto as if so than then too " +
+   "is am are was were be been being it its it's i i'm i'll i'd i've me my mine we we're our us you you're your " +
+   "he he's him his she she's her they they're them their this that these those there here " +
+   "do does did don't doesn't didn't not no yes just can can't will won't would could should " +
+   "have has had got get oh ooh yeah uh um la da na hey").split(" ").forEach(function (w) { RHYME_SKIP[w] = true; });
+  function lineWords(line) {
+    var masked = line, prev;
+    do { prev = masked; masked = masked.replace(/\([^()]*\)/g, function (m) { return new Array(m.length + 1).join(" "); }); } while (masked !== prev);
+    masked = masked.replace(/\([^)]*$/, function (m) { return new Array(m.length + 1).join(" "); });
+    var re = /[A-Za-z][A-Za-z'\u2019]*/g, m, out = [];
+    while ((m = re.exec(masked))) {
+      var text = m[0].replace(/['\u2019]+$/, "");
+      out.push({ start: m.index, end: m.index + text.length, word: cleanWord(text) });
+    }
+    return out;
+  }
+  function rhymeLetterName(i) { return String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26) + 1) : ""); }
+  // stanzas: [[line text, ...], ...]  →  per line: { letter, paired, cls, endSpan, inner: [{start, end, cls}] }
+  function analyzeRhymes(dict, stanzas) {
+    var parent = {};
+    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+    function join(a, b) { if (!(a in parent)) parent[a] = a; if (!(b in parent)) parent[b] = b; parent[find(a)] = find(b); }
+    var tokens = [];               // every word that can rhyme
+    var lines = stanzas.map(function (st, si) {
+      return st.map(function (text) {
+        var words = lineWords(text), L = { stanza: si, end: null, inner: [] };
+        words.forEach(function (w, i) {
+          var isEnd = i === words.length - 1;
+          if (!w.word || (!isEnd && (RHYME_SKIP[w.word] || w.word.length < 3))) return;
+          var ph = pronOf(dict, w.word);
+          if (!ph) return;
+          var k = rhymeKeys(ph);
+          var t = { word: w.word, stem: w.word.replace(/('s|s)$/, ""), start: w.start, end: w.end, stanza: si, isEnd: isEnd, node: "n:" + k.near };
+          join(t.node, t.node);
+          if (isEnd) join(t.node, "s:" + k.slant);     // slant rhymes ("satisfied" / "God") only count at line ends
+          if (k.fem) join(t.node, "f:" + k.fem);
+          tokens.push(t);
+          if (isEnd) L.end = t; else L.inner.push(t);
+        });
+        return L;
+      });
     });
-    return letters.map(function (l, i) { return l ? { letter: l, paired: count[keys[i]] > 1 } : null; });
+    tokens.forEach(function (t) { t.group = find(t.node); });
+    // letters for line ends, in order; later sounds that only rhyme inside lines get colors after them
+    var letterOf = {}, colorOf = {}, nextLetter = 0;
+    lines.forEach(function (st) { st.forEach(function (L) {
+      if (L.end && !(L.end.group in letterOf)) letterOf[L.end.group] = nextLetter++;
+    }); });
+    var nextColor = nextLetter;
+    function colorIndex(g) {
+      if (g in letterOf) return letterOf[g];
+      if (!(g in colorOf)) colorOf[g] = nextColor++;
+      return colorOf[g];
+    }
+    // does another word (not the same word repeated) in this sound group sit nearby?
+    var byGroup = {};
+    tokens.forEach(function (t) { (byGroup[t.group] = byGroup[t.group] || []).push(t); });
+    function rhymesNearby(t, anyDistanceForEnds) {
+      return byGroup[t.group].some(function (o) {
+        if (o === t) return false;
+        if (t.isEnd && o.isEnd) return anyDistanceForEnds;              // line ends: anywhere in the song (repeats count)
+        return o.stem !== t.stem && Math.abs(o.stanza - t.stanza) <= 1;   // not the same word again ("take" / "takes")
+      });
+    }
+    return lines.map(function (st) { return st.map(function (L) {
+      var out = { letter: "", paired: false, cls: "", endSpan: null, inner: [] };
+      if (L.end) {
+        var li = letterOf[L.end.group];
+        out.letter = rhymeLetterName(li);
+        out.paired = rhymesNearby(L.end, true);
+        out.cls = "rh-" + (li % 8);
+        out.endSpan = [L.end.start, L.end.end];
+      } else out.letter = rhymeLetterName(nextLetter++);   // a line whose last word isn't a word
+      L.inner.forEach(function (t) {
+        if (rhymesNearby(t, false)) out.inner.push({ start: t.start, end: t.end, cls: "rh-" + (colorIndex(t.group) % 8) });
+      });
+      return out;
+    }); });
   }
   function rhymeFinderOn() { return settings.rhymeFinder !== false; }
   function rhymeLettersOn() { return settings.rhymeLetters !== false; }
+  function rhymeColorsOn() { return settings.rhymeColors !== false; }
 
   // ---------- Rhyme finder ----------
   var rhymePanel = document.getElementById("rhyme-panel");
@@ -6378,8 +6527,7 @@
     else {
       rhymeWord = "";
       rhymeInput.value = "";
-      rhymeResults.innerHTML = '<p class="rp-empty">Type a word, or put the cursor on a word in your lyrics and tap Rhymes.</p>';
-      if (!isPhoneLayout()) rhymeInput.focus();
+      rhymeResults.innerHTML = '<p class="rp-empty">Type a word, or put the cursor on a word in your lyrics.</p>';
     }
     loadRhymes().catch(function () {});
   }
@@ -6467,15 +6615,69 @@
     }
     var hint = document.createElement("p");
     hint.className = "rp-hint";
-    hint.textContent = "Tap a word to see its rhymes.";
+    hint.textContent = isPhoneLayout() ? "Tap a word to put it in your lyrics (it replaces the word you selected)."
+      : "Click a word to put it in your lyrics (it replaces the selected word). \u2325-click to see its rhymes.";
     rhymeResults.appendChild(hint);
   }
+  // Clicking a rhyme puts it in your lyrics (replacing the selected word, or at the cursor), like the
+  // rhyme bar. With nowhere to put it, or with Option/Alt held, it shows that word's rhymes instead.
+  rhymeResults.addEventListener("mousedown", function (e) {
+    if (e.target.closest(".rp-words button")) e.preventDefault();   // keep the lyrics' cursor and selection
+  });
   rhymeResults.addEventListener("click", function (e) {
     var c = e.target.closest(".rp-words button");
     if (!c) return;
+    var word = c.textContent;
+    if (!e.altKey && restoreLyricSpot()) {
+      try { insertRhyme(word); } catch (err) { showFmtError(err); return; }
+      rhymeHold = cleanWord(word);                  // keep this list up rather than jumping to the new word's
+      if (isPhoneLayout()) closeRhymePanel();       // the sheet covers the lyrics; show what changed
+      return;
+    }
     if (rhymeWord) rhymeTrail.push(rhymeWord);
-    showRhymes(c.textContent, true);
+    showRhymes(word, true);
   });
+  // The last place you were in the lyrics, as text positions (which survive the lines being redrawn),
+  // so a click in the rhyme panel can go back there
+  var lyricSpot = null, rhymeHold = null;
+  function noteLyricSpot() {
+    if (!rhymeFinderOn() || !editingLyrics()) return;
+    var t = document.activeElement;
+    if (t.classList.contains("line-input")) { lyricSpot = { el: t, a: t.selectionStart, b: t.selectionEnd }; return; }
+    var sel = window.getSelection();
+    var r = sel.rangeCount ? sel.getRangeAt(0) : null;
+    if (!r || editorOfRange(r) !== t) return;
+    var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
+    walkEditor(t, pts);
+    if (pts[0].index == null) return;
+    var b = pts[1].index == null ? pts[0].index : pts[1].index;
+    lyricSpot = { ed: t, a: Math.min(pts[0].index, b), b: Math.max(pts[0].index, b) };
+  }
+  document.addEventListener("selectionchange", noteLyricSpot);
+  document.getElementById("canvas").addEventListener("keyup", noteLyricSpot);
+  document.getElementById("canvas").addEventListener("input", noteLyricSpot);
+  function restoreLyricSpot() {
+    if (editingLyrics()) return true;
+    var spot = lyricSpot;
+    if (!spot) return false;
+    if (spot.el) {
+      if (!spot.el.isConnected) return false;
+      spot.el.focus();
+      spot.el.setSelectionRange(spot.a, spot.b);
+      return true;
+    }
+    if (!spot.ed.isConnected) return false;
+    spot.ed.focus();
+    var len = walkEditor(spot.ed).text.length;
+    var p1 = editorPointAt(spot.ed, Math.min(spot.a, len)), p2 = editorPointAt(spot.ed, Math.min(spot.b, len));
+    var r = document.createRange();
+    r.setStart(p1.node, p1.offset);
+    r.setEnd(p2.node, p2.offset);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    return true;
+  }
   rhymeInput.addEventListener("input", function () {
     clearTimeout(rhymeTimer);
     rhymeTimer = setTimeout(function () {
@@ -6542,6 +6744,8 @@
       // wider screens: the open panel follows the word you're on (unless you're typing in its own box)
       if (rhymePanel.hidden || document.activeElement === rhymeInput || !editingLyrics()) return;
       var w0 = wordForRhymes();
+      if (w0 && w0 === rhymeHold) return;
+      rhymeHold = null;
       if (w0 && w0 !== rhymeWord) showRhymes(w0);
       return;
     }
@@ -6675,17 +6879,40 @@
     if (cur.length) groups.push(cur);
     return groups;
   }
-  function letterClass(l) { return "rh-" + ((l.letter.charCodeAt(0) - 65) % 6); }
   function refreshRhymeLetters() {
     var canvas = document.getElementById("canvas");
     var ed = canvas.querySelector(".read-editor:not(.pv-sheet)");
     if (!rhymeLettersOn()) {
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-gutter"), function (g) { g.parentNode.removeChild(g); });
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-badge"), function (b) { b.textContent = ""; b.className = "rhyme-badge"; });
-      return;
     }
+    if (!ed || !rhymeColorsOn()) setRhymeColors(null);
+    if (!rhymeLettersOn() && !(ed && rhymeColorsOn())) return;
     if (!rhymeDict) { loadRhymes().then(function () { scheduleRhymeLetters(0); }, function () {}); return; }
     if (ed) letterReadEditor(ed); else letterSectionRows(canvas);
+  }
+  // A DOM range covering characters [a, b) of one line of the editor
+  function lineRange(div, a, b) {
+    var tw = document.createTreeWalker(div, NodeFilter.SHOW_TEXT, null), n, pos = 0, r = document.createRange(), started = false;
+    while ((n = tw.nextNode())) {
+      var len = n.data.length;
+      if (!started && a <= pos + len) { r.setStart(n, a - pos); started = true; }
+      if (started && b <= pos + len) { r.setEnd(n, b - pos); return r; }
+      pos += len;
+    }
+    return null;
+  }
+  var rhymeColorNames = ["rh-0", "rh-1", "rh-2", "rh-3", "rh-4", "rh-5", "rh-6", "rh-7"];
+  function setRhymeColors(byClass) {
+    if (!canHighlight) return;
+    rhymeColorNames.forEach(function (name) {
+      var ranges = byClass && byClass[name];
+      if (ranges && ranges.length) {
+        var hl = new Highlight();
+        ranges.forEach(function (r) { hl.add(r); });
+        CSS.highlights.set(name, hl);
+      } else CSS.highlights.delete(name);
+    });
   }
   function letterReadEditor(ed) {
     var sheet = ed.parentNode;
@@ -6698,34 +6925,49 @@
     }
     var lh = parseFloat(getComputedStyle(ed).lineHeight) || 24;
     var divs = Array.prototype.filter.call(ed.childNodes, function (n) { return n.nodeType === 1; });
-    var html = "";
-    letterGroups(divs, function (d) { return d.textContent; }).forEach(function (group) {
-      var letters = rhymeLetters(rhymeDict, group.map(function (d) { return d.textContent; }));
+    var groups = letterGroups(divs, function (d) { return d.textContent; });
+    var result = analyzeRhymes(rhymeDict, groups.map(function (g) { return g.map(function (d) { return d.textContent; }); }));
+    var html = "", colors = {};
+    function color(cls, d, a, b) {
+      var r = lineRange(d, a, b);
+      if (r) (colors[cls] = colors[cls] || []).push(r);
+    }
+    groups.forEach(function (group, gi) {
       group.forEach(function (d, i) {
-        var l = letters[i];
-        if (!l) return;
-        html += '<span class="rl-letter ' + letterClass(l) + (l.paired ? " paired" : "") + '" style="top:' +
+        var l = result[gi][i];
+        if (rhymeColorsOn()) {
+          if (l.paired && l.endSpan) color(l.cls, d, l.endSpan[0], l.endSpan[1]);
+          l.inner.forEach(function (w) { color(w.cls, d, w.start, w.end); });
+        }
+        if (!rhymeLettersOn()) return;
+        html += '<span class="rl-letter ' + l.cls + (l.paired ? " paired" : "") + '" style="top:' +
           d.offsetTop + "px;height:" + lh + "px;line-height:" + lh + 'px">' + l.letter + "</span>";
       });
     });
     if (gutter.innerHTML !== html) gutter.innerHTML = html;
+    if (!rhymeLettersOn() && gutter.parentNode) gutter.parentNode.removeChild(gutter);
+    setRhymeColors(rhymeColorsOn() ? colors : null);
   }
   function letterSectionRows(canvas) {
-    var bySection = {};
-    Array.prototype.forEach.call(canvas.querySelectorAll(".line-row"), function (row) {
-      (bySection[row.dataset.sectionId] = bySection[row.dataset.sectionId] || []).push(row);
+    var rows = Array.prototype.slice.call(canvas.querySelectorAll(".line-row"));
+    rows.forEach(function (row) { var b = row.querySelector(".rhyme-badge"); if (b) { b.textContent = ""; b.className = "rhyme-badge"; } });
+    if (!rhymeLettersOn()) return;
+    // stanzas: each section, split again at blank lines
+    var groups = [], cur = [], lastSection = null;
+    rows.forEach(function (row) {
+      var v = row.querySelector(".line-input").value;
+      if (row.dataset.sectionId !== lastSection || !v.trim()) { if (cur.length) groups.push(cur); cur = []; }
+      lastSection = row.dataset.sectionId;
+      if (v.trim()) cur.push(row);
     });
-    Object.keys(bySection).forEach(function (id) {
-      var rows = bySection[id];
-      rows.forEach(function (row) { var b = row.querySelector(".rhyme-badge"); if (b) { b.textContent = ""; b.className = "rhyme-badge"; } });
-      letterGroups(rows, function (r) { return r.querySelector(".line-input").value; }).forEach(function (group) {
-        var letters = rhymeLetters(rhymeDict, group.map(function (r) { return r.querySelector(".line-input").value; }));
-        group.forEach(function (row, i) {
-          var b = row.querySelector(".rhyme-badge"), l = letters[i];
-          if (!b || !l) return;
-          b.textContent = l.letter;
-          b.className = "rhyme-badge " + letterClass(l) + (l.paired ? " paired" : "");
-        });
+    if (cur.length) groups.push(cur);
+    var result = analyzeRhymes(rhymeDict, groups.map(function (g) { return g.map(function (r) { return r.querySelector(".line-input").value; }); }));
+    groups.forEach(function (group, gi) {
+      group.forEach(function (row, i) {
+        var b = row.querySelector(".rhyme-badge"), l = result[gi][i];
+        if (!b) return;
+        b.textContent = l.letter;
+        b.className = "rhyme-badge " + l.cls + (l.paired ? " paired" : "");
       });
     });
   }
@@ -6746,10 +6988,29 @@
     });
   })();
 
+  // The ABC / color-dot switches at the top of the sheet. Pressing (not clicking) keeps the cursor and keyboard.
+  function rhymeToggles() {
+    var box = document.createElement("div");
+    box.className = "rhyme-toggles";
+    box.innerHTML =
+      '<button class="rt-letters" aria-pressed="' + rhymeLettersOn() + '" aria-label="Rhyme letters" title="Rhyme letters (A, B, C… beside each line)">ABC</button>' +
+      '<button class="rt-colors" aria-pressed="' + rhymeColorsOn() + '" aria-label="Rhyme colors" title="Rhyme colors (color the rhyming words)">' +
+      '<span class="rt-dot"></span><span class="rt-dot"></span><span class="rt-dot"></span></button>';
+    onPress(box, function (b) {
+      if (b.classList.contains("rt-letters")) settings.rhymeLetters = !rhymeLettersOn();
+      else settings.rhymeColors = !rhymeColorsOn();
+      persistSettings();
+      applyRhymeSettings();
+    });
+    return box;
+  }
   function applyRhymeSettings() {
+    Array.prototype.forEach.call(document.querySelectorAll(".rt-letters"), function (b) { b.setAttribute("aria-pressed", String(rhymeLettersOn())); });
+    Array.prototype.forEach.call(document.querySelectorAll(".rt-colors"), function (b) { b.setAttribute("aria-pressed", String(rhymeColorsOn())); });
     document.body.classList.toggle("rhymes-off", !rhymeFinderOn());
     document.getElementById("rhymefind-switch").setAttribute("aria-checked", String(rhymeFinderOn()));
     document.getElementById("rhymeletters-switch").setAttribute("aria-checked", String(rhymeLettersOn()));
+    document.getElementById("rhymecolors-switch").setAttribute("aria-checked", String(rhymeColorsOn()));
     if (!rhymeFinderOn()) { closeRhymePanel(); hideRhymeBar(); }
     updateRhymeButton();
     if (rhymeBarOn() && !isPhoneLayout() && rhymePanel.hidden) openRhymePanel();
@@ -6759,6 +7020,11 @@
   }
   document.getElementById("rhymefind-switch").addEventListener("click", function () {
     settings.rhymeFinder = !rhymeFinderOn();
+    persistSettings();
+    applyRhymeSettings();
+  });
+  document.getElementById("rhymecolors-switch").addEventListener("click", function () {
+    settings.rhymeColors = !rhymeColorsOn();
     persistSettings();
     applyRhymeSettings();
   });

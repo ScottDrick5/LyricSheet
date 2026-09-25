@@ -487,7 +487,50 @@
   .metro-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tint-2); }
   .metro-dot.beat { background: var(--accent); }
   .metro-dot.beat.one { background: var(--danger); }
-  #tap-tempo.tapped { color: var(--accent); border-color: var(--accent-dim); }
+  #tap-tempo { font-size: 0.72rem; letter-spacing: 0.04em; }
+  /* Tap BPM window: one big pad, nothing else nearby to hit by mistake */
+  #tap-modal {
+    position: fixed; inset: 0; z-index: 60; display: none;
+    align-items: center; justify-content: center; padding: 20px;
+    background: var(--overlay);
+  }
+  #tap-modal.open { display: flex; }
+  #tap-panel {
+    width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px;
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: 14px; padding: 18px 20px 20px;
+    color: var(--shell-text);
+  }
+  #tap-panel h2 { margin: 0; font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; }
+  #tap-pad {
+    height: 300px; border-radius: 14px; border: 2px dashed var(--accent-dim);
+    background: var(--tint-1); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+  #tap-pad.hit { animation: tap-hit 0.16s ease-out; }
+  @keyframes tap-hit { from { background: rgba(201,162,75,0.28); transform: scale(0.985); } to { background: var(--tint-1); transform: none; } }
+  #tap-bpm { font-family: var(--font-ui); font-size: 4.2rem; font-weight: 700; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .tap-unit { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.1em; color: var(--shell-text-dim); }
+  #tap-count { margin-top: 14px; font-size: 0.85rem; color: var(--shell-text-dim); }
+  .tap-actions { display: flex; gap: 10px; }
+  .tap-actions button {
+    flex: 1; min-height: 44px; border-radius: 10px; cursor: pointer;
+    background: none; border: 1px solid var(--shell-border); color: var(--shell-text);
+    font-family: var(--font-ui); font-size: 0.88rem; font-weight: 600;
+  }
+  .tap-actions button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .tap-actions button { white-space: nowrap; padding: 0 10px; }
+  .tap-actions button.primary { flex: 1.6; }
+  .tap-actions button:disabled { opacity: 0.45; cursor: default; }
+  @media (max-width: 640px) {
+    #tap-modal { padding: 0; align-items: stretch; }
+    #tap-panel {
+      max-width: none; border: none; border-radius: 0;
+      padding: calc(14px + env(safe-area-inset-top, 0px)) 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+    #tap-pad { flex: 1; height: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { #tap-pad.hit { animation: none; } }
   .font-controls {
     display: flex;
     align-items: center;
@@ -2265,7 +2308,7 @@
           <label>Metronome</label>
           <div class="metro-controls">
             <button id="metro-play" aria-pressed="false" aria-label="Start metronome" title="Play a click at this song's BPM"><svg class="metro-ico-play" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor"/></svg><svg class="metro-ico-stop" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/></svg><span class="metro-dot"></span></button>
-            <button id="tap-tempo" title="Tap along with the beat to set the BPM">Tap</button>
+            <button id="tap-tempo" title="Tap along with the beat to set the BPM">TAP BPM</button>
           </div>
         </div>
         <div class="meta-field" data-hud="timesig">
@@ -2516,6 +2559,22 @@
     <div id="preview-actions">
       <button id="preview-close">Close</button>
       <button id="preview-restore" class="primary">Restore this version</button>
+    </div>
+  </div>
+</div>
+
+<div id="tap-modal" role="dialog" aria-modal="true" aria-labelledby="tap-title">
+  <div id="tap-panel">
+    <h2 id="tap-title">Tap BPM</h2>
+    <div id="tap-pad" role="button" tabindex="0" aria-label="Tap along with the beat">
+      <span id="tap-bpm">&mdash;</span>
+      <span class="tap-unit">BPM</span>
+      <span id="tap-count">Tap along with the beat</span>
+    </div>
+    <div class="tap-actions">
+      <button id="tap-cancel">Cancel</button>
+      <button id="tap-reset">Start over</button>
+      <button id="tap-use" class="primary" disabled>Use BPM</button>
     </div>
   </div>
 </div>
@@ -5342,9 +5401,13 @@
   });
 
   // ---------- metronome and tap tempo (top bar) ----------
-  // Clicks are scheduled ahead on the Web Audio clock so they stay steady; the tempo follows the
-  // song's BPM (120 when it has none) and beat 1 is accented using its time signature.
-  var metro = { ctx: null, on: false, next: 0, beat: 0, timer: null, songId: null };
+  // The tempo follows the song's BPM (120 when it has none) and beat 1 is accented using its time
+  // signature. In the iPhone app the clicks are played by the app itself (MusicControl add-on): the web
+  // view's sound is muted by the silent switch. Elsewhere they're scheduled ahead on the Web Audio clock.
+  // Either way the dot on the button flashes on each beat.
+  var metro = { ctx: null, on: false, next: 0, beat: 0, timer: null, songId: null, bpm: 0, beats: 0,
+    native: !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() &&
+      Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.nativePromise) };
   function metroBpm() {
     var song = getActiveSong(), b = song ? +song.bpm : 0;
     return b >= 20 && b <= 400 ? b : 120;
@@ -5353,6 +5416,7 @@
     var song = getActiveSong(), m = song && /^(\d+)\//.exec(song.timeSig || "");
     return m ? +m[1] : 4;
   }
+  function metroNow() { return metro.native ? performance.now() / 1000 : metro.ctx.currentTime; }
   function metroClick(t, accent) {
     var ctx = metro.ctx, o = ctx.createOscillator(), g = ctx.createGain();
     o.frequency.value = accent ? 1500 : 1000;
@@ -5368,24 +5432,36 @@
       if (!metro.on || !dot) return;
       dot.className = "metro-dot beat" + (one ? " one" : "");
       setTimeout(function () { dot.className = "metro-dot"; }, 110);
-    }, Math.max(0, (t - metro.ctx.currentTime) * 1000));
+    }, Math.max(0, (t - metroNow()) * 1000));
+  }
+  // (re)start the beat from bar 1 — also when the BPM or time signature changes while it's playing
+  function metroRestart() {
+    metro.bpm = metroBpm(); metro.beats = metroBeats(); metro.beat = 0;
+    metro.next = metroNow() + 0.05;
+    if (metro.native) {
+      Capacitor.nativePromise("MusicControl", "metronomeStart", { bpm: metro.bpm, beats: metro.beats })
+        .then(function () { metro.next = metroNow(); metro.beat = 0; }, function () {});
+    }
   }
   function metroTick() {
-    while (metro.next < metro.ctx.currentTime + 0.12) {
-      var one = metro.beat % metroBeats() === 0;
-      metroClick(metro.next, one);
+    if (metroBpm() !== metro.bpm || metroBeats() !== metro.beats) metroRestart();
+    while (metro.next < metroNow() + 0.12) {
+      var one = metro.beat % metro.beats === 0;
+      if (!metro.native) metroClick(metro.next, one);
       metroFlash(metro.next, one);
-      metro.next += 60 / metroBpm();
+      metro.next += 60 / metro.bpm;
       metro.beat++;
     }
   }
   function metroStart() {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    if (!metro.ctx) metro.ctx = new AC();
-    if (metro.ctx.resume) metro.ctx.resume();
-    metro.on = true; metro.beat = 0; metro.songId = state.activeId;
-    metro.next = metro.ctx.currentTime + 0.05;
+    if (!metro.native) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!metro.ctx) metro.ctx = new AC();
+      if (metro.ctx.resume) metro.ctx.resume();
+    }
+    metro.on = true; metro.songId = state.activeId;
+    metroRestart();
     metroTick();
     metro.timer = setInterval(metroTick, 25);
     metroButton();
@@ -5393,6 +5469,7 @@
   function metroStop() {
     metro.on = false;
     clearInterval(metro.timer);
+    if (metro.native) Capacitor.nativePromise("MusicControl", "metronomeStop", {}).catch(function () {});
     metroButton();
   }
   function metroButton() {
@@ -5402,27 +5479,59 @@
     b.title = metro.on ? "Stop the metronome" : "Play a click at this song's BPM (" + metroBpm() + ")";
   }
   document.getElementById("metro-play").addEventListener("click", function () { if (metro.on) metroStop(); else metroStart(); });
-  // Tap Tempo: tap along with the beat; the BPM is the average of the last few taps
-  var taps = [];
-  document.getElementById("tap-tempo").addEventListener("click", function (e) {
-    var now = performance.now(), btn = e.currentTarget;
-    if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];   // a pause starts over
+
+  // Tap BPM: a window with a big pad to tap along with the beat (so a tap can't land on another button).
+  // The BPM is the average of the last few taps; "Use" puts it on the song.
+  var tapModal = document.getElementById("tap-modal"), tapPad = document.getElementById("tap-pad");
+  var taps = [], tapBpm = 0;
+  function showTap() {
+    document.getElementById("tap-bpm").textContent = tapBpm || "\u2014";
+    var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    document.getElementById("tap-count").textContent = !taps.length ? (touch ? "Tap along with the beat" : "Click or press Space along with the beat")
+      : taps.length === 1 ? "Keep tapping\u2026" : taps.length + " taps";
+    var use = document.getElementById("tap-use");
+    use.disabled = !tapBpm;
+    use.textContent = tapBpm ? "Use " + tapBpm + " BPM" : "Use BPM";
+  }
+  function openTap() {
+    if (moreModal.classList.contains("open")) closeMorePanel();
+    taps = []; tapBpm = 0;
+    showTap();
+    tapModal.classList.add("open");
+    tapPad.focus();
+  }
+  function closeTap() { tapModal.classList.remove("open"); }
+  function tapOnce() {
+    var now = performance.now();
+    if (taps.length && now - taps[taps.length - 1] > 2000) { taps = []; tapBpm = 0; }   // a pause starts over
     taps.push(now);
     if (taps.length > 8) taps.shift();
-    btn.classList.add("tapped");
-    setTimeout(function () { btn.classList.remove("tapped"); }, 90);
-    if (taps.length < 2) { btn.textContent = "Tap…"; return; }
-    var bpm = Math.round(60000 / ((taps[taps.length - 1] - taps[0]) / (taps.length - 1)));
-    if (bpm < 20 || bpm > 400) return;
-    btn.textContent = bpm + " BPM";
+    if (taps.length >= 2) {
+      var bpm = Math.round(60000 / ((taps[taps.length - 1] - taps[0]) / (taps.length - 1)));
+      if (bpm >= 20 && bpm <= 400) tapBpm = bpm;
+    }
+    tapPad.classList.remove("hit"); void tapPad.offsetWidth; tapPad.classList.add("hit");
+    showTap();
+  }
+  // pointerdown, not click: the tap counts the moment a finger lands, which keeps the tempo accurate
+  tapPad.addEventListener("pointerdown", function (e) { e.preventDefault(); tapOnce(); });
+  document.addEventListener("keydown", function (e) {
+    if (!tapModal.classList.contains("open")) return;
+    if (e.key === "Escape") closeTap();
+    else if (e.key === " " || e.key === "Enter" || e.key === "t" || e.key === "T") { e.preventDefault(); if (!e.repeat) tapOnce(); }
+  });
+  document.getElementById("tap-tempo").addEventListener("click", openTap);
+  document.getElementById("tap-cancel").addEventListener("click", closeTap);
+  document.getElementById("tap-reset").addEventListener("click", function () { taps = []; tapBpm = 0; showTap(); });
+  document.getElementById("tap-use").addEventListener("click", function () {
     var song = getActiveSong();
-    if (!song) return;
-    song.bpm = String(bpm);
-    document.getElementById("bpm-input").value = song.bpm;
-    markEdited(song);
-    metroButton();
-    clearTimeout(btn.resetTimer);
-    btn.resetTimer = setTimeout(function () { btn.textContent = "Tap"; taps = []; }, 2500);
+    if (song && tapBpm) {
+      song.bpm = String(tapBpm);
+      document.getElementById("bpm-input").value = song.bpm;
+      markEdited(song);
+      metroButton();
+    }
+    closeTap();
   });
 
   var keySelect = document.getElementById("key-input");

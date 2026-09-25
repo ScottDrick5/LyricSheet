@@ -1,3 +1,4 @@
+import AVFoundation
 import Capacitor
 import MediaPlayer
 import UIKit
@@ -17,7 +18,9 @@ public class MusicControlPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "next", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "previous", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "seek", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setRepeat", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "setRepeat", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "metronomeStart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "metronomeStop", returnType: CAPPluginReturnPromise)
     ]
 
     private var player: MPMusicPlayerController { MPMusicPlayerController.systemMusicPlayer }
@@ -134,6 +137,75 @@ extension MusicControlPlugin {
             case "all": self.player.repeatMode = .all
             default: self.player.repeatMode = .none
             }
+            call.resolve()
+        }
+    }
+}
+
+/// The metronome's clicks. The web view's own sound is muted by the silent switch, so the clicks are
+/// played here instead, in a "playback" audio session that mixes with other audio (Apple Music keeps
+/// playing). One bar of clicks is built as a sound and looped, which keeps the beat exactly steady.
+private var metronomeEngine: AVAudioEngine?
+private var metronomeNode: AVAudioPlayerNode?
+
+extension MusicControlPlugin {
+    /// Start (or restart at a new tempo): { bpm, beats } — beats per bar, beat 1 is accented
+    @objc func metronomeStart(_ call: CAPPluginCall) {
+        let bpm = min(400, max(20, call.getDouble("bpm") ?? 120))
+        let beats = min(16, max(1, call.getInt("beats") ?? 4))
+        DispatchQueue.main.async {
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                try session.setActive(true)
+
+                let rate = 44100.0
+                guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1) else {
+                    return call.reject("No audio format")
+                }
+                let engine: AVAudioEngine, node: AVAudioPlayerNode
+                if let e = metronomeEngine, let n = metronomeNode {
+                    engine = e; node = n
+                } else {
+                    engine = AVAudioEngine(); node = AVAudioPlayerNode()
+                    engine.attach(node)
+                    engine.connect(node, to: engine.mainMixerNode, format: format)
+                    metronomeEngine = engine; metronomeNode = node
+                }
+
+                let beatFrames = Int(rate * 60 / bpm)
+                let total = AVAudioFrameCount(beatFrames * beats)
+                guard let bar = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: total),
+                      let data = bar.floatChannelData?[0] else { return call.reject("No audio buffer") }
+                bar.frameLength = total
+                for i in 0..<Int(total) { data[i] = 0 }
+                let clickFrames = min(Int(rate * 0.05), beatFrames)
+                for b in 0..<beats {
+                    let freq = b == 0 ? 1500.0 : 1000.0
+                    let level: Float = b == 0 ? 0.9 : 0.55
+                    let start = b * beatFrames
+                    for i in 0..<clickFrames {
+                        let t = Double(i) / rate
+                        data[start + i] = level * Float(exp(-t * 90) * sin(2 * Double.pi * freq * t))
+                    }
+                }
+
+                node.stop()
+                if !engine.isRunning { try engine.start() }
+                node.scheduleBuffer(bar, at: nil, options: .loops, completionHandler: nil)
+                node.play()
+                call.resolve()
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc func metronomeStop(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            metronomeNode?.stop()
+            metronomeEngine?.stop()
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             call.resolve()
         }
     }

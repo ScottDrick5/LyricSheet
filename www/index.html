@@ -63,7 +63,7 @@
     --ink: #2A2620;
     --ink-dim: #6B6455;
     --tint-1: rgba(0,0,0,0.04);
-    --tint-2: var(--tint-2);
+    --tint-2: rgba(0,0,0,0.07);
     --danger: #B4573F;
     --overlay: rgba(40,35,25,0.45);
     --c-verse: #8A7440;
@@ -211,7 +211,6 @@
   }
   .nav-add:hover { border-color: var(--accent-dim); color: var(--shell-text); }
   .song-item .more { font-size: 1rem; letter-spacing: 1px; }
-  .song-item .in-folder { color: var(--accent-dim); }
   #settings-btn { margin-top: auto; }
 
   /* Action sheet (song / folder options) */
@@ -332,6 +331,14 @@
     color: var(--shell-text-dim);
   }
   .song-group:first-child { margin-top: 0; }
+  /* a group's songs; only drawn as a card on phones (see below) */
+  .song-card { display: contents; }
+  .song-item .in-folder { display: none; }
+  .song-item .in-folder-inline { color: var(--accent-dim); }
+  .song-item .sub .preview { color: var(--shell-text-dim); opacity: 0.85; }
+  .song-item .sub .preview::before { content: "\00a0\00a0"; }
+  /* notes: no song tools */
+  body.is-note #mode-fab, body.is-note #rhyme-panel, body.is-note #rhyme-bar { display: none !important; }
   .song-group, #song-list .song-item { flex-shrink: 0; }
   .no-match { font-size: 0.8rem; color: var(--shell-text-dim); padding: 6px 4px; margin: 0; }
   .sync-status {
@@ -1717,6 +1724,36 @@
     .back-chev { flex-shrink: 0; }
     /* song count at the bottom of the list, like "3 Notes" */
     #song-count { display: block; }
+    /* Like the Notes app: bold date headings, and each group's songs in a rounded card with hairlines */
+    #sidebar { background: var(--bg); }
+    #song-list { gap: 0; }
+    .song-group {
+      margin: 22px 2px 8px;
+      font-size: 1.12rem; font-weight: 700;
+      letter-spacing: 0; text-transform: none;
+      color: var(--shell-text);
+    }
+    .song-card { display: block; flex-shrink: 0; background: var(--bg-raised); border-radius: 12px; overflow: hidden; }
+    .song-card .song-item {
+      position: relative;
+      padding: 10px 14px 10px 16px;
+      border: none; border-radius: 0;
+      min-height: 64px;
+    }
+    .song-card .song-item + .song-item::before {
+      content: ""; position: absolute; top: 0; left: 16px; right: 0;
+      height: 1px; background: var(--shell-border);
+    }
+    .song-card .song-item.active { background: var(--tint-1); border: none; }
+    .song-card .song-item .name { color: var(--shell-text); font-weight: 600; font-size: 0.95rem; }
+    .song-card .song-item .sub { font-size: 0.8rem; margin-top: 3px; }
+    .song-card .song-item .sub .when { color: var(--shell-text); opacity: 0.75; }
+    .song-card .song-item .sub .meta { display: none; }
+    .song-card .song-item .in-folder {
+      display: flex; align-items: center; gap: 5px;
+      margin-top: 3px; font-size: 0.76rem; color: var(--shell-text-dim);
+    }
+    .song-card .song-item .in-folder .folder-ico { width: 14px; height: 12px; }
   }
   /* Apple Music mini player (iPhone app) */
   #music-bar {
@@ -2700,7 +2737,7 @@
       persistSongs();
     }
     closeSettings();
-    if (nav.folder === "trash" || (song.folderId !== nav.folder && nav.folder !== "all")) setNav("songs", "all");
+    if (nav.folder === "trash" || !inNav(song, nav.folder)) setNav("songs", "all");
     openSong(song.id);
     closeSidebar();
   }
@@ -2723,6 +2760,28 @@
     if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
     return d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
   }
+  // The date beside each song in the list, like Notes: a time today, then Yesterday, a weekday, a date
+  function fmtListDate(ts) {
+    var d = new Date(ts), now = new Date();
+    var day = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+    var ago = Math.round((day(now) - day(d)) / DAY_MS);
+    if (ago <= 0) return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    if (ago === 1) return "Yesterday";
+    if (ago < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
+    return d.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "2-digit" });
+  }
+  // The first words of a song (its first line that isn't the title), for the list
+  function previewOf(song) {
+    var title = (song.title || "").trim();
+    for (var i = 0; i < song.sections.length; i++) {
+      var lines = song.sections[i].lines;
+      for (var j = 0; j < lines.length; j++) {
+        var t = lines[j].replace(/\s+/g, " ").trim();
+        if (t && t !== title) return t;
+      }
+    }
+    return "";
+  }
   function songSearchText(song) {
     return (song.title + "\n" + song.sections.map(function (s) { return s.type + "\n" + s.lines.join("\n"); }).join("\n")).toLowerCase();
   }
@@ -2744,7 +2803,7 @@
     var now = Date.now();
     var copy = JSON.parse(JSON.stringify(song));
     copy.id = "s" + now + Math.random().toString(36).slice(2, 7);
-    copy.title = (song.title || "Untitled song") + " (copy)";
+    copy.title = (song.title || untitled(song)) + " (copy)";
     copy.createdAt = now;
     copy.lastEditedAt = now;
     copy.editLog = [now];
@@ -2812,7 +2871,7 @@
     renderSidebar();
   }
   function trashMenu(t) {
-    var title = t.song.title || "Untitled song";
+    var title = t.song.title || untitled(song);
     showSheet(title, [
       { label: "Restore song", fn: function () { restoreSong(t.song.id); closeSidebar(); } },
       { label: "Delete forever", danger: true, fn: function () {
@@ -2841,7 +2900,7 @@
       info.className = "info";
       var name = document.createElement("span");
       name.className = "name";
-      name.textContent = t.song.title || "Untitled song";
+      name.textContent = t.song.title || untitled(song);
       var sub = document.createElement("span");
       sub.className = "sub";
       var left = trashDaysLeft(t);
@@ -2851,7 +2910,7 @@
       more.className = "del more";
       more.textContent = "\u22EF";
       more.title = "Restore or delete";
-      more.setAttribute("aria-label", "Options for " + (t.song.title || "Untitled song"));
+      more.setAttribute("aria-label", "Options for " + (t.song.title || untitled(song)));
       more.addEventListener("click", function (e) { e.stopPropagation(); trashMenu(t); });
       item.appendChild(info); item.appendChild(more);
       item.addEventListener("click", function () { trashMenu(t); });
@@ -2871,6 +2930,7 @@
   // ---------- folders (like Apple Notes) ----------
   var FOLDER_KEY = "lyricapp_folders_v1";
   var FOLDER_SVG = '<svg class="folder-ico" viewBox="0 0 20 16" width="18" height="15" aria-hidden="true"><path d="M1.5 3.2c0-.9.7-1.7 1.7-1.7h4.1l1.9 2h7.6c.9 0 1.7.8 1.7 1.7v8.1c0 .9-.8 1.7-1.7 1.7H3.2c-1 0-1.7-.8-1.7-1.7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+  var NOTE_SVG = '<svg class="folder-ico" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="3.5" y="2.5" width="13" height="15" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 7h7M6.5 10h7M6.5 13h4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
   var ALL_SVG = '<svg class="folder-ico" viewBox="0 0 20 16" width="18" height="15" aria-hidden="true"><path d="M5 2.5h13M5 8h13M5 13.5h13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="1.8" cy="2.5" r="1.1" fill="currentColor"/><circle cx="1.8" cy="8" r="1.1" fill="currentColor"/><circle cx="1.8" cy="13.5" r="1.1" fill="currentColor"/></svg>';
   var folderStore = { folders: [], deleted: {} };
   var nav = { view: "songs", folder: "all" };
@@ -2891,6 +2951,17 @@
     return null;
   }
   function songFolderId(song) { return song.folderId && folderById(song.folderId) ? song.folderId : null; }
+  // Notes: plain, non-song notes (kind "note"). They live in their own Notes list, not in All Songs or
+  // folders, and open without the song tools (rhymes, BPM, key, Build).
+  function isNote(song) { return !!song && song.kind === "note"; }
+  function untitled(song) { return isNote(song) ? "Untitled note" : "Untitled song"; }
+  // Is this song shown in the given place ("all", "notes" or a folder id)?
+  function inNav(song, where) {
+    if (where === "notes") return isNote(song);
+    if (isNote(song)) return false;
+    return where === "all" || song.folderId === where;
+  }
+  function navPlaceOk(where) { return where === "all" || where === "trash" || where === "notes" || !!folderById(where); }
   function sortedFolders() {
     return folderStore.folders.slice().sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }); });
   }
@@ -2986,17 +3057,27 @@
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && sheetModal.classList.contains("open")) closeSheet(); });
 
   function songMenu(song) {
-    var title = song.title || "Untitled song";
+    var title = song.title || untitled(song);
+    var note = isNote(song), what = note ? "note" : "song";
     showSheet(title, [
       { label: "Details", fn: function () { openDetails(song); } },
-      { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
+      note ? null : { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
-      { label: "Remove section headers", disabled: !song.sections.some(function (x) { return x.type; }),
+      note ? null : { label: "Remove section headers", disabled: !song.sections.some(function (x) { return x.type; }),
         fn: function () { removeSectionHeaders(song); } },
-      { label: "Delete song", danger: true, fn: function () {
-        askConfirm('Move "' + title + '" to Recently Deleted? You can restore it for ' + TRASH_DAYS + ' days.', "Delete song", true, function () { deleteSong(song); });
+      { label: note ? "Make it a song" : "Make it a note", fn: function () { setNoteKind(song, !note); } },
+      { label: "Delete " + what, danger: true, fn: function () {
+        askConfirm('Move "' + title + '" to Recently Deleted? You can restore it for ' + TRASH_DAYS + ' days.', "Delete " + what, true, function () { deleteSong(song); });
       } }
-    ]);
+    ].filter(Boolean));
+  }
+  // Move a song to Notes or a note to All Songs (and follow it there)
+  function setNoteKind(song, toNote) {
+    if (toNote) { song.kind = "note"; song.folderId = null; } else delete song.kind;
+    song.lastEditedAt = song.folderSetAt = Date.now();
+    persistSongs();
+    if (nav.folder !== "trash" && !inNav(song, nav.folder)) setNav("songs", toNote ? "notes" : "all");
+    renderAll();
   }
   // Turns a song back into a plain body with no [Verse] / [Chorus] headers (e.g. ones added to older
   // songs that never had any). The headers are kept in Version history, and Undo brings them back.
@@ -3025,7 +3106,7 @@
       items.push({ label: f.name, checked: current === f.id, fn: function () { moveSongToFolder(song, f.id); } });
     });
     if (!fl.length) items.push({ label: "No folders yet \u2014 create one in Folders", disabled: true });
-    showSheet("Move \u201C" + (song.title || "Untitled song") + "\u201D to", items);
+    showSheet("Move \u201C" + (song.title || untitled(song)) + "\u201D to", items);
   }
   function folderMenu(f, row) {
     showSheet(f.name, [
@@ -3061,13 +3142,15 @@
       return r;
     }
     var cur = galleryWanted() && nav.view !== "folders" ? nav.folder : null;
-    row(ALL_SVG, "All Songs", state.songs.length, "all-songs" + (cur === "all" ? " current" : ""), function () { setNav("songs", "all"); });
+    var noteCount = state.songs.filter(isNote).length;
+    row(ALL_SVG, "All Songs", state.songs.length - noteCount, "all-songs" + (cur === "all" ? " current" : ""), function () { setNav("songs", "all"); });
+    row(NOTE_SVG, "Notes", noteCount, "notes-row" + (cur === "notes" ? " current" : ""), function () { setNav("songs", "notes"); });
     var fl = sortedFolders();
     if (fl.length) {
       var d = document.createElement("div"); d.className = "folder-divider"; list.appendChild(d);
     }
     fl.forEach(function (f) {
-      var count = state.songs.filter(function (s) { return s.folderId === f.id; }).length;
+      var count = state.songs.filter(function (s) { return inNav(s, f.id); }).length;
       var r = row(FOLDER_SVG, f.name, count, cur === f.id ? "current" : "", function () { setNav("songs", f.id); });
       var more = document.createElement("button");
       more.className = "fmore";
@@ -3096,12 +3179,13 @@
   });
   document.getElementById("folders-back").addEventListener("click", function () { setNav("folders"); });
 
-  // Song list headings by when a song was last edited: Today, Previous 7 Days, Previous 30 Days,
+  // Song list headings by when a song was last edited: Today, Yesterday, Previous 7 Days, Previous 30 Days,
   // then each earlier month of this year by name, then each earlier year (2025, 2024…)
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   function editGroup(ts, now) {
     var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     if (ts >= today) return "Today";
+    if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime()) return "Yesterday";
     if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).getTime()) return "Previous 7 Days";
     if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).getTime()) return "Previous 30 Days";
     var d = new Date(ts);
@@ -3111,10 +3195,9 @@
 
   // The songs shown for the current folder and search, newest first
   function navSongs() {
-    var folder = nav.folder === "all" || nav.folder === "trash" ? null : folderById(nav.folder);
-    var q = searchQuery();
+    var q = searchQuery(), where = nav.folder;
     var sorted = state.songs.slice().sort(function (a, b) { return b.lastEditedAt - a.lastEditedAt; });
-    if (folder) sorted = sorted.filter(function (s) { return s.folderId === folder.id; });
+    sorted = sorted.filter(function (s) { return inNav(s, where); });
     if (q) sorted = sorted.filter(function (s) { return songSearchText(s).indexOf(q) !== -1; });
     return sorted;
   }
@@ -3151,7 +3234,8 @@
     if (!songs.length) {
       var none = document.createElement("p");
       none.className = "gallery-empty";
-      none.textContent = q ? "No songs match \u201C" + q + "\u201D." : folder ? "No songs in this folder yet." : "No songs yet.";
+      none.textContent = nav.folder === "notes" ? (q ? "No notes match \u201C" + q + "\u201D." : "No notes yet.")
+        : q ? "No songs match \u201C" + q + "\u201D." : folder ? "No songs in this folder yet." : "No songs yet.";
       grid.appendChild(none);
       return;
     }
@@ -3169,7 +3253,7 @@
       card.className = "g-card" + (song.id === state.activeId ? " active" : "");
       card.tabIndex = 0;
       card.setAttribute("role", "button");
-      card.setAttribute("aria-label", "Open " + (song.title || "Untitled song"));
+      card.setAttribute("aria-label", "Open " + (song.title || untitled(song)));
       var thumb = document.createElement("div");
       thumb.className = "g-thumb";
       if (song.title.trim()) {
@@ -3184,7 +3268,7 @@
       thumb.appendChild(lines);
       var name = document.createElement("div");
       name.className = "g-name";
-      name.textContent = song.title || "Untitled song";
+      name.textContent = song.title || untitled(song);
       var date = document.createElement("div");
       date.className = "g-date";
       var bits = [fmtShort(song.lastEditedAt)];
@@ -3195,7 +3279,7 @@
       more.className = "g-more";
       more.textContent = "\u22EF";
       more.title = "Song options";
-      more.setAttribute("aria-label", "Options for " + (song.title || "Untitled song"));
+      more.setAttribute("aria-label", "Options for " + (song.title || untitled(song)));
       more.addEventListener("click", function (e) { e.stopPropagation(); songMenu(song); });
       card.appendChild(thumb); card.appendChild(name); card.appendChild(date); card.appendChild(more);
       card.addEventListener("click", function () { openSong(song.id); });
@@ -3231,8 +3315,9 @@
     // don't redraw under someone who is naming a folder
     var ae = document.activeElement;
     if (ae && ae.classList && ae.classList.contains("folder-input")) return;
-    if (nav.folder !== "all" && nav.folder !== "trash" && !folderById(nav.folder)) nav.folder = "all";
+    if (!navPlaceOk(nav.folder)) nav.folder = "all";
     var backTo = nav.view === "folders" ? "Folders" : nav.folder === "trash" ? "Recently Deleted"
+      : nav.folder === "notes" ? "Notes"
       : nav.folder !== "all" && folderById(nav.folder) ? folderById(nav.folder).name : "All Songs";
     Array.prototype.forEach.call(document.querySelectorAll(".back-label"), function (el) { el.textContent = backTo; });
     // In gallery view the songs are cards in the main area, so the side menu shows the folders instead
@@ -3243,9 +3328,11 @@
     updateViewStyleButtons();
     if (nav.view === "folders") return;
 
-    var inTrash = nav.folder === "trash";
-    var folder = nav.folder === "all" || inTrash ? null : folderById(nav.folder);
-    document.getElementById("folder-title").textContent = inTrash ? "Recently Deleted" : folder ? folder.name : "All Songs";
+    var inTrash = nav.folder === "trash", inNotes = nav.folder === "notes";
+    var folder = nav.folder === "all" || inTrash || inNotes ? null : folderById(nav.folder);
+    document.getElementById("folder-title").textContent = inTrash ? "Recently Deleted" : inNotes ? "Notes" : folder ? folder.name : "All Songs";
+    document.getElementById("new-song-btn").textContent = inNotes ? "+ New note" : "+ New song";
+    document.getElementById("song-search").placeholder = inNotes ? "Search notes" : "Search songs and lyrics";
 
     var list = document.getElementById("song-list");
     list.innerHTML = "";
@@ -3254,16 +3341,18 @@
     list.hidden = false;
     if (inTrash) { document.getElementById("song-count").textContent = ""; renderTrashList(list, q); return; }
     var sorted = navSongs();
-    document.getElementById("song-count").textContent = sorted.length + (sorted.length === 1 ? " Song" : " Songs");
+    var noun = inNotes ? (sorted.length === 1 ? " Note" : " Notes") : (sorted.length === 1 ? " Song" : " Songs");
+    document.getElementById("song-count").textContent = sorted.length + noun;
     if (galleryWanted()) { list.hidden = true; renderGallery(sorted, q, folder); return; }
     if (!sorted.length) {
       var none = document.createElement("p");
       none.className = "no-match";
-      none.textContent = q ? "No songs match \u201C" + q + "\u201D." : folder ? "No songs in this folder yet." : "No songs yet.";
+      none.textContent = inNotes ? (q ? "No notes match \u201C" + q + "\u201D." : "No notes yet. Tap + to write one.")
+        : q ? "No songs match \u201C" + q + "\u201D." : folder ? "No songs in this folder yet." : "No songs yet.";
       list.appendChild(none);
       return;
     }
-    var lastGroup = null, now = new Date();
+    var lastGroup = null, now = new Date(), card = null;
     sorted.forEach(function (song) {
       var group = editGroup(song.lastEditedAt, now);
       if (group !== lastGroup) {
@@ -3271,6 +3360,9 @@
         gh.className = "song-group";
         gh.textContent = group;
         list.appendChild(gh);
+        card = document.createElement("div");
+        card.className = "song-card";
+        list.appendChild(card);
         lastGroup = group;
       }
       var item = document.createElement("div");
@@ -3280,34 +3372,57 @@
       info.className = "info";
       var name = document.createElement("span");
       name.className = "name";
-      name.textContent = song.title || "Untitled song";
+      name.textContent = song.title || untitled(song);
+      // date, then key/BPM (not on phones), then the first words, like "Yesterday  How long will it take…"
       var sub = document.createElement("span");
       sub.className = "sub";
-      var bits = [fmtShort(song.lastEditedAt)];
+      var when = document.createElement("span");
+      when.className = "when";
+      when.textContent = fmtListDate(song.lastEditedAt);
+      sub.appendChild(when);
+      var bits = [];
       if (song.key && song.key !== "—") bits.push(song.key);
       if (song.bpm) bits.push(song.bpm + " BPM");
-      sub.textContent = bits.join(" · ");
-      var fid = songFolderId(song);
+      if (bits.length) {
+        var meta = document.createElement("span");
+        meta.className = "meta";
+        meta.textContent = " · " + bits.join(" · ");
+        sub.appendChild(meta);
+      }
+      var fid = songFolderId(song), fline = null;
       if (!folder && fid) {
         var inF = document.createElement("span");
-        inF.className = "in-folder";
+        inF.className = "in-folder-inline meta";
         inF.textContent = " · " + folderById(fid).name;
         sub.appendChild(inF);
+        // phones: the folder on its own line with a folder icon, like Notes
+        fline = document.createElement("span");
+        fline.className = "in-folder";
+        fline.innerHTML = FOLDER_SVG;
+        fline.appendChild(document.createTextNode(folderById(fid).name));
+      }
+      var pv = previewOf(song);
+      if (pv) {
+        var pvEl = document.createElement("span");
+        pvEl.className = "preview";
+        pvEl.textContent = pv;
+        sub.appendChild(pvEl);
       }
       info.appendChild(name);
       info.appendChild(sub);
+      if (fline) info.appendChild(fline);
 
       var more = document.createElement("button");
       more.className = "del more";
       more.textContent = "\u22EF";
       more.title = "Song options";
-      more.setAttribute("aria-label", "Options for " + (song.title || "Untitled song"));
+      more.setAttribute("aria-label", "Options for " + (song.title || untitled(song)));
       more.addEventListener("click", function (e) { e.stopPropagation(); songMenu(song); });
 
       item.appendChild(info);
       item.appendChild(more);
       item.addEventListener("click", function () { openSong(song.id); });
-      list.appendChild(item);
+      card.appendChild(item);
     });
   }
   // Clear (x) buttons in the search boxes
@@ -3412,6 +3527,7 @@
   // ---------- rendering: editor ----------
   function renderEditor() {
     var song = getActiveSong();
+    document.body.classList.toggle("is-note", isNote(song));
     var editorEl = document.getElementById("editor");
     var emptyEl = document.getElementById("empty-state");
     if (song && undo.id !== song.id) resetUndo(song);
@@ -3434,6 +3550,7 @@
     editorEl.classList.add("visible");
 
     document.getElementById("title-input").value = song.title;
+    document.getElementById("title-input").placeholder = untitled(song);
     document.getElementById("bpm-input").value = song.bpm || "";
     setKeyControls(song.key);
     timeSigSelect.value = song.timeSig || "\u2014";
@@ -3754,13 +3871,14 @@
     bar.className = "read-toolbar";
     var hint = document.createElement("span");
     hint.className = "read-hint";
-    hint.textContent = "Type anywhere. Start a section with [Verse], [Chorus]…";
+    var note = isNote(song);
+    hint.textContent = note ? "Type anywhere." : "Type anywhere. Start a section with [Verse], [Chorus]…";
     var copyBtn = document.createElement("button");
     copyBtn.className = "read-copy";
-    copyBtn.textContent = "Copy lyrics";
+    copyBtn.textContent = note ? "Copy note" : "Copy lyrics";
     copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
     bar.appendChild(hint);
-    bar.appendChild(rhymeToggles());
+    if (!note) bar.appendChild(rhymeToggles());
     bar.appendChild(copyBtn);
     canvas.appendChild(bar);
 
@@ -3846,7 +3964,7 @@
   }
   function drawCanvas(song) {
     document.getElementById("font-size-val").textContent = settings.fontSize;
-    if (settings.viewMode === "read") { renderReading(song); return; }
+    if (settings.viewMode === "read" || isNote(song)) { renderReading(song); return; }
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
     canvas.style.setProperty("--lyric-size", settings.fontSize + "px");
@@ -4685,6 +4803,8 @@
   function sameLayout(a, b) { return a.join(",") === b.join(","); }
   function applyHud(song) {
     var layout = songLayout(song);
+    // a note keeps only the tools that make sense for plain text
+    if (isNote(song)) layout = layout.filter(function (id) { return NOTE_TOOLS.indexOf(id) !== -1; });
     Array.prototype.forEach.call(document.querySelectorAll("#meta-bar [data-hud]"), function (el) {
       var i = layout.indexOf(el.getAttribute("data-hud"));
       el.classList.toggle("hud-off", i === -1);
@@ -4692,8 +4812,9 @@
     });
     // ⋯ appears whenever some tools aren't in the bar
     var shown = layout.filter(function (id) { return id !== "rhymes" || rhymeFinderOn(); }).length;
-    document.getElementById("hud-more").hidden = shown >= hudToolsAvailable().length;
+    document.getElementById("hud-more").hidden = isNote(song) || shown >= hudToolsAvailable().length;
   }
+  var NOTE_TOOLS = ["title", "textsize", "wordcount", "undo", "history", "details"];
 
   // ---------- ⋯ panel: the tools that aren't in the top bar ----------
   // The real controls are moved into the panel while it's open (so they keep working as they
@@ -4766,7 +4887,7 @@
     var song = hudSong();
     if (!song) return;
     var layout = songLayout(song);
-    document.getElementById("hudcfg-for").textContent = "For \u201C" + (song.title || "Untitled song") + "\u201D. Turn tools on or off and use the arrows to change their order.";
+    document.getElementById("hudcfg-for").textContent = "For \u201C" + (song.title || untitled(song)) + "\u201D. Turn tools on or off and use the arrows to change their order.";
     var list = document.getElementById("hudcfg-list");
     list.innerHTML = "";
     var avail = hudToolsAvailable().map(function (t) { return t.id; });
@@ -4867,7 +4988,7 @@
     if (song) renderDetails(song); else closeDetails();
   }
   function renderDetails(song) {
-    document.getElementById("details-song").textContent = song.title || "Untitled song";
+    document.getElementById("details-song").textContent = song.title || untitled(song);
     var list = document.getElementById("details-list");
     list.innerHTML = "";
     function row(label, value, sub) {
@@ -5119,7 +5240,11 @@
   document.getElementById("new-song-btn").addEventListener("click", function () {
     maybeSnapshotOnLeave();
     var song = newSong();
-    if (nav.folder !== "all" && folderById(nav.folder)) song.folderId = nav.folder;
+    if (nav.folder === "notes") {
+      song.kind = "note";
+      song.sections = [{ id: newSectionId(), type: "", note: "", lines: [""] }];
+    }
+    else if (nav.folder !== "all" && folderById(nav.folder)) song.folderId = nav.folder;
     if (nav.folder === "trash") nav.folder = "all";
     galleryOpen = false;
     state.songs.push(song);
@@ -6771,7 +6896,7 @@
     persistSettings();
   }
   setInterval(function () { var n = trash.length; purgeTrash(); if (trash.length !== n) renderSidebar(); }, 60 * 60 * 1000);
-  nav.folder = settings.navFolder && (settings.navFolder === "all" || settings.navFolder === "trash" || folderById(settings.navFolder)) ? settings.navFolder : "all";
+  nav.folder = settings.navFolder && navPlaceOk(settings.navFolder) ? settings.navFolder : "all";
   // ---------- Rhymes ----------
   // www/rhymes.js holds how ~45,000 common words are pronounced (CMU Pronouncing Dictionary),
   // most common first; words written with a capital (names, odd spellings) are never suggested.
@@ -7364,6 +7489,7 @@
   var rhymeBarTimer = null, rhymeBarWord = null;
   function editingLyrics() {
     var ae = document.activeElement;
+    if (isNote(getActiveSong())) return false;
     return !!(ae && ae.closest && ae.closest("#canvas") &&
       ((ae.classList.contains("read-editor") && !ae.classList.contains("pv-sheet")) || ae.classList.contains("line-input")));
   }
@@ -7516,15 +7642,16 @@
   function refreshRhymeLetters() {
     var canvas = document.getElementById("canvas");
     var ed = canvas.querySelector(".read-editor:not(.pv-sheet)");
-    if (!rhymeLettersOn()) {
+    var note = isNote(getActiveSong());   // notes aren't lyrics: no letters or colors
+    if (note || !rhymeLettersOn()) {
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-gutter"), function (g) { g.parentNode.removeChild(g); });
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-badge"), function (b) { b.textContent = ""; b.className = "rhyme-badge"; });
     }
-    if (!ed || !rhymeColorsOn()) {
+    if (note || !ed || !rhymeColorsOn()) {
       setRhymeColors(null);
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-boxes"), function (g) { g.parentNode.removeChild(g); });
     }
-    if (!rhymeLettersOn() && !(ed && rhymeColorsOn())) return;
+    if (note || (!rhymeLettersOn() && !(ed && rhymeColorsOn()))) return;
     if (!rhymeDict) { loadRhymes().then(function () { scheduleRhymeLetters(0); }, function () {}); return; }
     if (ed) letterReadEditor(ed); else letterSectionRows(canvas);
   }

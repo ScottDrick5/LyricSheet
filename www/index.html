@@ -1523,6 +1523,13 @@
   }
   .read-copy:hover { color: var(--ink); background: var(--tint-2); }
   .read-title[contenteditable] { outline: none; cursor: text; min-height: 1.2em; }
+  /* the title line at the top of the Write editor */
+  #canvas .read-editor > .rl-title { font-weight: 600; font-size: 1.75em; line-height: 1.2; margin: 0 0 0.9em; }
+  #canvas .read-editor > .rl-ph { position: relative; }
+  #canvas .read-editor > .rl-ph::before {
+    content: attr(data-ph); position: absolute; left: 0; top: 0; pointer-events: none;
+    color: var(--ink-dim); opacity: 0.6; white-space: nowrap;
+  }
   .build-title .read-title { font-family: var(--font-lyric); margin: 4px 0 18px; }
   .read-title:empty::before { content: attr(data-placeholder); color: var(--ink-dim); opacity: 0.6; }
   .read-title {
@@ -3808,7 +3815,7 @@
       }
       if (found) {
         first = first || el;
-        if (el.classList.contains("read-title")) return;
+        if (el.classList.contains("read-title") || el.classList.contains("rl-title")) return;
         var lr = document.createRange(); lr.selectNodeContents(el); lines.push(lr);
       }
     });
@@ -3930,6 +3937,20 @@
   // Headers and notes are colored; the text is parsed back into sections as you type.
   var readSync = { timer: null, song: null, el: null };
 
+  // Write: the title is the first line of the same editor as the lyrics (like the first line of a note),
+  // so Select All, copying and moving the cursor take in the whole sheet. It's drawn plain and big.
+  function readTitleEl(text, song) {
+    var d = document.createElement("div");
+    d.className = "rl-title";
+    if (text.trim()) d.textContent = text; else d.appendChild(document.createElement("br"));
+    d.setAttribute("data-ph", song && isNote(song) ? "Title" : "Song title");
+    d.classList.toggle("rl-ph", !text.trim());
+    return d;
+  }
+  function editorLines(song) {
+    var lyrics = hasLyrics(song.sections) ? sectionsAsLines(song) : [{ text: "", runs: null }];
+    return [{ text: song.title || "", title: true }].concat(lyrics);
+  }
   function readLineEl(line, runs) {
     var d = document.createElement("div");
     if (!line.trim()) { d.appendChild(document.createElement("br")); return d; }
@@ -3989,7 +4010,19 @@
     var w = walkEditor(ed, pts);
     if (pts[0].index == null || pts[1].index == null) return;
     var a = Math.min(pts[0].index, pts[1].index), b = Math.max(pts[0].index, pts[1].index);
-    if (text === "\n" && a === b && promoteTitleLine(song, w.text, a)) return;
+    var titleEnd = w.text.indexOf("\n");
+    if (titleEnd === -1) titleEnd = w.text.length;
+    if (text === "\n" && a === b && b <= titleEnd) {
+      // Return on the title line: go to the start of the lyrics (making the first lyric line if needed)
+      if (w.text.indexOf("\n") === -1) {
+        ed.appendChild(readLineEl("", null));
+        markEditorPlaceholders(ed, song);
+      }
+      var lp = editorPointAt(ed, titleEnd + 1), lr = document.createRange();
+      lr.setStart(lp.node, lp.offset); lr.collapse(true);
+      sel.removeAllRanges(); sel.addRange(lr);
+      return;
+    }
     var S = w.text.slice(0, a) + text + w.text.slice(b);
     var keys = w.keys.slice(0, a).concat(text.split("").map(function () { return PLAIN; }), w.keys.slice(b));
     var lines = [], start = 0;
@@ -3998,8 +4031,8 @@
       start += t.length + 1;
     });
     ed.innerHTML = "";
-    lines.forEach(function (l) { ed.appendChild(readLineEl(l.text, l.runs)); });
-    ed.classList.toggle("is-empty", !S.trim());
+    lines.forEach(function (l, i) { ed.appendChild(i === 0 ? readTitleEl(l.text, song) : readLineEl(l.text, l.runs)); });
+    markEditorPlaceholders(ed, song);
     var pt = editorPointAt(ed, a + text.length);
     var nr = document.createRange();
     nr.setStart(pt.node, pt.offset);
@@ -4024,6 +4057,7 @@
     if (!div || div.parentNode !== ed) return;
     var w = walkEditor(div);
     if (w.lines.length !== 1) return;
+    if (div === ed.firstElementChild) return;   // the title line keeps its own look
     var fresh = readLineEl(w.lines[0].text, w.lines[0].runs);
     if (fresh.innerHTML !== div.innerHTML) { ed.replaceChild(fresh, div); if (searchQuery()) applySearchHighlight(); }
   }
@@ -4036,42 +4070,13 @@
     caretLine = line;
   });
 
-  // On an untitled song, typing a line at the top and pressing Return twice makes that line the title
-  // (like a title at the top of a note): it moves out of the lyrics and the cursor goes to the lyrics.
-  function promoteTitleLine(song, text, caret) {
-    if (song.title.trim()) return false;
-    var nl = text.indexOf("\n");
-    if (nl === -1 || caret !== nl + 1) return false;          // caret on the blank line right under the first line
-    if (text.slice(caret).trim()) return false;                // nothing written below yet
-    var line = text.slice(0, nl).trim();
-    if (!line || line.length > 60 || detectHeader(line)) return false;
-    flushReadSync();                // so undo can put the line back into the lyrics
-    undo.boundary = true;
-    song.title = line;
-    song.sections = [{ id: newSectionId(), type: "Verse", note: "", lines: [""] }];
-    markEdited(song);
-    undo.boundary = true;           // and the lyrics typed next are their own step
-    document.getElementById("title-input").value = song.title;
-    renderSidebarSoon();
-    renderCanvas(song);
-    var ed = document.querySelector("#canvas .read-editor");
-    if (ed) {
-      ed.focus();
-      var r = document.createRange();
-      r.setStart(ed, 0);
-      r.collapse(true);
-      var sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(r);
-    }
-    return true;
-  }
-
-  function fillReadEditor(el, lineObjs) {
+  function fillReadEditor(el, lineObjs, song) {
     el.innerHTML = "";
-    if (!lineObjs.some(function (l) { return l.text.trim(); })) { el.classList.add("is-empty"); return; }
+    var withTitle = lineObjs.length && lineObjs[0].title;
+    if (!withTitle && !lineObjs.some(function (l) { return l.text.trim(); })) { el.classList.add("is-empty"); return; }
     el.classList.remove("is-empty");
-    lineObjs.forEach(function (l) { el.appendChild(readLineEl(l.text, l.runs)); });
+    lineObjs.forEach(function (l, i) { el.appendChild(i === 0 && withTitle ? readTitleEl(l.text, song) : readLineEl(l.text, l.runs)); });
+    if (withTitle) markEditorPlaceholders(el, song);
     if (el.isConnected && searchQuery()) applySearchHighlight();
   }
 
@@ -4149,19 +4154,39 @@
     return last ? { node: last, offset: last.data.length } : { node: line, offset: 0 };
   }
 
+  // the faded "Song title" / "Write or paste your lyrics here…" hints on an empty title or empty lyrics
+  function markEditorPlaceholders(ed, song) {
+    var kids = Array.prototype.filter.call(ed.childNodes, function (n) { return n.nodeType === 1; });
+    kids.forEach(function (d, i) {
+      if (i === 0) {
+        d.classList.add("rl-title");
+        d.setAttribute("data-ph", song && isNote(song) ? "Title" : "Song title");
+      } else d.classList.remove("rl-title");
+      d.classList.toggle("rl-ph", !d.textContent.trim() && (i === 0 || (i === 1 && kids.length === 2)));
+      if (i === 1) d.setAttribute("data-ph", "Write or paste your lyrics here\u2026");
+    });
+  }
   function readEditorText(el) {
     return (el.innerText || "").replace(/\u00a0/g, " ").replace(/\r/g, "");
   }
 
   function applyReadDom(song, el) {
     var w = walkEditor(el);
-    var parsed = stripParseFlags(parseSong(w.text, false, w.lines.map(function (l) { return l.runs; })).sections);
+    var nl = w.text.indexOf("\n");
+    var title = (nl === -1 ? w.text : w.text.slice(0, nl)).replace(/\s+/g, " ").trim();
+    var body = nl === -1 ? "" : w.text.slice(nl + 1);
+    var parsed = stripParseFlags(parseSong(body, false, w.lines.slice(1).map(function (l) { return l.runs; })).sections);
     song.sections = parsed.length ? parsed : [{ id: newSectionId(), type: "Verse", note: "", lines: [""] }];
+    if (title !== song.title) {
+      song.title = title;
+      document.getElementById("title-input").value = title;
+      renderSidebarSoon();
+    }
     markEdited(song, true);
   }
 
   function readEdited(song, ed) {
-    ed.classList.toggle("is-empty", !readEditorText(ed).trim());
+    markEditorPlaceholders(ed, song);
     if (searchQuery()) applySearchHighlight();
     readSync.song = song; readSync.el = ed;
     clearTimeout(readSync.timer);
@@ -4234,16 +4259,6 @@
     sheet.style.fontSize = settings.fontSize + "px";
     sheet.style.setProperty("--lyric-px", settings.fontSize + "px");
 
-    // the title is always on the sheet, even before there is one: tap it to add or change it;
-    // Return goes on to the lyrics
-    sheet.appendChild(sheetTitle(song, function () {
-      var ed2 = sheet.querySelector(".read-editor");
-      if (!ed2) return;
-      ed2.focus();
-      var r = document.createRange(), sel = window.getSelection();
-      r.setStart(ed2, 0); r.collapse(true);
-      sel.removeAllRanges(); sel.addRange(r);
-    }));
 
     var ed = document.createElement("div");
     ed.className = "read-editor";
@@ -4251,12 +4266,10 @@
     if (ed.contentEditable !== "plaintext-only") ed.setAttribute("contenteditable", "true");
     ed.setAttribute("role", "textbox");
     ed.setAttribute("aria-multiline", "true");
-    ed.setAttribute("aria-label", "Lyrics");
-    ed.setAttribute("data-placeholder", "Write or paste your lyrics here…");
+    ed.setAttribute("aria-label", "Title and lyrics");
     ed.spellcheck = true;
 
-    var isEmpty = song.sections.every(function (s) { return !s.lines.some(function (l) { return l.trim(); }); });
-    fillReadEditor(ed, isEmpty && song.sections.length === 1 ? [] : sectionsAsLines(song));
+    fillReadEditor(ed, editorLines(song), song);
 
     ed.addEventListener("input", function () { readEdited(song, ed); });
     ed.addEventListener("paste", function (e) {
@@ -4277,7 +4290,7 @@
     });
     ed.addEventListener("blur", function () {
       flushReadSync();
-      if (readEditorText(ed).trim()) fillReadEditor(ed, sectionsAsLines(song)); // tidy + recolor
+      fillReadEditor(ed, editorLines(song), song); // tidy + recolor
       hideSizeBar();
     });
 
@@ -5624,8 +5637,14 @@
     openInBasic();
     renderAll();
     // start on the title at the top of the sheet (Return goes on to the lyrics)
-    var sheetT = document.querySelector("#canvas .read-title");
-    if (sheetT) sheetT.focus(); else document.getElementById("title-input").focus();
+    var sheetT = document.querySelector("#canvas .read-editor:not(.pv-sheet) > .rl-title, #canvas .read-title");
+    if (sheetT) {
+      var host = sheetT.closest("[contenteditable]") || sheetT;
+      host.focus();
+      var tr = document.createRange(), ts = window.getSelection();
+      tr.setStart(sheetT, 0); tr.collapse(true);
+      ts.removeAllRanges(); ts.addRange(tr);
+    } else document.getElementById("title-input").focus();
   });
 
   document.getElementById("new-fab").addEventListener("click", function () {
@@ -5673,6 +5692,8 @@
     song.title = e.target.value;
     markEdited(song, true);
     renderSidebarSoon();
+    var tl = document.querySelector("#canvas .read-editor:not(.pv-sheet) > .rl-title");
+    if (tl) { tl.textContent = song.title; if (!song.title) tl.appendChild(document.createElement("br")); tl.classList.toggle("rl-ph", !song.title.trim()); }
   });
 
   document.getElementById("bpm-input").addEventListener("input", function (e) {
@@ -6606,8 +6627,8 @@
       pos += t.length + 1;
     });
     ed.innerHTML = "";
-    lines.forEach(function (l) { ed.appendChild(readLineEl(l.text, l.runs)); });
-    ed.classList.toggle("is-empty", !S.trim());
+    lines.forEach(function (l, i) { ed.appendChild(i === 0 ? readTitleEl(l.text, song) : readLineEl(l.text, l.runs)); });
+    markEditorPlaceholders(ed, song);
     var p0 = editorPointAt(ed, a), p1 = editorPointAt(ed, b);
     var nr = document.createRange();
     nr.setStart(p0.node, p0.offset);
@@ -8239,7 +8260,7 @@
     }
     var lh = parseFloat(getComputedStyle(ed).lineHeight) || 24, top0 = sheet.getBoundingClientRect().top, html = "";
     Array.prototype.forEach.call(ed.childNodes, function (d) {
-      if (d.nodeType !== 1) return;
+      if (d.nodeType !== 1 || d === ed.firstElementChild) return;   // (not the title)
       var t = d.textContent;
       if (!t.trim() || detectHeader(t)) return;
       var n = countSyllablesInLine(t);
@@ -8297,7 +8318,7 @@
       sheet.appendChild(gutter);
     }
     var lh = parseFloat(getComputedStyle(ed).lineHeight) || 24;
-    var divs = Array.prototype.filter.call(ed.childNodes, function (n) { return n.nodeType === 1; });
+    var divs = Array.prototype.filter.call(ed.childNodes, function (n) { return n.nodeType === 1; }).slice(1);   // (not the title)
     var groups = letterGroups(divs, function (d) { return d.textContent; });
     var result = analyzeRhymes(rhymeDict, groups.map(function (g) { return g.map(function (d) { return d.textContent; }); }));
     var html = "", colors = {}, boxHtml = "", sounds = rhymeColorsOn() && rhymeStyle() === "sounds";

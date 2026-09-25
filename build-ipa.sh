@@ -10,8 +10,8 @@ if ! xcodebuild -version >/dev/null 2>&1; then
   exit 1
 fi
 
-# Put the latest app page into the iOS project (edit www/index.html to update the app)
-cp www/index.html ios/App/App/public/index.html
+# Put the latest app page and its rhyme dictionary into the iOS project (edit www/ to update the app)
+cp www/index.html www/rhymes.js ios/App/App/public/
 
 rm -rf build Payload LyricSheet.ipa
 echo "Building… (the first build downloads Capacitor and takes a few minutes)"

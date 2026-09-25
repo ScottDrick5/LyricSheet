@@ -33,7 +33,7 @@ jobs:
         working-directory: desktop
         run: |
           mkdir -p app
-          cp ../www/index.html app/index.html
+          cp ../www/index.html ../www/rhymes.js app/
           npm ci
           npx electron-builder --mac dir --universal
           APP="$(ls -d dist/mac-universal/*.app | head -1)"

@@ -143,5 +143,6 @@ extension MusicControlPlugin {
 class LyricBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(MusicControlPlugin())
+        bridge?.registerPluginInstance(BackupPlugin())
     }
 }

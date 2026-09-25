@@ -1,5 +1,6 @@
 // Lyric Sheet — Mac desktop wrapper. The whole app is app/index.html (copied from www/index.html at build time).
-const { app, BrowserWindow, Menu, shell, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require("electron");
+const fs = require("fs");
 const path = require("path");
 const music = require("./music");
 const updater = require("./updater");
@@ -64,6 +65,7 @@ function buildMenu() {
         { role: "selectAll" },
         { type: "separator" },
         cmd("Find Song…", "CmdOrCtrl+F", "find"),
+        cmd("Find Rhymes…", "Shift+CmdOrCtrl+R", "rhymes"),
         ...(isMac
           ? [
               { type: "separator" },
@@ -231,6 +233,19 @@ ipcMain.handle("music", (_event, method, options) => {
   const allowed = ["getState", "requestAccess", "play", "pause", "next", "previous", "seek", "setRepeat"];
   if (allowed.indexOf(method) === -1) throw new Error("Unknown music command");
   return music.call(method, options);
+});
+
+// Settings > Backup: save the backup file wherever the user picks
+ipcMain.handle("save-file", async (event, name, text) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const safe = String(name || "Lyric Sheet Backup.json").replace(/[\/\\:]/g, "-");
+  const res = await dialog.showSaveDialog(win, {
+    defaultPath: path.join(app.getPath("documents"), safe),
+    filters: [{ name: "Lyric Sheet Backup", extensions: ["json"] }],
+  });
+  if (res.canceled || !res.filePath) return { saved: false };
+  await fs.promises.writeFile(res.filePath, String(text), "utf8");
+  return { saved: true, path: res.filePath };
 });
 
 // Settings > Updates (see updater.js)

@@ -6448,7 +6448,6 @@
       rhymeWord = "";
       rhymeInput.value = "";
       rhymeResults.innerHTML = '<p class="rp-empty">Type a word, or put the cursor on a word in your lyrics.</p>';
-      if (!isPhoneLayout()) rhymeInput.focus();
     }
     loadRhymes().catch(function () {});
   }
@@ -6536,15 +6535,69 @@
     }
     var hint = document.createElement("p");
     hint.className = "rp-hint";
-    hint.textContent = "Tap a word to see its rhymes.";
+    hint.textContent = isPhoneLayout() ? "Tap a word to put it in your lyrics (it replaces the word you selected)."
+      : "Click a word to put it in your lyrics (it replaces the selected word). \u2325-click to see its rhymes.";
     rhymeResults.appendChild(hint);
   }
+  // Clicking a rhyme puts it in your lyrics (replacing the selected word, or at the cursor), like the
+  // rhyme bar. With nowhere to put it, or with Option/Alt held, it shows that word's rhymes instead.
+  rhymeResults.addEventListener("mousedown", function (e) {
+    if (e.target.closest(".rp-words button")) e.preventDefault();   // keep the lyrics' cursor and selection
+  });
   rhymeResults.addEventListener("click", function (e) {
     var c = e.target.closest(".rp-words button");
     if (!c) return;
+    var word = c.textContent;
+    if (!e.altKey && restoreLyricSpot()) {
+      try { insertRhyme(word); } catch (err) { showFmtError(err); return; }
+      rhymeHold = cleanWord(word);                  // keep this list up rather than jumping to the new word's
+      if (isPhoneLayout()) closeRhymePanel();       // the sheet covers the lyrics; show what changed
+      return;
+    }
     if (rhymeWord) rhymeTrail.push(rhymeWord);
-    showRhymes(c.textContent, true);
+    showRhymes(word, true);
   });
+  // The last place you were in the lyrics, as text positions (which survive the lines being redrawn),
+  // so a click in the rhyme panel can go back there
+  var lyricSpot = null, rhymeHold = null;
+  function noteLyricSpot() {
+    if (!rhymeFinderOn() || !editingLyrics()) return;
+    var t = document.activeElement;
+    if (t.classList.contains("line-input")) { lyricSpot = { el: t, a: t.selectionStart, b: t.selectionEnd }; return; }
+    var sel = window.getSelection();
+    var r = sel.rangeCount ? sel.getRangeAt(0) : null;
+    if (!r || editorOfRange(r) !== t) return;
+    var pts = [{ node: r.startContainer, offset: r.startOffset }, { node: r.endContainer, offset: r.endOffset }];
+    walkEditor(t, pts);
+    if (pts[0].index == null) return;
+    var b = pts[1].index == null ? pts[0].index : pts[1].index;
+    lyricSpot = { ed: t, a: Math.min(pts[0].index, b), b: Math.max(pts[0].index, b) };
+  }
+  document.addEventListener("selectionchange", noteLyricSpot);
+  document.getElementById("canvas").addEventListener("keyup", noteLyricSpot);
+  document.getElementById("canvas").addEventListener("input", noteLyricSpot);
+  function restoreLyricSpot() {
+    if (editingLyrics()) return true;
+    var spot = lyricSpot;
+    if (!spot) return false;
+    if (spot.el) {
+      if (!spot.el.isConnected) return false;
+      spot.el.focus();
+      spot.el.setSelectionRange(spot.a, spot.b);
+      return true;
+    }
+    if (!spot.ed.isConnected) return false;
+    spot.ed.focus();
+    var len = walkEditor(spot.ed).text.length;
+    var p1 = editorPointAt(spot.ed, Math.min(spot.a, len)), p2 = editorPointAt(spot.ed, Math.min(spot.b, len));
+    var r = document.createRange();
+    r.setStart(p1.node, p1.offset);
+    r.setEnd(p2.node, p2.offset);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    return true;
+  }
   rhymeInput.addEventListener("input", function () {
     clearTimeout(rhymeTimer);
     rhymeTimer = setTimeout(function () {
@@ -6611,6 +6664,8 @@
       // wider screens: the open panel follows the word you're on (unless you're typing in its own box)
       if (rhymePanel.hidden || document.activeElement === rhymeInput || !editingLyrics()) return;
       var w0 = wordForRhymes();
+      if (w0 && w0 === rhymeHold) return;
+      rhymeHold = null;
       if (w0 && w0 !== rhymeWord) showRhymes(w0);
       return;
     }

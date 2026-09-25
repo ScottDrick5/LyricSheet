@@ -1,5 +1,5 @@
 // Lyric Sheet — Mac desktop wrapper. The whole app is app/index.html (copied from www/index.html at build time).
-const { app, BrowserWindow, Menu, shell, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, Menu, ShareMenu, shell, ipcMain, dialog } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const music = require("./music");
@@ -259,6 +259,14 @@ ipcMain.handle("save-file", async (event, name, text) => {
   if (res.canceled || !res.filePath) return { saved: false };
   await fs.promises.writeFile(res.filePath, String(text), "utf8");
   return { saved: true, path: res.filePath };
+});
+
+// Share a song's lyrics: the Mac's own Share menu (Messages, Mail, AirDrop, Notes…)
+ipcMain.handle("share", (event, text) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!isMac || !ShareMenu) throw new Error("Sharing needs the Mac app");
+  new ShareMenu({ texts: [String(text)] }).popup({ window: win });
+  return { shown: true };
 });
 
 // Settings > Updates (see updater.js)

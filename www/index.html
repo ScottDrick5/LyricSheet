@@ -751,7 +751,7 @@
     /* on a phone, a title in the bar gets its own row under the buttons */
     #meta-bar [data-hud="title"] { flex-basis: 100%; order: 999 !important; }
     #meta-bar .hud-spacer { order: 5 !important; }
-    #meta-bar #songs-toggle { min-height: 40px; }
+    #meta-bar #songs-toggle { min-height: var(--ctl); height: var(--ctl); }
     #editor #meta-bar { gap: 6px; }
     #meta-bar #undo-bar button { width: 36px; }
     #meta-bar #rhymes-btn { padding: 0 12px; }
@@ -2046,6 +2046,29 @@
     #hud-customize { display: none; }
     #meta-bar { padding-right: 52px !important; }
   }
+  /* ---------- one size for every control around the sheet ----------
+     Top bar, the tools under ⋯, the Write toolbar and the Read aloud player all use the same height. */
+  :root { --ctl: 36px; }
+  #meta-bar button:not(.hud-icon):not(#songs-toggle):not(#gallery-back), #meta-bar .small-input, #meta-bar #bpm-input,
+  #more-tools .metro-controls button, #more-tools .align-seg button, #more-tools .font-controls button,
+  #more-tools .small-input, #more-tools #undo-bar button, #more-tools #view-toggle button,
+  .read-toolbar .read-copy, .rhyme-toggles button, #speak-bar button {
+    height: var(--ctl) !important; min-height: var(--ctl) !important; box-sizing: border-box;
+  }
+  #meta-bar .hud-icon { width: var(--ctl); height: var(--ctl); }
+  #meta-bar #hud-more, #meta-bar #undo-bar button, .read-toolbar .read-share, .read-toolbar .read-speak,
+  #speak-bar button, .font-controls button, .align-seg button, #metro-play { min-width: var(--ctl); }
+  #meta-bar #undo-bar button, #speak-bar button { width: var(--ctl) !important; }
+  #meta-bar #rhymes-btn, #meta-bar #paste-btn, #meta-bar #history-toggle, #meta-bar #details-btn, #meta-bar #hud-more { border-radius: 18px; }
+  .rhyme-toggles button, .read-toolbar .read-copy { min-width: var(--ctl) !important; }
+  #speak-bar { gap: 6px; padding: 6px 10px; }
+  @media (max-width: 640px) {
+    #meta-bar #undo-bar button { width: var(--ctl); }
+    #meta-bar #hud-hide { width: var(--ctl); }
+    .rhyme-toggles button, .read-toolbar .read-copy { height: var(--ctl) !important; min-width: var(--ctl) !important; padding: 0 7px !important; }
+    .read-toolbar .read-share, .read-toolbar .read-speak { padding: 0 !important; width: var(--ctl); }
+    .read-toolbar, .read-toolbar .rhyme-toggles { gap: 5px !important; }
+  }
   /* ---------- Rhymes ---------- */
   body.rhymes-off [data-rhyme-ui] { display: none !important; }
   #rhymes-btn {
@@ -2239,7 +2262,35 @@
     color: var(--ink-dim); font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
     opacity: 0.75;
   }
-  .read-toolbar .read-share { padding: 0 8px; }
+  .read-toolbar .read-share, .read-toolbar .read-speak { padding: 0 8px; }
+  .read-toolbar .read-speak[aria-pressed="true"] { opacity: 1; color: var(--accent); border-color: var(--accent-dim); }
+  /* the line being read aloud */
+  #canvas .speaking { background: rgba(201,162,75,0.16); border-radius: 4px; box-shadow: 0 0 0 3px rgba(201,162,75,0.16); }
+  /* Read aloud controls: a pill at the bottom of the sheet */
+  #main { position: relative; }
+  #speak-bar {
+    position: absolute; left: 50%; transform: translateX(-50%); z-index: 43;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    display: flex; align-items: center; gap: 4px; padding: 6px 8px;
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: 28px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+  }
+  #speak-bar[hidden] { display: none; }
+  #speak-bar button {
+    width: 44px; height: 44px; border-radius: 50%; border: none; background: none; padding: 0;
+    color: var(--shell-text); display: flex; align-items: center; justify-content: center; cursor: pointer;
+    font-family: var(--font-ui); font-size: 0.85rem; font-weight: 700;
+  }
+  #speak-bar button:hover { background: var(--shell-hover); }
+  #speak-bar #speak-play { background: var(--accent); color: var(--on-accent); }
+  #speak-bar #speak-stop { color: var(--shell-text-dim); }
+  #speak-play .sp-play, #speak-play.paused .sp-pause { display: none; }
+  #speak-play.paused .sp-play { display: block; }
+  body.music-on #speak-bar { bottom: calc(var(--music-h, 64px) + 14px); }
+  @media (max-width: 640px) {
+    /* above the round new-song button */
+    #speak-bar { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+  }
   .read-toolbar { gap: 6px; }
   .read-toolbar .read-hint { margin-right: auto; padding-right: 12px; }
   .read-toolbar .read-copy:hover { opacity: 1; color: var(--ink); background: var(--tint-1); }
@@ -2344,6 +2395,13 @@
       <p><button id="empty-new-btn" class="add-section-btn" style="color:var(--shell-text);border-color:var(--shell-border);background:none;">+ New song</button></p>
     </div>
 
+    <div id="speak-bar" role="group" aria-label="Read aloud" hidden>
+      <button id="speak-back" aria-label="Back 10 seconds" title="Back 10 seconds"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6.5 2.8v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="15.3" text-anchor="middle" font-size="7.2" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor">10</text></svg></button>
+      <button id="speak-play" aria-label="Pause" title="Pause"><svg class="sp-pause" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6.5" y="5" width="3.8" height="14" rx="1.2" fill="currentColor"/><rect x="13.7" y="5" width="3.8" height="14" rx="1.2" fill="currentColor"/></svg><svg class="sp-play" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7.5 4.8v14.4L19 12z" fill="currentColor"/></svg></button>
+      <button id="speak-fwd" aria-label="Forward 10 seconds" title="Forward 10 seconds"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M17.5 2.8v4h-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="15.3" text-anchor="middle" font-size="7.2" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor">10</text></svg></button>
+      <button id="speak-rate" aria-label="Reading speed" title="Reading speed">1&times;</button>
+      <button id="speak-stop" aria-label="Stop reading" title="Stop"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
     <div id="gallery" hidden><div id="gallery-grid"></div></div>
     <div id="editor">
       <button id="songs-fab" aria-label="Back to songs"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="back-label">All Songs</span></button>
@@ -3792,6 +3850,7 @@
     var editorEl = document.getElementById("editor");
     var emptyEl = document.getElementById("empty-state");
     if (metro && metro.on && (!song || song.id !== metro.songId)) metroStop();
+    if (speak && speak.on && (!song || song.id !== speak.songId)) stopSpeaking();
     if (song && undo.id !== song.id) resetUndo(song);
 
     var showGallery = galleryWanted() && galleryOpen;
@@ -3862,6 +3921,138 @@
     if (navigator.share) return navigator.share({ title: song.title || untitled(song), text: text }).catch(function () {});
     copy();
   }
+  // ---------- Read aloud ----------
+  // Reads the title and lyrics a line at a time (headers and (notes) are skipped), highlighting the line.
+  // iPhone app: spoken by the app itself (MusicControl add-on), so the silent switch doesn't mute it.
+  // Elsewhere: the system voices through the browser's speech. Speech can't jump by the second, so
+  // the 10-second skips move by about ten seconds' worth of lines at the current speed.
+  var SPEAK_SVG = '<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3.5 7.8h2.6L10 4.6v10.8l-3.9-3.2H3.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 7.3a3.6 3.6 0 0 1 0 5.4M15.3 5.2a6.6 6.6 0 0 1 0 9.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  var SPEAK_RATES = [1, 1.25, 1.5, 0.75];
+  var speak = { on: false, paused: false, items: [], idx: 0, gen: 0, lineStart: 0, songId: null,
+    native: !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() &&
+      Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.nativePromise) };
+  function speakRate() { return SPEAK_RATES.indexOf(settings.speakRate) !== -1 ? settings.speakRate : 1; }
+  function speakItems() {
+    var out = [], t = document.querySelector("#canvas .read-title");
+    if (t && t.textContent.trim()) out.push({ text: t.textContent.trim(), el: t });
+    var ed = document.querySelector("#canvas .read-editor:not(.pv-sheet)");
+    if (ed) Array.prototype.forEach.call(ed.childNodes, function (d) {
+      if (d.nodeType !== 1) return;
+      var raw = d.textContent;
+      if (!raw.trim() || detectHeader(raw)) return;
+      var text = stripParentheticals(raw).replace(/\s+/g, " ").trim();
+      if (text) out.push({ text: text, el: d });
+    });
+    return out;
+  }
+  // about how long a line takes to say (for the 10-second skips)
+  function speakSecs(it) { return it.text.split(/\s+/).length * 60 / (165 * speakRate()) + 0.35; }
+  var webVoice = null;
+  function pickWebVoice() {
+    if (webVoice || !window.speechSynthesis) return webVoice;
+    var lang = (navigator.language || "en-US").toLowerCase(), all = speechSynthesis.getVoices();
+    var mine = all.filter(function (v) { return (v.lang || "").toLowerCase() === lang; });
+    if (!mine.length) mine = all.filter(function (v) { return (v.lang || "").toLowerCase().slice(0, 2) === lang.slice(0, 2); });
+    var rank = function (v) { return /premium/i.test(v.name) ? 3 : /enhanced/i.test(v.name) ? 2 : v.localService ? 1 : 0; };
+    mine.sort(function (a, b) { return rank(b) - rank(a); });
+    webVoice = mine[0] || null;
+    return webVoice;
+  }
+  function sayLine(text) {
+    if (speak.native) return Capacitor.nativePromise("MusicControl", "speakLine", { text: text, rate: speakRate() }).catch(function () { return { finished: false }; });
+    return new Promise(function (resolve) {
+      if (!window.speechSynthesis) return resolve({ finished: false });
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      var v = pickWebVoice();
+      if (v) u.voice = v;
+      u.rate = speakRate();
+      u.onend = function () { resolve({ finished: true }); };
+      u.onerror = function () { resolve({ finished: false }); };
+      speechSynthesis.speak(u);
+    });
+  }
+  function hushLine() {
+    if (speak.native) Capacitor.nativePromise("MusicControl", "speakStop", {}).catch(function () {});
+    else if (window.speechSynthesis) speechSynthesis.cancel();
+  }
+  function markSpeaking() {
+    Array.prototype.forEach.call(document.querySelectorAll("#canvas .speaking"), function (e) { e.classList.remove("speaking"); });
+    var it = speak.on && speak.items[speak.idx];
+    if (!it || !it.el.isConnected) return;
+    it.el.classList.add("speaking");
+    var r = it.el.getBoundingClientRect(), sc = document.getElementById("canvas-wrap").getBoundingClientRect();
+    if (r.top < sc.top + 80 || r.bottom > sc.bottom - 140) it.el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  function speakFrom(i) {
+    var g = ++speak.gen;
+    speak.idx = Math.max(0, i);
+    if (speak.idx >= speak.items.length) { stopSpeaking(); return; }
+    markSpeaking();
+    if (speak.paused) return;
+    speak.lineStart = performance.now();
+    sayLine(speak.items[speak.idx].text).then(function (res) {
+      if (g !== speak.gen || !speak.on || speak.paused) return;   // skipped, paused or stopped meanwhile
+      speakFrom(speak.idx + 1);
+    });
+  }
+  function speakControls() {
+    var bar = document.getElementById("speak-bar"), play = document.getElementById("speak-play");
+    bar.hidden = !speak.on;
+    play.classList.toggle("paused", speak.paused);
+    play.setAttribute("aria-label", speak.paused ? "Play" : "Pause");
+    play.title = speak.paused ? "Play" : "Pause";
+    document.getElementById("speak-rate").textContent = String(speakRate()).replace(/^0/, "") + "\u00d7";
+    Array.prototype.forEach.call(document.querySelectorAll(".read-speak"), function (b) { b.setAttribute("aria-pressed", String(speak.on)); });
+  }
+  function startSpeaking() {
+    flushReadSync();
+    speak.items = speakItems();
+    if (!speak.items.length) return;
+    speak.on = true; speak.paused = false; speak.songId = state.activeId;
+    // start from the line the cursor is on, if it's in the lyrics
+    var start = 0, sel = window.getSelection(), n = sel && sel.anchorNode;
+    if (n) speak.items.forEach(function (it, i) { if (it.el === n || it.el.contains(n)) start = i; });
+    speakControls();
+    speakFrom(start);
+  }
+  function stopSpeaking() {
+    if (!speak.on) return;
+    speak.on = false; speak.paused = false; speak.gen++;
+    hushLine();
+    markSpeaking();
+    speakControls();
+  }
+  function pauseSpeaking(p) {
+    speak.paused = p;
+    if (p) { speak.gen++; hushLine(); markSpeaking(); speakControls(); }
+    else { speakControls(); speakFrom(speak.idx); }   // a paused line starts again from its beginning
+  }
+  function skipSpeaking(secs) {
+    var t = 0, i;
+    for (i = 0; i < speak.idx; i++) t += speakSecs(speak.items[i]);
+    if (!speak.paused) t += Math.min(speakSecs(speak.items[speak.idx]), (performance.now() - speak.lineStart) / 1000);
+    var target = Math.max(0, t + secs), acc = 0, to = 0;
+    for (i = 0; i < speak.items.length; i++) {
+      if (acc + speakSecs(speak.items[i]) > target) { to = i; break; }
+      acc += speakSecs(speak.items[i]);
+      to = i + 1;
+    }
+    if (to >= speak.items.length) { stopSpeaking(); return; }
+    speakFrom(to);
+  }
+  document.getElementById("speak-play").addEventListener("click", function () { pauseSpeaking(!speak.paused); });
+  document.getElementById("speak-back").addEventListener("click", function () { skipSpeaking(-10); });
+  document.getElementById("speak-fwd").addEventListener("click", function () { skipSpeaking(10); });
+  document.getElementById("speak-stop").addEventListener("click", stopSpeaking);
+  document.getElementById("speak-rate").addEventListener("click", function () {
+    settings.speakRate = SPEAK_RATES[(SPEAK_RATES.indexOf(speakRate()) + 1) % SPEAK_RATES.length];
+    persistSettings();
+    speakControls();
+    if (speak.on && !speak.paused) speakFrom(speak.idx);   // the current line again, at the new speed
+  });
+  if (window.speechSynthesis && speechSynthesis.addEventListener) speechSynthesis.addEventListener("voiceschanged", function () { webVoice = null; });
+
   function copyText(text, btn) {
     var label = btn.getAttribute("data-label") || btn.textContent;
     btn.setAttribute("data-label", label);
@@ -4161,8 +4352,15 @@
     shareBtn.setAttribute("aria-label", "Share");
     shareBtn.title = note ? "Send this note to someone" : "Send these lyrics to someone";
     shareBtn.addEventListener("click", function () { shareSong(song, shareBtn); });
+    var speakBtn = document.createElement("button");
+    speakBtn.className = "read-copy read-speak";
+    speakBtn.innerHTML = SPEAK_SVG;
+    speakBtn.setAttribute("aria-label", "Read aloud");
+    speakBtn.title = note ? "Read this note aloud" : "Read the lyrics aloud";
+    speakBtn.addEventListener("click", function () { if (speak.on) stopSpeaking(); else startSpeaking(); });
     bar.appendChild(hint);
     if (!note) bar.appendChild(rhymeToggles());
+    bar.appendChild(speakBtn);
     bar.appendChild(shareBtn);
     bar.appendChild(copyBtn);
     canvas.appendChild(bar);
@@ -4269,6 +4467,12 @@
   function renderCanvas(song) {
     drawCanvas(song);
     applySearchHighlight();
+    // the sheet was redrawn while reading aloud: keep reading from the same line on the new page
+    if (speak.on) {
+      var fresh = speakItems();
+      if (fresh.length === speak.items.length) { speak.items = fresh; markSpeaking(); speakControls(); }
+      else stopSpeaking();
+    }
   }
   function drawCanvas(song) {
     document.getElementById("font-size-val").textContent = settings.fontSize;

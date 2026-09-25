@@ -1610,15 +1610,6 @@
   #canvas .line-row.search-line { background: rgba(255, 214, 0, 0.14); border-radius: 6px; }
   /* List / gallery switch (wide screens and the Mac app) */
   .songs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-  .view-style { display: none; flex-shrink: 0; border: 1px solid var(--shell-border); border-radius: 8px; overflow: hidden; }
-  .view-style button {
-    background: none; border: none; color: var(--shell-text-dim);
-    width: 30px; height: 26px; padding: 0; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .view-style button + button { border-left: 1px solid var(--shell-border); }
-  .view-style button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
-  @media (min-width: 900px) { .view-style { display: flex; } }
   /* icons at the top right of the side menu: new folder, hide the menu */
   .nav-icons { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
   .nav-icon {
@@ -1629,8 +1620,8 @@
   #new-folder-btn { color: var(--accent); }
   .sidebar-hide, #sidebar-show { display: none; }
   .folder-item.current { background: var(--tint-2); }
-  .search-row { display: flex; align-items: center; gap: 8px; }
-  .search-row .search-wrap { flex: 1; min-width: 0; }
+  .view-toggle { display: none; }
+  @media (min-width: 900px) { .view-toggle { display: flex; } }
   @media (min-width: 721px) {
     .sidebar-hide { display: flex; }
     body.sidebar-hidden #sidebar { display: none; }
@@ -2061,6 +2052,25 @@
     .read-toolbar .rhyme-toggles { margin-left: auto; }
   }
   .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Import from Apple Notes */
+  #notes-modal { position: fixed; inset: 0; background: var(--overlay); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 57; }
+  #notes-modal.open { display: flex; }
+  #notes-panel {
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: var(--radius-md);
+    width: 100%; max-width: 440px; max-height: 100%; overflow-y: auto; padding: 18px 20px; color: var(--shell-text);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #notes-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0; }
+  #notes-list { max-height: 50vh; overflow-y: auto; }
+  #notes-list:empty { display: none; }
+  #notes-list .notes-acct { padding: 8px 14px 4px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--shell-text-dim); }
+  #notes-list label { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; font-size: 0.88rem; border-top: 1px solid var(--shell-border); }
+  #notes-list label .n-count { margin-left: auto; color: var(--shell-text-dim); font-size: 0.8rem; }
+  #notes-list input { accent-color: var(--accent); width: 16px; height: 16px; }
+  #notes-status:empty { display: none; }
+  .notes-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .notes-go { background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--radius-sm); padding: 7px 18px; font-family: var(--font-ui); font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+  .notes-go:disabled { opacity: 0.45; cursor: default; }
   .about-name { margin: 2px 0 0; font-family: var(--font-lyric); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
   .beta-badge {
     font-family: var(--font-ui); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
@@ -2102,18 +2112,12 @@
       <div class="songs-head">
         <h2 class="nav-title">Folders</h2>
         <div class="nav-icons">
-
+          <button class="nav-icon view-toggle" aria-label="Show as gallery" title="Show as gallery"></button>
           <button id="new-folder-btn" class="nav-icon" aria-label="New folder" title="New folder"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M2.5 5.5c0-.9.7-1.7 1.7-1.7h3.6l1.7 1.8h6.3c.9 0 1.7.8 1.7 1.7v6.9c0 .9-.8 1.7-1.7 1.7H4.2c-1 0-1.7-.8-1.7-1.7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 8.3v4.6M7.7 10.6h4.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
           <button class="nav-icon sidebar-hide" aria-label="Hide sidebar" title="Hide sidebar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 3.8v12.4" stroke="currentColor" stroke-width="1.6"/><path d="M5 7.5h0.01M5 10h0.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
       </div>
-      <div class="search-row">
-        <div class="search-wrap"><input id="folder-search" type="search" placeholder="Search songs" aria-label="Search all songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
-        <div class="view-style" role="group" aria-label="Show songs as">
-          <button data-style="list" aria-label="List" title="List"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg></button>
-          <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
-        </div>
-      </div>
+      <div class="search-wrap"><input id="folder-search" type="search" placeholder="Search songs and lyrics" aria-label="Search all songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
       <div id="folder-list"></div>
     </div>
     <div id="songs-view" class="nav-view">
@@ -2121,10 +2125,7 @@
       <div class="songs-head">
         <h2 id="folder-title" class="nav-title">All Songs</h2>
         <div class="nav-icons">
-        <div id="view-style" class="view-style" role="group" aria-label="Show songs as">
-          <button data-style="list" aria-label="List" title="List"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg></button>
-          <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
-        </div>
+          <button class="nav-icon view-toggle" aria-label="Show as gallery" title="Show as gallery"></button>
           <button class="nav-icon sidebar-hide" aria-label="Hide sidebar" title="Hide sidebar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 3.8v12.4" stroke="currentColor" stroke-width="1.6"/><path d="M5 7.5h0.01M5 10h0.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
       </div>
@@ -2320,6 +2321,10 @@
           <div class="set-text"><span>Restore from a backup</span><small>Add songs back from a backup file</small></div>
           <button id="restore-btn" class="setting-btn">Restore…</button>
         </div>
+        <div class="set-item" id="notes-import-item" hidden>
+          <div class="set-text"><span>Import from Apple Notes</span><small>Bring in whole Notes folders, into folders of the same name</small></div>
+          <button id="notes-import-btn" class="setting-btn">Import…</button>
+        </div>
         <div class="set-item">
           <div class="set-text"><span>Welcome song</span><small>The song with tips on how Lyric Sheet works</small></div>
           <button id="welcome-btn" class="setting-btn">Show</button>
@@ -2371,6 +2376,19 @@
         </div>
       </div>
     </section>
+  </div>
+</div>
+
+<div id="notes-modal" role="dialog" aria-modal="true" aria-labelledby="notes-title">
+  <div id="notes-panel">
+    <h2 id="notes-title">Import from Apple Notes</h2>
+    <p class="setting-help" id="notes-intro">Pick the Notes folders to bring in. Each note becomes a song in a Lyric Sheet folder with the same name, keeping the date it was created. Your notes in Notes aren't changed.</p>
+    <div id="notes-list" class="set-card"></div>
+    <p class="setting-help" id="notes-status" aria-live="polite"></p>
+    <div class="notes-actions">
+      <button id="notes-cancel" class="setting-btn">Cancel</button>
+      <button id="notes-go" class="notes-go" disabled>Import</button>
+    </div>
   </div>
 </div>
 
@@ -2908,10 +2926,31 @@
       { label: "Details", fn: function () { openDetails(song); } },
       { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
+      { label: "Remove section headers", disabled: !song.sections.some(function (x) { return x.type; }),
+        fn: function () { removeSectionHeaders(song); } },
       { label: "Delete song", danger: true, fn: function () {
         askConfirm('Move "' + title + '" to Recently Deleted? You can restore it for ' + TRASH_DAYS + ' days.', "Delete song", true, function () { deleteSong(song); });
       } }
     ]);
+  }
+  // Turns a song back into a plain body with no [Verse] / [Chorus] headers (e.g. ones added to older
+  // songs that never had any). The headers are kept in Version history, and Undo brings them back.
+  function removeSectionHeaders(song) {
+    if (song.id === state.activeId) flushReadSync();
+    if (addVersionIfChanged(song)) persistSongs();
+    var lines = [], fmt = [], any = false;
+    song.sections.forEach(function (sec) {
+      var t = tidyWithFmt(sec.lines, sec.fmt);
+      if (!t.lines.length) return;
+      if (lines.length) { lines.push(""); fmt.push(null); }
+      t.lines.forEach(function (l, i) { lines.push(l); fmt.push(t.fmt[i] || null); if (t.fmt[i]) any = true; });
+    });
+    var merged = { id: newSectionId(), type: "", note: "", lines: lines.length ? lines : [""] };
+    if (any) merged.fmt = fmt;
+    song.sections = [merged];
+    markEdited(song);
+    persistSongs();
+    renderAll();
   }
   function moveMenu(song) {
     var current = songFolderId(song);
@@ -2992,12 +3031,13 @@
   });
   document.getElementById("folders-back").addEventListener("click", function () { setNav("folders"); });
 
-  // Song list headings by when a song was last edited: Today, Previous 30 Days,
+  // Song list headings by when a song was last edited: Today, Previous 7 Days, Previous 30 Days,
   // then each earlier month of this year by name, then each earlier year (2025, 2024…)
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   function editGroup(ts, now) {
     var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     if (ts >= today) return "Today";
+    if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).getTime()) return "Previous 7 Days";
     if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).getTime()) return "Previous 30 Days";
     var d = new Date(ts);
     if (d.getFullYear() === now.getFullYear()) return MONTHS[d.getMonth()];
@@ -3022,9 +3062,15 @@
   function galleryWanted() {
     return settings.songView === "gallery" && !!(wideQuery && wideQuery.matches) && nav.folder !== "trash";
   }
+  var VIEW_LIST_SVG = '<svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg>';
+  var VIEW_GALLERY_SVG = '<svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
   function updateViewStyleButtons() {
-    Array.prototype.forEach.call(document.querySelectorAll(".view-style button"), function (b) {
-      b.setAttribute("aria-pressed", String(b.getAttribute("data-style") === (settings.songView || "list")));
+    // one button that switches to the other view, showing that view's icon
+    var gal = settings.songView === "gallery";
+    Array.prototype.forEach.call(document.querySelectorAll(".view-toggle"), function (b) {
+      b.innerHTML = gal ? VIEW_LIST_SVG : VIEW_GALLERY_SVG;
+      b.title = gal ? "Show as list" : "Show as gallery";
+      b.setAttribute("aria-label", b.title);
     });
   }
   function setSongView(style) {
@@ -3092,8 +3138,8 @@
       grid.appendChild(card);
     });
   }
-  Array.prototype.forEach.call(document.querySelectorAll(".view-style button"), function (b) {
-    b.addEventListener("click", function () { setSongView(b.getAttribute("data-style")); });
+  Array.prototype.forEach.call(document.querySelectorAll(".view-toggle"), function (b) {
+    b.addEventListener("click", function () { setSongView(settings.songView === "gallery" ? "list" : "gallery"); });
   });
   // Hide / show the side menu (wider screens); remembered
   function setSidebarHidden(h) {
@@ -3342,8 +3388,10 @@
     song.sections.forEach(function (s, i) {
       var t = tidyWithFmt(s.lines, s.fmt);
       if (i > 0) { push(""); push(""); }
-      push("[" + s.type + "]" + (s.note && s.note.trim() ? " (" + s.note.trim() + ")" : ""));
-      if (t.lines.length) push("");
+      if (s.type) {
+        push("[" + s.type + "]" + (s.note && s.note.trim() ? " (" + s.note.trim() + ")" : ""));
+        if (t.lines.length) push("");
+      }
       t.lines.forEach(function (l, j) { push(l, t.fmt[j]); });
     });
     return out;
@@ -3951,17 +3999,17 @@
       var sel = document.createElement("select");
       sel.className = "section-type-select " + typeClass(section.type);
       sel.setAttribute("aria-label", "Section header");
-      var opts = SECTION_TYPES.concat(settings.savedHeaders);
+      var opts = [""].concat(SECTION_TYPES, settings.savedHeaders);
       if (opts.indexOf(section.type) === -1) opts = [section.type].concat(opts);
       opts.forEach(function (t) {
         var o = document.createElement("option");
-        o.value = t; o.textContent = t;
+        o.value = t; o.textContent = t || "No header";
         if (t === section.type) o.selected = true;
         sel.appendChild(o);
       });
       var custom = document.createElement("option");
       custom.value = "__custom__";
-      custom.textContent = isBuiltIn(section.type) ? "Custom header…" : "Rename header…";
+      custom.textContent = isBuiltIn(section.type) || !section.type ? "Custom header…" : "Rename header…";
       sel.appendChild(custom);
 
       sel.addEventListener("change", function () {
@@ -3972,7 +4020,7 @@
       });
       wrap.appendChild(sel);
 
-      if (!isBuiltIn(section.type)) {
+      if (section.type && !isBuiltIn(section.type)) {
         var saved = savedIndex(section.type) !== -1;
         var star = document.createElement("button");
         star.className = "header-save" + (saved ? " saved" : "");
@@ -3996,7 +4044,7 @@
       input.className = "header-custom-input";
       input.placeholder = "e.g. Pre-Chorus, Hook, Outro";
       input.maxLength = 40;
-      input.value = isBuiltIn(section.type) ? "" : section.type;
+      input.value = isBuiltIn(section.type) ? "" : section.type || "";
       var done = false;
       function commit(keep) {
         if (done) return;
@@ -4228,8 +4276,7 @@
       }
       if (!line) {
         if (!cur) return;
-        if (cur.explicit) { cur.lines.push(""); cur.fmt.push(null); return; } // keep stanza breaks inside a labeled section
-        if (cur.lines.length) cur = null;                 // unlabeled text: blank line starts a new block
+        cur.lines.push(""); cur.fmt.push(null);           // keep stanza breaks as written
         return;
       }
       if (!cur) {
@@ -4242,16 +4289,9 @@
 
     sections.forEach(function (s) { var t = tidyWithFmt(s.lines, s.fmt); s.lines = t.lines; s.fmt = t.fmt; });
 
-    var counts = {};
-    sections.forEach(function (s) {
-      if (!s.explicit) {
-        var k = s.lines.join("\n").toLowerCase();
-        counts[k] = (counts[k] || 0) + 1;
-      }
-    });
     var out = sections.filter(function (s) { return s.explicit || s.lines.length; }).map(function (s) {
-      var type = s.type;
-      if (!s.explicit) type = counts[s.lines.join("\n").toLowerCase()] > 1 ? "Chorus" : "Verse";
+      // text without a section name stays a plain body with no header (type ""): no Verse / Chorus is made up
+      var type = s.explicit ? s.type : "";
       var sec = { id: newSectionId(), type: type, note: s.note, explicit: s.explicit, lines: s.lines.length ? s.lines : [""] };
       if (s.lines.length && s.fmt.some(function (f) { return f; })) sec.fmt = s.fmt;
       return sec;
@@ -5979,6 +6019,7 @@
       case "mode-basic": setViewMode("read"); break;
       case "view-list": setSongView("list"); break;
       case "customize-bar": openHudPanel(); break;
+      case "import-notes": if (window.__openNotesImport) window.__openNotesImport(); break;
       case "toggle-sidebar": setSidebarHidden(!document.body.classList.contains("sidebar-hidden")); break;
       case "rhyme-letters": settings.rhymeLetters = !rhymeLettersOn(); persistSettings(); applyRhymeSettings(); break;
       case "rhyme-colors": settings.rhymeColors = !rhymeColorsOn(); persistSettings(); applyRhymeSettings(); break;
@@ -6376,6 +6417,161 @@
         var msg = String(err && err.message || err);
         say("Couldn't check for updates", /404/.test(msg) ? "No releases have been published yet." : "Check your internet connection and try again.");
       });
+    });
+  })();
+
+  // ---------- Import from Apple Notes (Mac app) ----------
+  // Reads Notes folders through desktop/notes.js; each note becomes a song (its first line the title)
+  // in a Lyric Sheet folder with the same name. Notes already imported are skipped.
+  (function () {
+    var desk = window.lyricDesktop;
+    if (!desk || !desk.notes) return;
+    document.getElementById("notes-import-item").hidden = false;
+    var modal = document.getElementById("notes-modal"), list = document.getElementById("notes-list");
+    var status = document.getElementById("notes-status"), go = document.getElementById("notes-go");
+    var cancelBtn = document.getElementById("notes-cancel"), busy = false, found = [];
+    function errText(err) { return String(err && err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, ""); }
+    function checked() {
+      return Array.prototype.filter.call(list.querySelectorAll("input:checked"), function () { return true; })
+        .map(function (b) { return found[+b.value]; });
+    }
+    function refreshGo() {
+      var n = checked().reduce(function (sum, f) { return sum + f.count; }, 0);
+      go.disabled = busy || !n;
+      go.textContent = n ? "Import " + n + (n === 1 ? " note" : " notes") : "Import";
+    }
+    function open() {
+      closeSettings();
+      modal.classList.add("open");
+      cancelBtn.textContent = "Cancel";
+      list.innerHTML = "";
+      status.textContent = "Reading your Notes folders\u2026 (the first time, allow Lyric Sheet to control Notes)";
+      go.disabled = true;
+      go.textContent = "Import";
+      desk.notes("folders").then(function (folders) {
+        found = folders.filter(function (f) { return f.count > 0; });
+        if (!found.length) { status.textContent = "No Notes folders with notes in them were found."; return; }
+        status.textContent = "";
+        var lastAcct = null;
+        found.forEach(function (f, i) {
+          if (f.account !== lastAcct) {
+            var h = document.createElement("div");
+            h.className = "notes-acct";
+            h.textContent = f.account;
+            list.appendChild(h);
+            lastAcct = f.account;
+          }
+          var l = document.createElement("label");
+          var box = document.createElement("input");
+          box.type = "checkbox";
+          box.value = String(i);
+          var name = document.createElement("span");
+          name.textContent = f.path;
+          var c = document.createElement("span");
+          c.className = "n-count";
+          c.textContent = f.count + (f.count === 1 ? " note" : " notes");
+          l.appendChild(box); l.appendChild(name); l.appendChild(c);
+          list.appendChild(l);
+        });
+      }, function (err) { status.textContent = errText(err); });
+    }
+    function close() { if (!busy) modal.classList.remove("open"); }
+    list.addEventListener("change", refreshGo);
+    cancelBtn.addEventListener("click", close);
+    modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && modal.classList.contains("open")) close(); });
+    document.getElementById("notes-import-btn").addEventListener("click", open);
+    window.__openNotesImport = open;
+
+    // A note's HTML (as Notes stores it) as plain lines of text
+    function noteText(html) {
+      var doc = new DOMParser().parseFromString(html || "", "text/html"), out = "";
+      function nl() { if (out && out.charAt(out.length - 1) !== "\n") out += "\n"; }
+      (function walk(n) {
+        for (var c = n.firstChild; c; c = c.nextSibling) {
+          if (c.nodeType === 3) { out += c.data.replace(/\s*\n\s*/g, " "); continue; }
+          if (c.nodeType !== 1) continue;
+          var tag = c.nodeName;
+          if (tag === "BR") { out += "\n"; continue; }
+          if (tag === "IMG" || tag === "OBJECT" || tag === "STYLE" || tag === "SCRIPT") continue;
+          var block = /^(DIV|P|LI|H[1-6]|TR|UL|OL|TABLE|BLOCKQUOTE|PRE)$/.test(tag);
+          if (block) nl();
+          walk(c);
+          if (block) nl();
+        }
+      })(doc.body || doc);
+      return out.replace(/\u00a0/g, " ").replace(/[ \t]+\n/g, "\n");
+    }
+    function folderNamed(name) {
+      var low = name.trim().toLowerCase();
+      var f = folderStore.folders.filter(function (x) { return (x.name || "").trim().toLowerCase() === low; })[0];
+      return f || createFolder(name.trim());
+    }
+    function isoDay(t) {
+      var d = new Date(t), two = function (n) { return (n < 10 ? "0" : "") + n; };
+      return d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+    }
+    function songFromNote(note, folderId) {
+      var text = noteText(note.html), lines = text.split("\n");
+      while (lines.length && !lines[0].trim()) lines.shift();
+      var title = (note.name || "").trim();
+      if (lines.length && lines[0].trim() === title) lines.shift();   // Notes' title is its first line
+      if (!title && lines.length) title = lines.shift().trim();
+      var song = newSong();
+      song.title = title;
+      var parsed = stripParseFlags(parseSong(lines.join("\n"), false).sections);
+      if (parsed.length) song.sections = parsed;
+      song.createdAt = note.created;
+      song.lastEditedAt = Math.max(note.modified, note.created);
+      song.editLog = [song.lastEditedAt];
+      song.writtenOn = isoDay(note.created);
+      song.writtenOnSetAt = Date.now();
+      song.folderId = folderId;
+      song.notesId = note.id;
+      return song;
+    }
+    go.addEventListener("click", function () {
+      var picked = checked();
+      if (!picked.length || busy) return;
+      busy = true;
+      refreshGo();
+      cancelBtn.disabled = true;
+      flushReadSync();
+      var have = {};
+      state.songs.forEach(function (s) { if (s.notesId) have[s.notesId] = true; });
+      var added = 0, skippedLocked = 0, skippedDup = 0, lastFolder = null, i = 0;
+      function next() {
+        if (i >= picked.length) return finish();
+        var f = picked[i++];
+        status.textContent = "Importing \u201C" + f.name + "\u201D (" + f.count + (f.count === 1 ? " note" : " notes") + ")\u2026";
+        desk.notes("notes", f.id).then(function (notes) {
+          var target = folderNamed(f.name);
+          lastFolder = target.id;
+          notes.forEach(function (n) {
+            if (n.locked) { skippedLocked++; return; }
+            if (have[n.id]) { skippedDup++; return; }
+            state.songs.push(songFromNote(n, target.id));
+            have[n.id] = true;
+            added++;
+          });
+          next();
+        }, function (err) { finish(errText(err)); });
+      }
+      function finish(error) {
+        busy = false;
+        cancelBtn.disabled = false;
+        if (added) { saveFolders(); persistSongs(); }
+        var parts = [added + (added === 1 ? " note" : " notes") + " imported"];
+        if (skippedDup) parts.push(skippedDup + " already imported");
+        if (skippedLocked) parts.push(skippedLocked + " locked (unlock them in Notes to import)");
+        status.textContent = (error ? error + " " : "") + parts.join(", ") + ".";
+        list.querySelectorAll("input").forEach(function (b) { b.checked = false; });
+        refreshGo();
+        cancelBtn.textContent = "Done";
+        if (added && lastFolder) setNav("songs", lastFolder);
+        renderAll();
+      }
+      next();
     });
   })();
 

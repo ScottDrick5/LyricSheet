@@ -1,5 +1,5 @@
 // Lets the Mac menu bar and right-click menu send commands to the page, and the page use the
-// Music / Spotify controls, check for updates and save backup files (nothing else is exposed).
+// Music / Spotify controls, check for updates, save backup files and read Apple Notes for importing (nothing else is exposed).
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("lyricDesktop", {
@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld("lyricDesktop", {
   music: (method, options) => ipcRenderer.invoke("music", method, options || {}),
   updates: (action) => ipcRenderer.invoke("updates", action),
   saveFile: (name, text) => ipcRenderer.invoke("save-file", name, text),
+  notes: (action, arg) => ipcRenderer.invoke("notes", action, arg),
 });

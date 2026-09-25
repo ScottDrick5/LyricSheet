@@ -105,6 +105,12 @@
     display: flex;
     height: 100%;
   }
+  /* iPhone with the keyboard up: the app fills just the part of the screen above the keyboard */
+  body.kb-open #app {
+    position: fixed; left: 0; right: 0;
+    top: calc(var(--vv-top, 0px) + env(safe-area-inset-top, 0px));
+    height: calc(var(--vv-h, 100%) - env(safe-area-inset-top, 0px));
+  }
 
   /* ---------- Sidebar ---------- */
   #sidebar {
@@ -1516,7 +1522,8 @@
     cursor: pointer;
   }
   .read-copy:hover { color: var(--ink); background: var(--tint-2); }
-  .read-title[contenteditable] { outline: none; cursor: text; }
+  .read-title[contenteditable] { outline: none; cursor: text; min-height: 1.2em; }
+  .build-title .read-title { font-family: var(--font-lyric); margin: 4px 0 18px; }
   .read-title:empty::before { content: attr(data-placeholder); color: var(--ink-dim); opacity: 0.6; }
   .read-title {
     font-weight: 600;
@@ -2938,7 +2945,7 @@
       sec("Verse", [
         "Just start typing: the whole page is yours",
         "Start a section by typing its name, like Chorus or [Verse 2]",
-        "On a new song, type a title and press Return twice"
+        "Tap the title at the top of a song to name it or change it"
       ]),
       chorus,
       sec("Bridge", [
@@ -4171,6 +4178,31 @@
     if (readSync.song && readSync.el) applyReadDom(readSync.song, readSync.el);
   }
 
+  // The song's title as a heading on the sheet (Write and Build), edited in place
+  function sheetTitle(song, onEnter) {
+    var t = document.createElement("h2");
+    t.className = "read-title";
+    t.textContent = song.title;
+    t.setAttribute("contenteditable", "plaintext-only");
+    if (t.contentEditable !== "plaintext-only") t.setAttribute("contenteditable", "true");
+    t.setAttribute("role", "textbox");
+    t.setAttribute("aria-label", "Title");
+    t.setAttribute("data-placeholder", isNote(song) ? "Title" : "Song title");
+    t.spellcheck = false;
+    t.addEventListener("input", function () {
+      song.title = t.textContent.replace(/\s*\n\s*/g, " ");
+      if (!t.textContent.trim()) t.textContent = "";   // back to the placeholder
+      document.getElementById("title-input").value = song.title;
+      markEdited(song, true);
+      renderSidebarSoon();
+    });
+    t.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      onEnter();
+    });
+    return t;
+  }
   function renderReading(song) {
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
@@ -4202,35 +4234,16 @@
     sheet.style.fontSize = settings.fontSize + "px";
     sheet.style.setProperty("--lyric-px", settings.fontSize + "px");
 
-    if (song.title.trim()) {
-      // the title is edited right here on the sheet (tap it); Return goes on to the lyrics
-      var t = document.createElement("h2");
-      t.className = "read-title";
-      t.textContent = song.title;
-      t.setAttribute("contenteditable", "plaintext-only");
-      if (t.contentEditable !== "plaintext-only") t.setAttribute("contenteditable", "true");
-      t.setAttribute("role", "textbox");
-      t.setAttribute("aria-label", "Title");
-      t.setAttribute("data-placeholder", untitled(song));
-      t.spellcheck = false;
-      t.addEventListener("input", function () {
-        song.title = t.textContent.replace(/\s*\n\s*/g, " ");
-        document.getElementById("title-input").value = song.title;
-        markEdited(song, true);
-        renderSidebarSoon();
-      });
-      t.addEventListener("keydown", function (e) {
-        if (e.key !== "Enter") return;
-        e.preventDefault();
-        var ed2 = sheet.querySelector(".read-editor");
-        if (!ed2) return;
-        ed2.focus();
-        var r = document.createRange(), sel = window.getSelection();
-        r.setStart(ed2, 0); r.collapse(true);
-        sel.removeAllRanges(); sel.addRange(r);
-      });
-      sheet.appendChild(t);
-    }
+    // the title is always on the sheet, even before there is one: tap it to add or change it;
+    // Return goes on to the lyrics
+    sheet.appendChild(sheetTitle(song, function () {
+      var ed2 = sheet.querySelector(".read-editor");
+      if (!ed2) return;
+      ed2.focus();
+      var r = document.createRange(), sel = window.getSelection();
+      r.setStart(ed2, 0); r.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r);
+    }));
 
     var ed = document.createElement("div");
     ed.className = "read-editor";
@@ -4313,6 +4326,14 @@
     topBar.className = "read-toolbar sections-toolbar";
     topBar.appendChild(rhymeToggles(true));   // Build: letters only (its line boxes can't show colored words)
     canvas.appendChild(topBar);
+    var titleWrap = document.createElement("div");
+    titleWrap.className = "build-title";
+    titleWrap.style.fontSize = settings.fontSize + "px";
+    titleWrap.appendChild(sheetTitle(song, function () {
+      var first = canvas.querySelector(".line-input");
+      if (first) first.focus();
+    }));
+    canvas.appendChild(titleWrap);
 
     song.sections.forEach(function (section, sIdx) {
       var block = document.createElement("div");
@@ -5602,7 +5623,9 @@
     document.getElementById("song-search").value = "";
     openInBasic();
     renderAll();
-    document.getElementById("title-input").focus();
+    // start on the title at the top of the sheet (Return goes on to the lyrics)
+    var sheetT = document.querySelector("#canvas .read-title");
+    if (sheetT) sheetT.focus(); else document.getElementById("title-input").focus();
   });
 
   document.getElementById("new-fab").addEventListener("click", function () {
@@ -5615,6 +5638,31 @@
     return el.nodeName === "INPUT" && !/^(range|checkbox|radio|button|submit|color|file)$/i.test(el.type);
   }
   document.addEventListener("focusin", function (e) { document.body.classList.toggle("is-typing", isTypingTarget(e.target)); });
+  // iPhone: when the keyboard opens, iOS slides the whole page up to show the cursor, which pushed the
+  // top bar under the Dynamic Island. While the keyboard is up, the app is fitted to the part of the
+  // screen above it instead (the sheet scrolls inside), so the bar stays in view.
+  (function () {
+    var vv = window.visualViewport;
+    if (!vv || !(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) return;
+    var root = document.documentElement;
+    function fit() {
+      var open = vv.height < window.innerHeight - 80;
+      document.body.classList.toggle("kb-open", open);
+      root.style.setProperty("--vv-top", vv.offsetTop + "px");
+      root.style.setProperty("--vv-h", vv.height + "px");
+      if (!open) return;
+      // keep the cursor in view inside the sheet
+      var sel = window.getSelection(), wrap = document.getElementById("canvas-wrap");
+      if (!sel || !sel.rangeCount || !wrap || !wrap.contains(sel.anchorNode)) return;
+      var r = sel.getRangeAt(0).getBoundingClientRect(), w = wrap.getBoundingClientRect();
+      if (!r.height) return;
+      if (r.bottom > w.bottom - 16) wrap.scrollTop += r.bottom - w.bottom + 40;
+      else if (r.top < w.top + 60) wrap.scrollTop -= w.top + 60 - r.top;
+    }
+    vv.addEventListener("resize", fit);
+    vv.addEventListener("scroll", fit);
+    document.addEventListener("selectionchange", function () { if (document.body.classList.contains("kb-open")) fit(); });
+  })();
   document.addEventListener("focusout", function () {
     setTimeout(function () { document.body.classList.toggle("is-typing", isTypingTarget(document.activeElement)); }, 0);
   });

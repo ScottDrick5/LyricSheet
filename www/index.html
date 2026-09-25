@@ -1948,6 +1948,28 @@
   html[data-theme="light"] ::highlight(rh-0) { color: #a87412; } html[data-theme="light"] ::highlight(rh-1) { color: #2272b5; }
   html[data-theme="light"] ::highlight(rh-2) { color: #b93d67; } html[data-theme="light"] ::highlight(rh-3) { color: #28855a; }
   html[data-theme="light"] ::highlight(rh-4) { color: #7254ba; } html[data-theme="light"] ::highlight(rh-5) { color: #b9591a; }
+  /* quick switches on the sheet for the rhyme letters and colors */
+  .rhyme-toggles { display: flex; gap: 6px; flex-shrink: 0; align-self: flex-start; }
+  .rhyme-toggles button {
+    display: flex; align-items: center; justify-content: center; gap: 3px;
+    min-width: 36px; height: 29px; padding: 0 8px;
+    background: none; border: 1px solid var(--paper-edge); border-radius: var(--radius-sm);
+    color: var(--ink-dim); font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+    cursor: pointer; opacity: 0.75;
+  }
+  .rhyme-toggles button[aria-pressed="true"] { background: var(--tint-2); border-color: var(--accent-dim); color: var(--accent); opacity: 1; }
+  .rhyme-toggles .rt-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(1) { background: #e0ad4a; }
+  .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(2) { background: #62b1ee; }
+  .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(3) { background: #ea7aa3; }
+  .read-toolbar .read-copy { align-self: flex-start; }
+  .sections-toolbar { margin-bottom: 4px; }
+  @media (max-width: 640px) {
+    .rhyme-toggles button { height: 34px; min-width: 40px; }
+    .read-toolbar { flex-wrap: wrap; row-gap: 8px; }
+    .read-toolbar .read-hint { flex-basis: 100%; }
+    .read-toolbar .rhyme-toggles { margin-left: auto; }
+  }
   .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   #backup-status:empty { display: none; }
 </style>
@@ -3453,6 +3475,7 @@
     copyBtn.textContent = "Copy lyrics";
     copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
     bar.appendChild(hint);
+    bar.appendChild(rhymeToggles());
     bar.appendChild(copyBtn);
     canvas.appendChild(bar);
 
@@ -3542,6 +3565,10 @@
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
     canvas.style.setProperty("--lyric-size", settings.fontSize + "px");
+    var topBar = document.createElement("div");
+    topBar.className = "read-toolbar sections-toolbar";
+    topBar.appendChild(rhymeToggles());
+    canvas.appendChild(topBar);
 
     song.sections.forEach(function (section, sIdx) {
       var block = document.createElement("div");
@@ -5778,6 +5805,8 @@
       case "mode-basic": setViewMode("read"); break;
       case "view-list": setSongView("list"); break;
       case "customize-bar": openHudPanel(); break;
+      case "rhyme-letters": settings.rhymeLetters = !rhymeLettersOn(); persistSettings(); applyRhymeSettings(); break;
+      case "rhyme-colors": settings.rhymeColors = !rhymeColorsOn(); persistSettings(); applyRhymeSettings(); break;
       case "rhymes": if (rhymeFinderOn()) { if (rhymeBarOn()) openRhymePanel(); else setRhymeBar(true); } break;
       case "view-gallery": setSongView("gallery"); break;
       case "mode-advanced": setViewMode("edit"); break;
@@ -6826,7 +6855,25 @@
     });
   })();
 
+  // The ABC / color-dot switches at the top of the sheet. Pressing (not clicking) keeps the cursor and keyboard.
+  function rhymeToggles() {
+    var box = document.createElement("div");
+    box.className = "rhyme-toggles";
+    box.innerHTML =
+      '<button class="rt-letters" aria-pressed="' + rhymeLettersOn() + '" aria-label="Rhyme letters" title="Rhyme letters (A, B, C… beside each line)">ABC</button>' +
+      '<button class="rt-colors" aria-pressed="' + rhymeColorsOn() + '" aria-label="Rhyme colors" title="Rhyme colors (color the rhyming words)">' +
+      '<span class="rt-dot"></span><span class="rt-dot"></span><span class="rt-dot"></span></button>';
+    onPress(box, function (b) {
+      if (b.classList.contains("rt-letters")) settings.rhymeLetters = !rhymeLettersOn();
+      else settings.rhymeColors = !rhymeColorsOn();
+      persistSettings();
+      applyRhymeSettings();
+    });
+    return box;
+  }
   function applyRhymeSettings() {
+    Array.prototype.forEach.call(document.querySelectorAll(".rt-letters"), function (b) { b.setAttribute("aria-pressed", String(rhymeLettersOn())); });
+    Array.prototype.forEach.call(document.querySelectorAll(".rt-colors"), function (b) { b.setAttribute("aria-pressed", String(rhymeColorsOn())); });
     document.body.classList.toggle("rhymes-off", !rhymeFinderOn());
     document.getElementById("rhymefind-switch").setAttribute("aria-checked", String(rhymeFinderOn()));
     document.getElementById("rhymeletters-switch").setAttribute("aria-checked", String(rhymeLettersOn()));

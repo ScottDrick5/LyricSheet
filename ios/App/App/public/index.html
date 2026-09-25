@@ -6190,7 +6190,10 @@
   }
   // Sounds that are close enough for a near rhyme ("time" / "mine", "love" / "enough", "heart" / "dark")
   var NEAR_CLASS = { M: "N", N: "N", NG: "N", P: "K", B: "K", T: "K", D: "K", K: "K", G: "K",
-    F: "F", V: "F", TH: "F", DH: "F", S: "S", Z: "S", SH: "C", ZH: "C", CH: "C", JH: "C" };
+    F: "F", V: "F", TH: "F", DH: "F", S: "S", Z: "S", SH: "S", ZH: "S", CH: "S", JH: "S" };
+  // Vowels close enough for a slant rhyme ("satisfied" / "God", "pain" / "again")
+  var VOWEL_FAMILY = { AA: "a", AO: "a", AW: "a", AY: "a", AE: "e", EH: "e", EY: "e", IH: "i", IY: "i",
+    UH: "u", UW: "u", OW: "u", AH: "ah", ER: "er", OY: "oy" };
   function buildRhymeDict(raw) {
     var sym = raw.symbols.split(" "), alpha = raw.alphabet, info = {};
     for (var i = 0; i < sym.length; i++) {
@@ -6222,15 +6225,21 @@
     }
     return (dict.maps = maps);
   }
-  // The rhyming part of a word: from its last stressed vowel to the end
+  // For slant rhymes, a final t/d/k-type sound after another consonant doesn't count ("soul" / "gold", "time" / "mind")
+  function slantEnd(rest) {
+    var n = rest.length;
+    return n >= 2 && rest[n - 1] === "K" && rest[n - 2] !== "@" ? rest.slice(0, -1) : rest;
+  }
+  // The rhyming part of a word: from its last stressed vowel to the end. That includes a lighter
+  // (secondary) stress, the way songs rhyme: "satisfied" rhymes on "-fied", "sunshine" on "-shine".
   function rhymeKeys(ph) {
-    var at = -1, best = -1;
+    var at = -1, last = -1;
     for (var i = 0; i < ph.length; i++) {
       if (ph[i].stress < 0) continue;
-      var rank = ph[i].stress === 1 ? 3 : ph[i].stress === 2 ? 2 : 1;
-      if (rank >= best) { best = rank; at = i; }
+      last = i;
+      if (ph[i].stress > 0) at = i;
     }
-    if (at < 0) at = 0;
+    if (at < 0) at = last < 0 ? 0 : last;
     var tail = ph.slice(at), perfect = [], near = [], after = 0;
     tail.forEach(function (p, j) {
       if (p.stress >= 0) {
@@ -6243,8 +6252,10 @@
       }
     });
     // a final s/z (plurals, "lines" / "time") doesn't stop a near rhyme
-    if (near.length > 1 && near[near.length - 1] === "S") near.pop();
+    var end = tail[tail.length - 1].name;
+    if (near.length > 1 && (end === "S" || end === "Z")) near.pop();
     return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after,
+             slant: (VOWEL_FAMILY[tail[0].name] || tail[0].name) + " " + slantEnd(near.slice(1)).join(" "),
              syllables: ph.filter(function (p) { return p.stress >= 0; }).length };
   }
   function cleanWord(w) {
@@ -6301,18 +6312,22 @@
     for (var i = t.length - 1; i >= 0; i--) if (cleanWord(t[i])) return cleanWord(t[i]);
     return "";
   }
+  // Lines rhyme if their endings are a near rhyme, or a slant rhyme (close vowels, same ending)
   function rhymeLetters(dict, lines) {
     var keys = [], letters = [], next = 0, count = {};
     lines.forEach(function (line, i) {
-      if (line == null) { letters.push(""); keys.push(null); return; }
       var ph = pronOf(dict, lastWordOf(line));
-      var key = ph ? rhymeKeys(ph).near : "?" + i;
-      keys.push(key);
-      var j = keys.indexOf(key);
-      letters.push(j < i ? letters[j] : String.fromCharCode(65 + (next++ % 26)));
-      count[key] = (count[key] || 0) + 1;
+      var k = ph ? rhymeKeys(ph) : { near: "?" + i, slant: "?" + i };
+      keys.push(k);
+      var letter = null;
+      for (var j = 0; j < i && !letter; j++) {
+        if (keys[j].near === k.near || keys[j].slant === k.slant) letter = letters[j];
+      }
+      if (!letter) letter = String.fromCharCode(65 + (next++ % 26));
+      letters.push(letter);
+      count[letter] = (count[letter] || 0) + 1;
     });
-    return letters.map(function (l, i) { return l ? { letter: l, paired: count[keys[i]] > 1 } : null; });
+    return letters.map(function (l) { return { letter: l, paired: count[l] > 1 }; });
   }
   function rhymeFinderOn() { return settings.rhymeFinder !== false; }
   function rhymeLettersOn() { return settings.rhymeLetters !== false; }

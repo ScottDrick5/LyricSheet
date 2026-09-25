@@ -694,15 +694,16 @@
   @media (prefers-reduced-motion: reduce) {
     #meta-bar, #songs-fab, #hud-show, #mode-fab, #undo-fab, #history-drawer { transition: none !important; }
   }
+  /* Borderless, like a note in Notes: the whole editor is the page, with no card around the sheet
+     (the text column keeps a comfortable width on wide screens) */
+  #editor, #editor #meta-bar { background: var(--paper); }
   #canvas {
-    background: var(--paper);
+    background: none;
     color: var(--ink);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--paper-edge);
-    padding: 22px 26px 30px;
+    border: none;
+    padding: 10px 26px 30px;
     max-width: 720px;
     margin: 0 auto;
-    box-shadow: var(--paper-shadow);
   }
 
   .section-block {
@@ -1651,7 +1652,7 @@
     #canvas-wrap { padding: 14px; padding-top: calc(var(--hud-h) + 14px); }
     #songs-fab { display: block; pointer-events: none; }
     #editor.hud-hidden #songs-fab { opacity: 1; pointer-events: auto; }
-    #canvas { padding: 16px 16px 22px; }
+    #canvas { padding: 6px 4px 22px; }
     #history-drawer.open { width: 200px; }
     #history-inner { width: 200px; }
   }

@@ -1610,15 +1610,6 @@
   #canvas .line-row.search-line { background: rgba(255, 214, 0, 0.14); border-radius: 6px; }
   /* List / gallery switch (wide screens and the Mac app) */
   .songs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-  .view-style { display: none; flex-shrink: 0; border: 1px solid var(--shell-border); border-radius: 8px; overflow: hidden; }
-  .view-style button {
-    background: none; border: none; color: var(--shell-text-dim);
-    width: 30px; height: 26px; padding: 0; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .view-style button + button { border-left: 1px solid var(--shell-border); }
-  .view-style button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
-  @media (min-width: 900px) { .view-style { display: flex; } }
   /* icons at the top right of the side menu: new folder, hide the menu */
   .nav-icons { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
   .nav-icon {
@@ -1629,8 +1620,8 @@
   #new-folder-btn { color: var(--accent); }
   .sidebar-hide, #sidebar-show { display: none; }
   .folder-item.current { background: var(--tint-2); }
-  .search-row { display: flex; align-items: center; gap: 8px; }
-  .search-row .search-wrap { flex: 1; min-width: 0; }
+  .view-toggle { display: none; }
+  @media (min-width: 900px) { .view-toggle { display: flex; } }
   @media (min-width: 721px) {
     .sidebar-hide { display: flex; }
     body.sidebar-hidden #sidebar { display: none; }
@@ -2102,18 +2093,12 @@
       <div class="songs-head">
         <h2 class="nav-title">Folders</h2>
         <div class="nav-icons">
-
+          <button class="nav-icon view-toggle" aria-label="Show as gallery" title="Show as gallery"></button>
           <button id="new-folder-btn" class="nav-icon" aria-label="New folder" title="New folder"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M2.5 5.5c0-.9.7-1.7 1.7-1.7h3.6l1.7 1.8h6.3c.9 0 1.7.8 1.7 1.7v6.9c0 .9-.8 1.7-1.7 1.7H4.2c-1 0-1.7-.8-1.7-1.7z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 8.3v4.6M7.7 10.6h4.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
           <button class="nav-icon sidebar-hide" aria-label="Hide sidebar" title="Hide sidebar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 3.8v12.4" stroke="currentColor" stroke-width="1.6"/><path d="M5 7.5h0.01M5 10h0.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
       </div>
-      <div class="search-row">
-        <div class="search-wrap"><input id="folder-search" type="search" placeholder="Search songs" aria-label="Search all songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
-        <div class="view-style" role="group" aria-label="Show songs as">
-          <button data-style="list" aria-label="List" title="List"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg></button>
-          <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
-        </div>
-      </div>
+      <div class="search-wrap"><input id="folder-search" type="search" placeholder="Search songs and lyrics" aria-label="Search all songs" autocomplete="off"><button class="search-clear" type="button" aria-label="Clear search" title="Clear" hidden><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
       <div id="folder-list"></div>
     </div>
     <div id="songs-view" class="nav-view">
@@ -2121,10 +2106,7 @@
       <div class="songs-head">
         <h2 id="folder-title" class="nav-title">All Songs</h2>
         <div class="nav-icons">
-        <div id="view-style" class="view-style" role="group" aria-label="Show songs as">
-          <button data-style="list" aria-label="List" title="List"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg></button>
-          <button data-style="gallery" aria-label="Gallery" title="Gallery"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
-        </div>
+          <button class="nav-icon view-toggle" aria-label="Show as gallery" title="Show as gallery"></button>
           <button class="nav-icon sidebar-hide" aria-label="Hide sidebar" title="Hide sidebar"><svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><rect x="2.5" y="3.5" width="15" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 3.8v12.4" stroke="currentColor" stroke-width="1.6"/><path d="M5 7.5h0.01M5 10h0.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
         </div>
       </div>
@@ -3022,9 +3004,15 @@
   function galleryWanted() {
     return settings.songView === "gallery" && !!(wideQuery && wideQuery.matches) && nav.folder !== "trash";
   }
+  var VIEW_LIST_SVG = '<svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><path d="M7 5h10M7 10h10M7 15h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="3.5" cy="5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="10" r="1.2" fill="currentColor"/><circle cx="3.5" cy="15" r="1.2" fill="currentColor"/></svg>';
+  var VIEW_GALLERY_SVG = '<svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><rect x="2.5" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="2.5" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="11.3" y="11.3" width="6.2" height="6.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
   function updateViewStyleButtons() {
-    Array.prototype.forEach.call(document.querySelectorAll(".view-style button"), function (b) {
-      b.setAttribute("aria-pressed", String(b.getAttribute("data-style") === (settings.songView || "list")));
+    // one button that switches to the other view, showing that view's icon
+    var gal = settings.songView === "gallery";
+    Array.prototype.forEach.call(document.querySelectorAll(".view-toggle"), function (b) {
+      b.innerHTML = gal ? VIEW_LIST_SVG : VIEW_GALLERY_SVG;
+      b.title = gal ? "Show as list" : "Show as gallery";
+      b.setAttribute("aria-label", b.title);
     });
   }
   function setSongView(style) {
@@ -3092,8 +3080,8 @@
       grid.appendChild(card);
     });
   }
-  Array.prototype.forEach.call(document.querySelectorAll(".view-style button"), function (b) {
-    b.addEventListener("click", function () { setSongView(b.getAttribute("data-style")); });
+  Array.prototype.forEach.call(document.querySelectorAll(".view-toggle"), function (b) {
+    b.addEventListener("click", function () { setSongView(settings.songView === "gallery" ? "list" : "gallery"); });
   });
   // Hide / show the side menu (wider screens); remembered
   function setSidebarHidden(h) {

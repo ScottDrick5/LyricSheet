@@ -933,7 +933,41 @@
   .switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
   .switch[aria-checked="true"] span { transform: translateX(18px); background: var(--on-accent); }
   @media (prefers-reduced-motion: reduce) { .switch, .switch span { transition: none; } }
-  #settings-panel { max-height: 100%; overflow-y: auto; }
+  #settings-panel { max-height: 100%; overflow-y: auto; max-width: 420px; padding-top: 0; }
+  .settings-head {
+    position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+    margin: 0 -20px; padding: 14px 20px 10px; background: var(--bg-raised);
+  }
+  .settings-head h2 { margin: 0 !important; }
+  #settings-panel #settings-done {
+    width: auto; margin: 0; padding: 7px 16px; border-radius: 16px; font-size: 0.85rem;
+  }
+  .set-group { margin: 0 0 18px; }
+  .set-group[hidden] { display: none; }
+  .set-group h3 {
+    margin: 0 4px 6px; font-family: var(--font-ui); font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--shell-text-dim);
+  }
+  .set-card { background: var(--bg); border: 1px solid var(--shell-border); border-radius: 12px; overflow: hidden; }
+  .set-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 14px; min-height: 30px;
+  }
+  .set-item + .set-item { border-top: 1px solid var(--shell-border); }
+  .set-item[hidden] { display: none; }
+  .set-stack { flex-direction: column; align-items: stretch; gap: 8px; }
+  .set-text { display: flex; flex-direction: column; min-width: 0; font-size: 0.88rem; }
+  .set-item small, .set-text small { display: block; font-size: 0.72rem; line-height: 1.4; color: var(--shell-text-dim); margin-top: 2px; }
+  .set-text small[hidden] { display: none; }
+  .set-foot { margin: 6px 4px 0; font-size: 0.7rem; color: var(--shell-text-dim); line-height: 1.4; }
+  .set-details > summary { list-style: none; cursor: pointer; }
+  .set-details > summary::-webkit-details-marker { display: none; }
+  .set-chevron { color: var(--shell-text-dim); font-size: 1.2rem; transition: transform 0.15s ease; }
+  .set-details[open] .set-chevron { transform: rotate(90deg); }
+  .set-details[open] > summary { border-bottom: 1px solid var(--shell-border); }
+  .about-name { margin: 0; }
+  #settings-panel .setting-btn { padding: 6px 12px; }
+  #updates-more a { color: var(--accent); }
   #settings-modal { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
   #sync-connect { display: flex; gap: 8px; margin-top: 10px; }
   #sync-connect[hidden], #sync-connected[hidden] { display: none; }
@@ -1944,6 +1978,24 @@
   html[data-theme="light"] .paired.rh-2 { color: #c2456f; } html[data-theme="light"] .paired.rh-3 { color: #2f8f5f; }
   html[data-theme="light"] .paired.rh-4 { color: #7a5cc2; } html[data-theme="light"] .paired.rh-5 { color: #c2601f; }
   html[data-theme="light"] .paired.rh-6 { color: #1d8a84; } html[data-theme="light"] .paired.rh-7 { color: #6b8212; }
+  /* rhyme sound highlights: rounded boxes drawn behind the words (the lyrics aren't changed) */
+  .rhyme-boxes { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+  .read-sheet .read-editor { position: relative; z-index: 1; }
+  .rb-box { position: absolute; border-radius: 5px; }
+  .read-sheet:has(.rhyme-boxes) .rl-paren { color: var(--ink); }
+  .rb-0 { background: #2f8a63; } .rb-1 { background: #6f35a8; } .rb-2 { background: #8c2a47; } .rb-3 { background: #2b7c88; }
+  .rb-4 { background: #283592; } .rb-5 { background: #33579c; } .rb-6 { background: #8a2877; } .rb-7 { background: #4b2a93; }
+  html[data-theme="light"] .rb-0 { background: #bfe6d2; } html[data-theme="light"] .rb-1 { background: #dccaf2; }
+  html[data-theme="light"] .rb-2 { background: #f3c7d3; } html[data-theme="light"] .rb-3 { background: #bfe2e7; }
+  html[data-theme="light"] .rb-4 { background: #cbcff4; } html[data-theme="light"] .rb-5 { background: #c9d9f1; }
+  html[data-theme="light"] .rb-6 { background: #efc6e6; } html[data-theme="light"] .rb-7 { background: #d5cbf0; }
+  .rl-letter.paired.lb-0 { color: #3fb884; } .rl-letter.paired.lb-1 { color: #a672e0; } .rl-letter.paired.lb-2 { color: #e0698f; }
+  .rl-letter.paired.lb-3 { color: #45b5c4; } .rl-letter.paired.lb-4 { color: #7d88ec; } .rl-letter.paired.lb-5 { color: #6f9ae0; }
+  .rl-letter.paired.lb-6 { color: #d466bd; } .rl-letter.paired.lb-7 { color: #9275e0; }
+  html[data-theme="light"] .rl-letter.paired.lb-0 { color: #1f7a52; } html[data-theme="light"] .rl-letter.paired.lb-1 { color: #6a36a8; }
+  html[data-theme="light"] .rl-letter.paired.lb-2 { color: #a8325a; } html[data-theme="light"] .rl-letter.paired.lb-3 { color: #1f7480; }
+  html[data-theme="light"] .rl-letter.paired.lb-4 { color: #3a44b0; } html[data-theme="light"] .rl-letter.paired.lb-5 { color: #2e5aa8; }
+  html[data-theme="light"] .rl-letter.paired.lb-6 { color: #9a2a86; } html[data-theme="light"] .rl-letter.paired.lb-7 { color: #5a3aa8; }
   /* rhyming end words, colored like their letter (drawn over the text; the lyrics aren't changed) */
   ::highlight(rh-0) { color: #e0ad4a; } ::highlight(rh-1) { color: #62b1ee; } ::highlight(rh-2) { color: #ea7aa3; }
   ::highlight(rh-3) { color: #66c897; } ::highlight(rh-4) { color: #b196ee; } ::highlight(rh-5) { color: #ec9358; }
@@ -1980,7 +2032,7 @@
     font-family: var(--font-ui); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--accent); border: 1px solid var(--accent-dim); border-radius: 10px; padding: 2px 7px;
   }
-  #backup-status:empty { display: none; }
+
 </style>
 </head>
 <body>
@@ -2149,97 +2201,126 @@
 
 <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div id="settings-panel">
-    <h2 id="settings-title">Settings</h2>
-    <div class="setting-row">
-      <span class="setting-label">Appearance</span>
-      <div class="seg" id="theme-seg" role="group" aria-label="Appearance">
-        <button data-theme-choice="light">Light</button>
-        <button data-theme-choice="dark">Dark</button>
-        <button data-theme-choice="system">Match phone</button>
-      </div>
+    <div class="settings-head">
+      <h2 id="settings-title">Settings</h2>
+      <button id="settings-done">Done</button>
     </div>
-    <div class="setting-row switch-row">
-      <div>
-        <span class="setting-label" id="black-label">True black</span>
-        <p class="setting-help">Pure black background for OLED screens. Used whenever the app is dark.</p>
-      </div>
-      <button id="black-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="black-label"><span></span></button>
-    </div>
-    <div class="setting-row switch-row">
-      <div>
-        <span class="setting-label">Welcome song</span>
-        <p class="setting-help">A song whose lyrics show how Lyric Sheet works. Adds it back if you deleted it.</p>
-      </div>
-      <button id="welcome-btn" class="setting-btn">Show</button>
-    </div>
-    <div class="setting-row switch-row">
-      <div>
-        <span class="setting-label" id="rhymefind-label">Rhyme finder</span>
-        <p class="setting-help">Rhymes for the word you're on as you write: in a bar above the keyboard on iPhone, beside the sheet on Mac. The Rhymes button in the top bar turns them on or off. Works offline.</p>
-      </div>
-      <button id="rhymefind-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymefind-label"><span></span></button>
-    </div>
-    <div class="setting-row switch-row">
-      <div>
-        <span class="setting-label" id="rhymeletters-label">Rhyme letters</span>
-        <p class="setting-help">Letters beside each line show the rhyme scheme (AABB, ABAB…). A rhyme sound keeps its letter through the whole song, so a stanza that carries on the last one's rhyme shows it.</p>
-      </div>
-      <button id="rhymeletters-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymeletters-label"><span></span></button>
-    </div>
-    <div class="setting-row switch-row">
-      <div>
-        <span class="setting-label" id="rhymecolors-label">Rhyme colors</span>
-        <p class="setting-help">Colors rhyming words to match their letter: the words at the ends of lines, and rhymes inside lines too.</p>
-      </div>
-      <button id="rhymecolors-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymecolors-label"><span></span></button>
-    </div>
-    <div class="setting-row switch-row" id="music-setting" hidden>
-      <div>
-        <span class="setting-label" id="music-label">Apple Music controls</span>
-        <p class="setting-help">Show a bar at the bottom of the sheet to play, pause and skip what the Music app is playing. Off until you turn it on.</p>
-      </div>
-      <button id="music-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="music-label"><span></span></button>
-    </div>
-    <div class="setting-row" id="updates-setting" hidden>
-      <span class="setting-label">Updates</span>
-      <div class="updates-row">
-        <p class="setting-help" id="updates-status">Version —</p>
-        <button id="updates-btn" class="setting-btn">Check for updates</button>
-      </div>
-      <p class="setting-help" id="updates-more" hidden></p>
-    </div>
-    <div class="setting-row" id="backup-setting">
-      <span class="setting-label">Backup</span>
-      <p class="setting-help">Save all your songs, folders and Recently Deleted to a file you keep somewhere safe, or bring them back from one.</p>
-      <div class="backup-actions">
-        <button id="backup-btn" class="setting-btn">Back Up Songs</button>
-        <button id="restore-btn" class="setting-btn">Restore…</button>
-      </div>
-      <p class="setting-help" id="backup-status" aria-live="polite"></p>
-      <input id="restore-file" type="file" accept=".json,application/json,text/plain" hidden>
-    </div>
-    <div class="setting-row sync-row">
-      <span class="setting-label">Sync between devices</span>
-      <p class="setting-help">Keeps your songs the same on your iPhone and Mac. Songs are stored in a private (unlisted) GitHub Gist on your account. Use the same GitHub token on each device.</p>
-      <div id="sync-connect">
-        <input id="sync-token" type="password" placeholder="Paste GitHub token" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <button id="sync-connect-btn">Connect</button>
-      </div>
-      <div id="sync-connected" hidden>
-        <p id="sync-detail" class="sync-detail"></p>
-        <div class="sync-actions">
-          <button id="sync-now-btn">Sync now</button>
-          <button id="sync-disconnect-btn">Disconnect</button>
+
+    <section class="set-group">
+      <h3>Appearance</h3>
+      <div class="set-card">
+        <div class="set-item set-stack">
+          <div class="seg" id="theme-seg" role="group" aria-label="Appearance">
+            <button data-theme-choice="light">Light</button>
+            <button data-theme-choice="dark">Dark</button>
+            <button data-theme-choice="system">Match phone</button>
+          </div>
+        </div>
+        <div class="set-item">
+          <div class="set-text"><span id="black-label">True black</span><small>Pure black when dark, for OLED screens</small></div>
+          <button id="black-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="black-label"><span></span></button>
         </div>
       </div>
-    </div>
-    <div class="setting-row" id="about-setting">
-      <span class="setting-label">About</span>
-      <p class="about-name">Lyric Sheet <span class="beta-badge">Beta</span></p>
-      <p class="setting-help" id="about-version">Version —</p>
-      <p class="setting-help">This is a beta: Lyric Sheet is still being worked on, so things may change or not work quite right yet. Back up your songs now and then.</p>
-    </div>
-    <button id="settings-done">Done</button>
+    </section>
+
+    <section class="set-group">
+      <h3>Rhymes</h3>
+      <div class="set-card">
+        <div class="set-item">
+          <div class="set-text"><span id="rhymefind-label">Rhyme finder</span><small>Rhymes for the word you're on as you write</small></div>
+          <button id="rhymefind-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymefind-label"><span></span></button>
+        </div>
+        <div class="set-item">
+          <div class="set-text"><span id="rhymeletters-label">Rhyme letters</span><small>A, B, C beside each line show the rhyme scheme</small></div>
+          <button id="rhymeletters-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymeletters-label"><span></span></button>
+        </div>
+        <div class="set-item">
+          <div class="set-text"><span id="rhymecolors-label">Rhyme colors</span><small>Highlight the words that rhyme</small></div>
+          <button id="rhymecolors-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymecolors-label"><span></span></button>
+        </div>
+        <div class="set-item set-stack" id="rhymestyle-item">
+          <div class="seg" id="rhymestyle-seg" role="group" aria-label="What to color">
+            <button data-rhyme-style="sounds">Every rhyme sound</button>
+            <button data-rhyme-style="ends">Line-end rhymes</button>
+          </div>
+          <small id="rhymestyle-help"></small>
+        </div>
+      </div>
+      <p class="set-foot">Tip: the Rhymes, ABC and ●●● buttons on the sheet turn these on and off quickly.</p>
+    </section>
+
+    <section class="set-group" id="music-setting" hidden>
+      <h3>Music</h3>
+      <div class="set-card">
+        <div class="set-item">
+          <div class="set-text"><span id="music-label">Apple Music controls</span><small>Play, pause and skip from the bottom of the sheet</small></div>
+          <button id="music-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="music-label"><span></span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="set-group" id="backup-setting">
+      <h3>Your songs</h3>
+      <div class="set-card">
+        <div class="set-item">
+          <div class="set-text"><span>Back up songs</span><small id="backup-status" aria-live="polite">Save everything to a file you keep safe</small></div>
+          <button id="backup-btn" class="setting-btn">Back Up</button>
+        </div>
+        <div class="set-item">
+          <div class="set-text"><span>Restore from a backup</span><small>Add songs back from a backup file</small></div>
+          <button id="restore-btn" class="setting-btn">Restore…</button>
+        </div>
+        <div class="set-item">
+          <div class="set-text"><span>Welcome song</span><small>The song with tips on how Lyric Sheet works</small></div>
+          <button id="welcome-btn" class="setting-btn">Show</button>
+        </div>
+      </div>
+      <input id="restore-file" type="file" accept=".json,application/json,text/plain" hidden>
+    </section>
+
+    <section class="set-group" id="updates-setting" hidden>
+      <h3>Updates</h3>
+      <div class="set-card">
+        <div class="set-item">
+          <div class="set-text"><span id="updates-status">Version —</span><small id="updates-more" hidden></small></div>
+          <button id="updates-btn" class="setting-btn">Check for updates</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="set-group sync-row">
+      <details class="set-card set-details">
+        <summary class="set-item">
+          <div class="set-text"><span>Sync between devices</span><small id="sync-summary">GitHub Gist sync, for testing</small></div>
+          <span class="set-chevron" aria-hidden="true">›</span>
+        </summary>
+        <div class="set-item set-stack">
+          <small>Keeps songs the same on your iPhone and Mac through a private GitHub Gist. Use the same GitHub token on each device.</small>
+          <div id="sync-connect">
+            <input id="sync-token" type="password" placeholder="Paste GitHub token" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button id="sync-connect-btn">Connect</button>
+          </div>
+          <div id="sync-connected" hidden>
+            <p id="sync-detail" class="sync-detail"></p>
+            <div class="sync-actions">
+              <button id="sync-now-btn">Sync now</button>
+              <button id="sync-disconnect-btn">Disconnect</button>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="set-group" id="about-setting">
+      <h3>About</h3>
+      <div class="set-card">
+        <div class="set-item set-stack">
+          <p class="about-name">Lyric Sheet <span class="beta-badge">Beta</span></p>
+          <small id="about-version">Version —</small>
+          <small>A beta: still being worked on, so things may change. Back up your songs now and then.</small>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -5190,6 +5271,7 @@
       : sync.state === "syncing" ? "Syncing\u2026"
       : sync.lastSync ? "Connected. Last synced " + fmtDateTime(sync.lastSync) + "."
       : "Connected.";
+    document.getElementById("sync-summary").textContent = on ? (sync.state === "error" ? "Needs attention" : "On") : "GitHub Gist sync, for testing";
   }
 
   function lyricsEqual(a, b) { return lyricKeyOf(a.sections) === lyricKeyOf(b.sections); }
@@ -6120,8 +6202,7 @@
     document.getElementById("music-setting").hidden = false;
     if (musicOnMac) {
       document.getElementById("music-label").textContent = "Music & Spotify controls";
-      document.querySelector("#music-setting .setting-help").textContent =
-        "Show a bar at the bottom of the sheet to play, pause, skip and scrub what Music or Spotify is playing. Off until you turn it on.";
+      document.querySelector("#music-setting small").textContent = "Control Music or Spotify from the bottom of the sheet";
       musicBar.setAttribute("aria-label", "Music player");
     }
     onPress(musicBar.querySelector(".mb-controls"), function (b) { musicCommand(b.getAttribute("data-music")); });
@@ -6357,6 +6438,7 @@
     }
     return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after, fem: fem, nasV: nasV, nasC: nasC,
              asson: after === 0 ? tail[0].name : null,
+             vowelSound: tail[0].name === "ER" || tail[0].name === "AA" ? "AH" : tail[0].name,
              // an open "ee": stressed in me / see / free, unstressed at the end of ugly / heavy / crazy
              eeS: tail.length === 1 && tail[0].name === "IY", eeU: after >= 1 && lastP.name === "IY" && lastP.stress === 0,
              slant: (VOWEL_FAMILY[tail[0].name] || tail[0].name) + " " + slantEnd(near.slice(1)).join(" "),
@@ -6429,10 +6511,10 @@
    "who what when where why how which one ones all some any every each up out off down over through about " +
    "now never ever always still very really much more most " +
    "have has had got get gonna wanna gotta oh ooh yeah uh um la da na hey").split(" ").forEach(function (w) { RHYME_SKIP[w] = true; });
-  function lineWords(line) {
+  function lineWords(line, keepParens) {
     var masked = line, prev;
-    do { prev = masked; masked = masked.replace(/\([^()]*\)/g, function (m) { return new Array(m.length + 1).join(" "); }); } while (masked !== prev);
-    masked = masked.replace(/\([^)]*$/, function (m) { return new Array(m.length + 1).join(" "); });
+    if (!keepParens) do { prev = masked; masked = masked.replace(/\([^()]*\)/g, function (m) { return new Array(m.length + 1).join(" "); }); } while (masked !== prev);
+    if (!keepParens) masked = masked.replace(/\([^)]*$/, function (m) { return new Array(m.length + 1).join(" "); });
     var re = /[A-Za-z][A-Za-z'\u2019]*/g, m, out = [];
     while ((m = re.exec(masked))) {
       var text = m[0].replace(/['\u2019]+$/, "");
@@ -6440,6 +6522,7 @@
     }
     return out;
   }
+  var SOUND_SKIP = { i: true, a: true, an: true, the: true };
   function rhymeLetterName(i) { return String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26) + 1) : ""); }
   function endsRhyme(a, b) {
     var x = a.k, y = b.k;
@@ -6495,15 +6578,43 @@
         if (cls != null) { t.color = cls; L.innerOut.push({ start: t.start, end: t.end, cls: "rh-" + (cls % 8) }); }
       });
     });
+    // Rhyme sounds (like Rhymers Block): in each stanza, words are grouped by their main vowel sound,
+    // and every sound heard two or more times gets its own highlight color (colors restart each stanza)
+    var boxesByLine = [], li = 0;
+    stanzas.forEach(function (st) {
+      var groups = {}, order = [], perLine = [];
+      st.forEach(function (text) {
+        var words = [];
+        lineWords(text, true).forEach(function (w) {
+          if (!w.word || SOUND_SKIP[w.word]) return;
+          var ph = pronOf(dict, w.word);
+          if (!ph) return;
+          var v = rhymeKeys(ph).vowelSound;
+          if (!(v in groups)) { groups[v] = 0; order.push(v); }
+          groups[v]++;
+          words.push({ start: w.start, end: w.end, v: v });
+        });
+        perLine.push(words);
+      });
+      var color = {}, nextColor = 0;
+      order.forEach(function (v) { if (groups[v] >= 2) color[v] = nextColor++; });
+      perLine.forEach(function (words) {
+        boxesByLine[li++] = words.filter(function (w) { return w.v in color; })
+          .map(function (w) { return { start: w.start, end: w.end, cls: "rb-" + (color[w.v] % 8) }; });
+      });
+    });
     var res = [], n = 0;
     stanzas.forEach(function (st) {
       res.push(st.map(function () {
+        var boxes = boxesByLine[n];
         var L = flat[n++];
         // it rhymes with a different word (or repeats within its stanza); a chorus just repeated elsewhere keeps its letter only
         var paired = !!L.end && (L.innerHit || (count[L.letter] || []).some(function (o) {
           return o !== L && (o.end.stem !== L.end.stem || o.stanza === L.stanza);
         }));
-        return { letter: rhymeLetterName(L.letter), paired: paired, cls: "rh-" + (L.letter % 8),
+        var endBox = L.end && boxes.filter(function (b) { return b.start === L.end.start; })[0];
+        return { letter: rhymeLetterName(L.letter), paired: paired, cls: "rh-" + (L.letter % 8), boxes: boxes,
+                 boxCls: endBox ? endBox.cls : "",
                  endSpan: L.end ? [L.end.start, L.end.end] : null, inner: L.innerOut };
       }));
     });
@@ -6512,6 +6623,8 @@
   function rhymeFinderOn() { return settings.rhymeFinder !== false; }
   function rhymeLettersOn() { return settings.rhymeLetters !== false; }
   function rhymeColorsOn() { return settings.rhymeColors !== false; }
+  // "sounds": highlight every rhyming vowel sound (like Rhymers Block); "ends": color line-end rhymes' text
+  function rhymeStyle() { return settings.rhymeStyle === "ends" ? "ends" : "sounds"; }
 
   // ---------- Rhyme finder ----------
   var rhymePanel = document.getElementById("rhyme-panel");
@@ -6933,7 +7046,10 @@
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-gutter"), function (g) { g.parentNode.removeChild(g); });
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-badge"), function (b) { b.textContent = ""; b.className = "rhyme-badge"; });
     }
-    if (!ed || !rhymeColorsOn()) setRhymeColors(null);
+    if (!ed || !rhymeColorsOn()) {
+      setRhymeColors(null);
+      Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-boxes"), function (g) { g.parentNode.removeChild(g); });
+    }
     if (!rhymeLettersOn() && !(ed && rhymeColorsOn())) return;
     if (!rhymeDict) { loadRhymes().then(function () { scheduleRhymeLetters(0); }, function () {}); return; }
     if (ed) letterReadEditor(ed); else letterSectionRows(canvas);
@@ -6974,26 +7090,48 @@
     var divs = Array.prototype.filter.call(ed.childNodes, function (n) { return n.nodeType === 1; });
     var groups = letterGroups(divs, function (d) { return d.textContent; });
     var result = analyzeRhymes(rhymeDict, groups.map(function (g) { return g.map(function (d) { return d.textContent; }); }));
-    var html = "", colors = {};
+    var html = "", colors = {}, boxHtml = "", sounds = rhymeColorsOn() && rhymeStyle() === "sounds";
+    var sheetBox = sheet.getBoundingClientRect();
     function color(cls, d, a, b) {
       var r = lineRange(d, a, b);
       if (r) (colors[cls] = colors[cls] || []).push(r);
     }
+    function box(cls, d, a, b) {
+      var r = lineRange(d, a, b);
+      if (!r) return;
+      Array.prototype.forEach.call(r.getClientRects(), function (q) {
+        if (q.width < 1) return;
+        boxHtml += '<span class="rb-box ' + cls + '" style="left:' + Math.round(q.left - sheetBox.left - 2) + "px;top:" +
+          Math.round(q.top - sheetBox.top) + "px;width:" + Math.round(q.width + 4) + "px;height:" + Math.round(q.height) + 'px"></span>';
+      });
+    }
     groups.forEach(function (group, gi) {
       group.forEach(function (d, i) {
         var l = result[gi][i];
-        if (rhymeColorsOn()) {
+        if (sounds) l.boxes.forEach(function (w) { box(w.cls, d, w.start, w.end); });
+        else if (rhymeColorsOn()) {
           if (l.paired && l.endSpan) color(l.cls, d, l.endSpan[0], l.endSpan[1]);
           l.inner.forEach(function (w) { color(w.cls, d, w.start, w.end); });
         }
         if (!rhymeLettersOn()) return;
-        html += '<span class="rl-letter ' + l.cls + (l.paired ? " paired" : "") + '" style="top:' +
-          d.offsetTop + "px;height:" + lh + "px;line-height:" + lh + 'px">' + l.letter + "</span>";
+        // with sound highlights on, a letter takes the color of its line's last word
+        var lcls = sounds ? (l.boxCls ? l.boxCls.replace("rb-", "lb-") + " paired" : "") : l.cls + (l.paired ? " paired" : "");
+        html += '<span class="rl-letter ' + lcls + '" style="top:' +
+          Math.round(d.getBoundingClientRect().top - sheetBox.top) + "px;height:" + lh + "px;line-height:" + lh + 'px">' + l.letter + "</span>";
       });
     });
     if (gutter.innerHTML !== html) gutter.innerHTML = html;
     if (!rhymeLettersOn() && gutter.parentNode) gutter.parentNode.removeChild(gutter);
-    setRhymeColors(rhymeColorsOn() ? colors : null);
+    setRhymeColors(rhymeColorsOn() && !sounds ? colors : null);
+    var layer = sheet.querySelector(".rhyme-boxes");
+    if (!sounds) { if (layer) layer.parentNode.removeChild(layer); return; }
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.className = "rhyme-boxes";
+      layer.setAttribute("aria-hidden", "true");
+      sheet.insertBefore(layer, sheet.firstChild);
+    }
+    if (layer.innerHTML !== boxHtml) layer.innerHTML = boxHtml;
   }
   function letterSectionRows(canvas) {
     var rows = Array.prototype.slice.call(canvas.querySelectorAll(".line-row"));
@@ -7025,7 +7163,7 @@
       new MutationObserver(function (list) {
         for (var i = 0; i < list.length; i++) {
           var t = list[i].target, el = t.nodeType === 1 ? t : t.parentNode;
-          if (!(el && el.closest && el.closest(".rhyme-gutter"))) { scheduleRhymeLetters(); return; }
+          if (!(el && el.closest && el.closest(".rhyme-gutter, .rhyme-boxes"))) { scheduleRhymeLetters(); return; }
         }
       }).observe(canvas, { childList: true, subtree: true, characterData: true });
     }
@@ -7058,6 +7196,13 @@
     document.getElementById("rhymefind-switch").setAttribute("aria-checked", String(rhymeFinderOn()));
     document.getElementById("rhymeletters-switch").setAttribute("aria-checked", String(rhymeLettersOn()));
     document.getElementById("rhymecolors-switch").setAttribute("aria-checked", String(rhymeColorsOn()));
+    document.getElementById("rhymestyle-item").hidden = !rhymeColorsOn();
+    Array.prototype.forEach.call(document.querySelectorAll("#rhymestyle-seg button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-rhyme-style") === rhymeStyle()));
+    });
+    document.getElementById("rhymestyle-help").textContent = rhymeStyle() === "sounds"
+      ? "Like Rhymers Block: every sound that repeats in a stanza gets its own highlight color."
+      : "Only rhymes at the ends of lines, and real rhymes inside lines, are colored.";
     if (!rhymeFinderOn()) { closeRhymePanel(); hideRhymeBar(); }
     updateRhymeButton();
     if (rhymeBarOn() && !isPhoneLayout() && rhymePanel.hidden) openRhymePanel();
@@ -7067,6 +7212,13 @@
   }
   document.getElementById("rhymefind-switch").addEventListener("click", function () {
     settings.rhymeFinder = !rhymeFinderOn();
+    persistSettings();
+    applyRhymeSettings();
+  });
+  document.getElementById("rhymestyle-seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    settings.rhymeStyle = b.getAttribute("data-rhyme-style");
     persistSettings();
     applyRhymeSettings();
   });
@@ -7088,7 +7240,7 @@
   }
   function showBackupStatus(msg) {
     backupStatus.textContent = msg != null ? msg :
-      settings.lastBackupAt ? "Last backup: " + formatDay(settings.lastBackupAt) + "." : "";
+      settings.lastBackupAt ? "Last backup: " + formatDay(settings.lastBackupAt) : "Save everything to a file you keep safe";
   }
   function backupFileName() {
     var d = new Date();

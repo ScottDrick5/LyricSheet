@@ -2417,7 +2417,7 @@
         </div>
         <div class="meta-field" data-hud="bpm">
           <label>BPM</label>
-          <input id="bpm-input" class="small-input" type="number" min="1" max="400" placeholder="—">
+          <input id="bpm-input" class="small-input" type="number" min="1" max="400" placeholder="120">
         </div>
         <div class="meta-field" data-hud="key">
           <label>Key</label>
@@ -2921,6 +2921,7 @@
   }
 
   // ---------- model helpers ----------
+  var DEFAULT_BPM = "120";
   function newSong() {
     var now = Date.now();
     return {
@@ -3041,7 +3042,7 @@
   // on, so empty sheets don't pile up. It never had anything worth keeping, so it skips Recently Deleted
   // (the delete still syncs, so other devices drop their empty copy too).
   function isBlankSong(song) {
-    return !!song && !(song.title || "").trim() && !hasLyrics(song.sections) && !song.bpm &&
+    return !!song && !(song.title || "").trim() && !hasLyrics(song.sections) && (!song.bpm || song.bpm === DEFAULT_BPM) &&
       (!song.key || song.key === "\u2014") && !(song.versions && song.versions.length);
   }
   function discardIfBlank(song) {
@@ -5629,7 +5630,9 @@
     maybeSnapshotOnLeave();
     discardIfBlank(getActiveSong());
     var song = newSong();
+    song.bpm = DEFAULT_BPM;   // new songs start at 120 BPM (notes have no BPM)
     if (nav.folder === "notes") {
+      song.bpm = "";
       song.kind = "note";
       song.sections = [{ id: newSectionId(), type: "", note: "", lines: [""] }];
     }

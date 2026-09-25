@@ -2172,6 +2172,14 @@
   }
   .rp-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--shell-text-dim); margin: 12px 0 6px; font-weight: 600; }
   .rp-syl { font-size: 0.68rem; color: var(--shell-text-dim); margin: 8px 0 4px; }
+  .rp-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+  .rp-filter button {
+    height: 30px; padding: 0 12px; border-radius: 15px; cursor: pointer;
+    border: 1px solid var(--shell-border); background: none; color: var(--shell-text-dim);
+    font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
+  }
+  .rp-filter button[aria-pressed="true"] { background: var(--tint-2); border-color: var(--accent-dim); color: var(--accent); }
+  .rp-sylpick button { min-width: 38px; padding: 0 10px; }
   .rp-words { display: flex; flex-wrap: wrap; gap: 5px; }
   .rp-words button {
     border: 1px solid var(--shell-border); background: var(--bg); color: var(--shell-text);
@@ -7664,7 +7672,7 @@
     var perfect = pick(maps.perfect[keys.perfect], 150);
     var near = pick(maps.near[keys.near], 80, true);
     if (near.length < 20) near = near.concat(pick(maps.vowel[keys.vowel], 40 - near.length, true));
-    return { word: w, perfect: perfect, near: near };
+    return { word: w, syllables: keys.syllables, perfect: perfect, near: near };
   }
   // Rhyme letters: lines in a section whose last words rhyme (or nearly rhyme) get the same letter
   function lastWordOf(line) {
@@ -7917,7 +7925,31 @@
       rhymeResults.appendChild(p);
     });
   }
+  // Rhymes filter: All, Near Rhymes only, or one syllable count (starting on the word's own count).
+  // Remembered, and the rhyme bar above the keyboard follows it too.
+  function rhymeFilter() { return settings.rhymeFilter === "near" || settings.rhymeFilter === "syl" ? settings.rhymeFilter : "all"; }
+  function rhymeSylCounts(res) {
+    var c = {};
+    res.perfect.concat(res.near).forEach(function (x) { c[Math.min(x.syllables || 1, 5)] = true; });
+    return Object.keys(c).map(Number).sort(function (a, b) { return a - b; });
+  }
+  function rhymeSylPick(res) {
+    var counts = rhymeSylCounts(res), want = settings.rhymeSylPick || Math.min(res.syllables || 1, 5);
+    return counts.indexOf(want) !== -1 ? want : counts.indexOf(Math.min(res.syllables || 1, 5)) !== -1 ? Math.min(res.syllables || 1, 5) : counts[0];
+  }
+  function filteredRhymes(res) {
+    if (!res) return res;
+    var f = rhymeFilter();
+    if (f === "near") return { word: res.word, syllables: res.syllables, perfect: [], near: res.near };
+    if (f === "syl") {
+      var n = rhymeSylPick(res), is = function (x) { return Math.min(x.syllables || 1, 5) === n; };
+      return { word: res.word, syllables: res.syllables, perfect: res.perfect.filter(is), near: res.near.filter(is) };
+    }
+    return res;
+  }
+  var rhymeShown = null;   // { word, res } in the panel, for redrawing when the filter changes
   function drawRhymes(word, res) {
+    rhymeShown = { word: word, res: res };
     rhymeResults.innerHTML = "";
     rhymeResults.scrollTop = 0;
     var head = document.createElement("div");
@@ -7936,6 +7968,35 @@
     label.appendChild(b);
     head.appendChild(label);
     rhymeResults.appendChild(head);
+    if (res && (res.perfect.length || res.near.length)) {
+      var seg = document.createElement("div");
+      seg.className = "rp-filter";
+      seg.setAttribute("role", "group");
+      seg.setAttribute("aria-label", "Show");
+      [["all", "All"], ["near", "Near Rhymes"], ["syl", "Syllables"]].forEach(function (o) {
+        var fb = document.createElement("button");
+        fb.setAttribute("data-filter", o[0]);
+        fb.setAttribute("aria-pressed", String(rhymeFilter() === o[0]));
+        fb.textContent = o[1];
+        seg.appendChild(fb);
+      });
+      rhymeResults.appendChild(seg);
+      if (rhymeFilter() === "syl") {
+        var pick = rhymeSylPick(res), row = document.createElement("div");
+        row.className = "rp-filter rp-sylpick";
+        row.setAttribute("aria-label", "Syllables");
+        rhymeSylCounts(res).forEach(function (n) {
+          var sb = document.createElement("button");
+          sb.setAttribute("data-syl", String(n));
+          sb.setAttribute("aria-pressed", String(n === pick));
+          sb.textContent = n === 5 ? "5+" : String(n);
+          sb.title = (n === 5 ? "5 or more" : n) + (n === 1 ? " syllable" : " syllables");
+          row.appendChild(sb);
+        });
+        rhymeResults.appendChild(row);
+      }
+      res = filteredRhymes(res);
+    }
     if (!res || (!res.perfect.length && !res.near.length)) {
       var none = document.createElement("p");
       none.className = "rp-empty";
@@ -7973,8 +8034,18 @@
       });
     }
     if (res.near.length) {
-      title("Near rhymes");
-      rhymeResults.appendChild(chips(res.near, "rp-near"));
+      title("Near Rhymes");
+      if (rhymeFilter() === "near") {   // grouped by syllables like the rhymes
+        var ng = {};
+        res.near.forEach(function (x) { (ng[x.syllables] = ng[x.syllables] || []).push(x); });
+        Object.keys(ng).map(Number).sort(function (a, b) { return a - b; }).forEach(function (n) {
+          var s2 = document.createElement("div");
+          s2.className = "rp-syl";
+          s2.textContent = n + (n === 1 ? " syllable" : " syllables");
+          rhymeResults.appendChild(s2);
+          rhymeResults.appendChild(chips(ng[n], "rp-near"));
+        });
+      } else rhymeResults.appendChild(chips(res.near, "rp-near"));
     }
     var hint = document.createElement("p");
     hint.className = "rp-hint";
@@ -7985,7 +8056,18 @@
   // Clicking a rhyme puts it in your lyrics (replacing the selected word, or at the cursor), like the
   // rhyme bar. With nowhere to put it, or with Option/Alt held, it shows that word's rhymes instead.
   rhymeResults.addEventListener("mousedown", function (e) {
-    if (e.target.closest(".rp-words button")) e.preventDefault();   // keep the lyrics' cursor and selection
+    if (e.target.closest(".rp-words button, .rp-filter button")) e.preventDefault();   // keep the lyrics' cursor and selection
+  });
+  rhymeResults.addEventListener("click", function (e) {
+    var fb = e.target.closest(".rp-filter button");
+    if (!fb || !rhymeShown) return;
+    if (fb.hasAttribute("data-filter")) settings.rhymeFilter = fb.getAttribute("data-filter");
+    else settings.rhymeSylPick = +fb.getAttribute("data-syl");
+    persistSettings();
+    var top = rhymeResults.scrollTop;
+    drawRhymes(rhymeShown.word, rhymeShown.res);
+    rhymeResults.scrollTop = fb.hasAttribute("data-syl") ? top : 0;
+    if (rhymeBarOn()) scheduleRhymeBar(0);
   });
   rhymeResults.addEventListener("click", function (e) {
     var c = e.target.closest(".rp-words button");
@@ -8134,6 +8216,7 @@
     b.textContent = word;
     label.appendChild(b);
     rhymeBarScroll.appendChild(label);
+    res = filteredRhymes(res);
     var list = res ? res.perfect.slice(0, 30).concat(res.near.slice(0, 20).map(function (x) { return { word: x.word, near: true }; })) : [];
     if (!list.length) {
       var none = document.createElement("span");

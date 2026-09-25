@@ -6544,6 +6544,8 @@
     return out;
   }
   var SOUND_SKIP = { i: true, a: true, an: true, the: true };
+  var SOUND_FILLER = { is: true, was: true, of: true, and: true, "in": true, on: true, it: true, as: true, at: true, but: true,
+    to: true, that: true, "this": true, "with": true, "for": true, are: true, be: true };
   function rhymeLetterName(i) { return String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26) + 1) : ""); }
   function endsRhyme(a, b) {
     var x = a.k, y = b.k;
@@ -6599,9 +6601,10 @@
         if (cls != null) { t.color = cls; L.innerOut.push({ start: t.start, end: t.end, cls: "rh-" + (cls % 8) }); }
       });
     });
-    // Rhyme sounds (like Rhymers Block): a word is highlighted when its main vowel sound comes back in
-    // the same line or a line beside it. Short vowels (the i in "did", e in "when", a in "that", u in
-    // "love") are so common they only count when the sound after them matches too (didn't / different).
+    // Rhyme sounds (like Rhymers Block): a word is highlighted when its main vowel sound comes back within
+    // two lines (a chorus's repeats are often every other line). Short vowels (the i in "did", e in "when",
+    // a in "that", u in "love") are so common they only count when the sound after them matches too
+    // (didn't / different), and little words with them (is, was, and, that...) are skipped.
     // Each sound has its own color throughout the song ("you" is always violet), so a rhyme that carries
     // on into the next stanza stands out. On a song checked against Rhymers Block this agrees on ~3/4 of words.
     // Like Rhymers Block, line-end rhymes come first: a line end that rhymes (real, near or slant) with
@@ -6618,6 +6621,7 @@
           var ph = pronOf(dict, w.word);
           if (!ph) return;
           var k = rhymeKeys(ph);
+          if (SHORT_VOWEL[k.vowelSound] && SOUND_FILLER[w.word]) return;
           words.push({ start: w.start, end: w.end, v: k.vowelSound, coda: k.codaType });
         });
         return words;
@@ -6627,7 +6631,7 @@
         var endRhymes = !!end && stEnds.some(function (o, j) { return j !== i && o.end && endsRhyme(end, o.end); });
         boxesByLine[li++] = words.filter(function (w) {
           if (endRhymes && w.start === end.start) return true;
-          for (var j = i - 1; j <= i + 1; j++) {
+          for (var j = i - 2; j <= i + 2; j++) {
             var line = perLine[j];
             if (!line) continue;
             for (var n = 0; n < line.length; n++) {

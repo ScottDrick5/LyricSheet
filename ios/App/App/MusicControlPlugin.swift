@@ -22,7 +22,8 @@ public class MusicControlPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "metronomeStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "metronomeStop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speakLine", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "speakStop", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "speakStop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speakVoices", returnType: CAPPluginReturnPromise)
     ]
 
     private var player: MPMusicPlayerController { MPMusicPlayerController.systemMusicPlayer }
@@ -238,7 +239,18 @@ extension MusicControlPlugin {
         return pick.max { $0.quality.rawValue < $1.quality.rawValue } ?? AVSpeechSynthesisVoice(language: lang)
     }
 
-    /// { text, rate } (rate 1 = normal speed) → { finished }
+    /// The voices for the phone's language (all accents of it): { voices: [{ id, name, lang, quality }] },
+    /// quality 1 = default, 2 = Enhanced, 3 = Premium. More can be downloaded in Settings › Accessibility ›
+    /// Spoken Content › Voices (Siri's own voices aren't available to apps).
+    @objc func speakVoices(_ call: CAPPluginCall) {
+        let lang = String(AVSpeechSynthesisVoice.currentLanguageCode().prefix(2))
+        let list = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix(lang) }
+            .map { ["id": $0.identifier, "name": $0.name, "lang": $0.language, "quality": $0.quality.rawValue] as [String: Any] }
+        call.resolve(["voices": list])
+    }
+
+    /// { text, rate, voice? } (rate 1 = normal speed; voice = an id from speakVoices) → { finished }
     @objc func speakLine(_ call: CAPPluginCall) {
         guard let text = call.getString("text"), !text.isEmpty else { return call.resolve(["finished": true]) }
         let rate = Float(call.getDouble("rate") ?? 1)
@@ -253,7 +265,11 @@ extension MusicControlPlugin {
             }
             if speechSynth.isSpeaking { speechSynth.stopSpeaking(at: .immediate) }
             let u = AVSpeechUtterance(string: text)
-            u.voice = MusicControlPlugin.bestVoice()
+            if let id = call.getString("voice"), !id.isEmpty, let chosen = AVSpeechSynthesisVoice(identifier: id) {
+                u.voice = chosen
+            } else {
+                u.voice = MusicControlPlugin.bestVoice()
+            }
             u.rate = min(AVSpeechUtteranceMaximumSpeechRate, max(AVSpeechUtteranceMinimumSpeechRate, AVSpeechUtteranceDefaultSpeechRate * rate))
             u.postUtteranceDelay = 0.12
             speechWatcher?.calls[ObjectIdentifier(u)] = call

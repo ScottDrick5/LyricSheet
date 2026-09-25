@@ -1106,6 +1106,12 @@
   .set-text { display: flex; flex-direction: column; min-width: 0; font-size: 0.88rem; }
   .set-item small, .set-text small { display: block; font-size: 0.72rem; line-height: 1.4; color: var(--shell-text-dim); margin-top: 2px; }
   .set-text small[hidden] { display: none; }
+  .voice-row { display: flex; gap: 8px; align-items: center; }
+  .voice-row select {
+    flex: 1; min-width: 0; height: 36px; padding: 0 8px;
+    background: var(--bg-raised); color: var(--shell-text); border: 1px solid var(--shell-border); border-radius: var(--radius-sm);
+    font-family: var(--font-ui); font-size: 0.85rem;
+  }
   .set-foot { margin: 6px 4px 0; font-size: 0.7rem; color: var(--shell-text-dim); line-height: 1.4; }
   .set-details > summary { list-style: none; cursor: pointer; }
   .set-details > summary::-webkit-details-marker { display: none; }
@@ -2250,6 +2256,11 @@
   }
   .rhyme-toggles button[aria-pressed="true"] { background: var(--tint-2); border-color: var(--accent-dim); color: var(--accent); opacity: 1; }
   .rhyme-toggles .rt-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .rhyme-toggles .rt-colors rect { fill: currentColor; opacity: 0.55; }
+  .rhyme-toggles .rt-colors[aria-pressed="true"] rect { opacity: 1; }
+  .rhyme-toggles .rt-colors[aria-pressed="true"] .rt-c1 { fill: #e0ad4a; }
+  .rhyme-toggles .rt-colors[aria-pressed="true"] .rt-c2 { fill: #62b1ee; }
+  .rhyme-toggles .rt-colors[aria-pressed="true"] .rt-c3 { fill: #ea7aa3; }
   .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(1) { background: #e0ad4a; }
   .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(2) { background: #62b1ee; }
   .rhyme-toggles button[aria-pressed="true"] .rt-dot:nth-child(3) { background: #ea7aa3; }
@@ -2291,8 +2302,9 @@
     /* above the round new-song button */
     #speak-bar { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
   }
-  .read-toolbar { gap: 6px; }
-  .read-toolbar .read-hint { margin-right: auto; padding-right: 12px; }
+  .read-toolbar { gap: 6px; justify-content: center; flex-wrap: wrap; }
+  .read-toolbar .rhyme-toggles { margin-left: 0 !important; }
+  .read-toolbar .read-hint { flex-basis: 100%; order: 2; text-align: center; margin: 4px 0 0 !important; padding: 0; }
   .read-toolbar .read-copy:hover { opacity: 1; color: var(--ink); background: var(--tint-1); }
   .sections-toolbar { margin-bottom: 4px; }
   @media (max-width: 640px) {
@@ -2572,7 +2584,7 @@
           <small id="rhymestyle-help"></small>
         </div>
       </div>
-      <p class="set-foot">Tip: the Rhymes, ABC and ●●● buttons on the sheet turn these on and off quickly.</p>
+      <p class="set-foot">Tip: the Rhymes, ABC and colored Aa buttons on the sheet turn these on and off quickly.</p>
     </section>
 
     <section class="set-group" id="music-setting" hidden>
@@ -2581,6 +2593,19 @@
         <div class="set-item">
           <div class="set-text"><span id="music-label">Apple Music controls</span><small>Play, pause and skip from the bottom of the sheet</small></div>
           <button id="music-switch" class="switch" role="switch" aria-checked="false" aria-labelledby="music-label"><span></span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="set-group">
+      <h3>Read aloud</h3>
+      <div class="set-card">
+        <div class="set-item set-stack">
+          <div class="set-text"><span>Voice</span><small id="speak-voice-help"></small></div>
+          <div class="voice-row">
+            <select id="speak-voice" aria-label="Read aloud voice"></select>
+            <button id="speak-try" class="setting-btn">Try</button>
+          </div>
         </div>
       </div>
     </section>
@@ -2975,7 +3000,7 @@
         "Tap \u2039 All Songs to see your songs and folders",
         "On iPhone, swipe in from the left edge to go back",
         "Tap \u2026 for BPM, key, version history and more",
-        "Tap ABC or the colored dots to see how your lines rhyme"
+        "Tap ABC or the colored Aa to see how your lines rhyme"
       ]),
       sec("Outro", [
         "This song is just a guide: delete it whenever you like",
@@ -3346,6 +3371,7 @@
       { label: "Details", fn: function () { openDetails(song); } },
       note ? null : { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
       { label: "Share\u2026", fn: function () { shareSong(song, null); } },
+      { label: note ? "Copy note" : "Copy lyrics", fn: function () { if (song.id === state.activeId) flushReadSync(); copyText(songAsText(song), null); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
       note ? null : { label: "Remove section headers", disabled: !song.sections.some(function (x) { return x.type; }),
         fn: function () { removeSectionHeaders(song); } },
@@ -3951,6 +3977,10 @@
   function pickWebVoice() {
     if (webVoice || !window.speechSynthesis) return webVoice;
     var lang = (navigator.language || "en-US").toLowerCase(), all = speechSynthesis.getVoices();
+    if (settings.speakVoice) {   // the one picked in Settings › Read aloud
+      webVoice = all.filter(function (v) { return v.voiceURI === settings.speakVoice; })[0] || null;
+      if (webVoice) return webVoice;
+    }
     var mine = all.filter(function (v) { return (v.lang || "").toLowerCase() === lang; });
     if (!mine.length) mine = all.filter(function (v) { return (v.lang || "").toLowerCase().slice(0, 2) === lang.slice(0, 2); });
     var rank = function (v) { return /premium/i.test(v.name) ? 3 : /enhanced/i.test(v.name) ? 2 : v.localService ? 1 : 0; };
@@ -3959,7 +3989,7 @@
     return webVoice;
   }
   function sayLine(text) {
-    if (speak.native) return Capacitor.nativePromise("MusicControl", "speakLine", { text: text, rate: speakRate() }).catch(function () { return { finished: false }; });
+    if (speak.native) return Capacitor.nativePromise("MusicControl", "speakLine", { text: text, rate: speakRate(), voice: settings.speakVoice || "" }).catch(function () { return { finished: false }; });
     return new Promise(function (resolve) {
       if (!window.speechSynthesis) return resolve({ finished: false });
       speechSynthesis.cancel();
@@ -4051,12 +4081,54 @@
     speakControls();
     if (speak.on && !speak.paused) speakFrom(speak.idx);   // the current line again, at the new speed
   });
-  if (window.speechSynthesis && speechSynthesis.addEventListener) speechSynthesis.addEventListener("voiceschanged", function () { webVoice = null; });
+  if (window.speechSynthesis && speechSynthesis.addEventListener) speechSynthesis.addEventListener("voiceschanged", function () { webVoice = null; fillVoices(); });
+
+  // Settings › Read aloud › Voice: the voices for this device's language, best first
+  function listVoices() {
+    if (speak.native) {
+      return Capacitor.nativePromise("MusicControl", "speakVoices", {}).then(function (r) { return (r && r.voices) || []; }, function () { return []; });
+    }
+    if (!window.speechSynthesis) return Promise.resolve([]);
+    var lang = (navigator.language || "en").slice(0, 2).toLowerCase();
+    return Promise.resolve(speechSynthesis.getVoices().filter(function (v) { return (v.lang || "").toLowerCase().slice(0, 2) === lang; })
+      .map(function (v) { return { id: v.voiceURI, name: v.name.replace(/\s*\((Premium|Enhanced)\)/i, ""), lang: v.lang,
+        quality: /premium/i.test(v.name) ? 3 : /enhanced/i.test(v.name) ? 2 : 1 }; }));
+  }
+  function fillVoices() {
+    var sel = document.getElementById("speak-voice");
+    listVoices().then(function (voices) {
+      voices.sort(function (a, b) { return b.quality - a.quality || a.name.localeCompare(b.name); });
+      sel.innerHTML = "";
+      var auto = document.createElement("option");
+      auto.value = ""; auto.textContent = "Best available (automatic)";
+      sel.appendChild(auto);
+      voices.forEach(function (v) {
+        var o = document.createElement("option");
+        o.value = v.id;
+        o.textContent = v.name + (v.quality === 3 ? " (Premium)" : v.quality === 2 ? " (Enhanced)" : "") + " \u00b7 " + v.lang;
+        sel.appendChild(o);
+      });
+      sel.value = settings.speakVoice && voices.some(function (v) { return v.id === settings.speakVoice; }) ? settings.speakVoice : "";
+    });
+    document.getElementById("speak-voice-help").textContent = speak.native
+      ? "Download more voices, including Premium ones, in iPhone Settings \u203a Accessibility \u203a Spoken Content \u203a Voices. (Apple doesn't let apps use Siri's own voice.)"
+      : "Download more voices in System Settings \u203a Accessibility \u203a Spoken Content \u203a System Voice \u203a Manage Voices.";
+  }
+  document.getElementById("speak-voice").addEventListener("change", function (e) {
+    settings.speakVoice = e.target.value || undefined;
+    persistSettings();
+    webVoice = null;
+  });
+  document.getElementById("speak-try").addEventListener("click", function () {
+    if (speak.on) stopSpeaking();
+    sayLine("Here's how your lyrics will sound.");
+  });
 
   function copyText(text, btn) {
-    var label = btn.getAttribute("data-label") || btn.textContent;
-    btn.setAttribute("data-label", label);
+    var label = btn ? btn.getAttribute("data-label") || btn.textContent : "";
+    if (btn) btn.setAttribute("data-label", label);
     function done(ok) {
+      if (!btn) return;
       btn.textContent = ok ? "Copied" : "Couldn't copy";
       setTimeout(function () { btn.textContent = label; }, 1600);
     }
@@ -4336,16 +4408,17 @@
     var canvas = document.getElementById("canvas");
     canvas.innerHTML = "";
 
+    // quick actions, centered above the sheet; Copy is in the share sheet (and the song's ⋯ menu)
     var bar = document.createElement("div");
     bar.className = "read-toolbar";
-    var hint = document.createElement("span");
-    hint.className = "read-hint";
     var note = isNote(song);
-    hint.textContent = note ? "Type anywhere." : "Type anywhere. Start a section with [Verse], [Chorus]…";
-    var copyBtn = document.createElement("button");
-    copyBtn.className = "read-copy";
-    copyBtn.textContent = note ? "Copy Note" : "Copy Lyrics";
-    copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
+    // the how-to hint only shows on an empty song (it goes once you start typing)
+    var hint = null;
+    if (!hasLyrics(song.sections)) {
+      hint = document.createElement("span");
+      hint.className = "read-hint";
+      hint.textContent = note ? "Type anywhere." : "Type anywhere. Start a section with [Verse], [Chorus]\u2026";
+    }
     var shareBtn = document.createElement("button");
     shareBtn.className = "read-copy read-share";
     shareBtn.innerHTML = '<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 12.5V2.8M6.6 6.1L10 2.7l3.4 3.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 8.5H5.4c-.8 0-1.4.6-1.4 1.4v6.2c0 .8.6 1.4 1.4 1.4h9.2c.8 0 1.4-.6 1.4-1.4V9.9c0-.8-.6-1.4-1.4-1.4H13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
@@ -4358,11 +4431,10 @@
     speakBtn.setAttribute("aria-label", "Read aloud");
     speakBtn.title = note ? "Read this note aloud" : "Read the lyrics aloud";
     speakBtn.addEventListener("click", function () { if (speak.on) stopSpeaking(); else startSpeaking(); });
-    bar.appendChild(hint);
     if (!note) bar.appendChild(rhymeToggles());
     bar.appendChild(speakBtn);
     bar.appendChild(shareBtn);
-    bar.appendChild(copyBtn);
+    if (hint) bar.appendChild(hint);
     canvas.appendChild(bar);
 
     var sheet = document.createElement("div");
@@ -4437,6 +4509,9 @@
     });
 
     sheet.appendChild(ed);
+    if (hint) ed.addEventListener("input", function () {
+      if (hint.parentNode && ed.textContent.trim()) hint.parentNode.removeChild(hint);
+    });
     canvas.appendChild(sheet);
   }
 
@@ -6078,6 +6153,7 @@
       : nav.view === "folders" ? "Folders" : document.getElementById("folder-title").textContent;
     closeSidebar();
     applyTheme();
+    fillVoices();
     settingsModal.classList.add("open");
     document.getElementById("settings-panel").scrollTop = 0;
   });
@@ -7927,7 +8003,7 @@
   }
   function rhymeFinderOn() { return settings.rhymeFinder !== false; }
   function rhymeLettersOn() { return settings.rhymeLetters !== false; }
-  function rhymeColorsOn() { return settings.rhymeColors === true; }   // off until turned on (the ●●● button)
+  function rhymeColorsOn() { return settings.rhymeColors === true; }   // off until turned on (the colored Aa button)
   // "sounds": highlight every rhyming vowel sound (like Rhymers Block); "ends": color line-end rhymes' text
   function rhymeStyle() { return settings.rhymeStyle === "ends" ? "ends" : "sounds"; }
 
@@ -8513,7 +8589,8 @@
     box.innerHTML =
       '<button class="rt-letters" aria-pressed="' + rhymeLettersOn() + '" aria-label="Rhyme letters" title="Rhyme letters (A, B, C… beside each line)">ABC</button>' +
       (lettersOnly ? "" : '<button class="rt-colors" aria-pressed="' + rhymeColorsOn() + '" aria-label="Rhyme colors" title="Rhyme colors (color the rhyming words)">' +
-      '<span class="rt-dot"></span><span class="rt-dot"></span><span class="rt-dot"></span></button>' +
+      '<svg viewBox="0 0 26 20" width="26" height="20" aria-hidden="true"><text x="13" y="11.5" text-anchor="middle" font-size="11.5" font-weight="700" font-family="system-ui, -apple-system, sans-serif" fill="currentColor">Aa</text>' +
+      '<rect class="rt-c1" x="2.5" y="14.5" width="6.5" height="3.2" rx="1.2"/><rect class="rt-c2" x="9.75" y="14.5" width="6.5" height="3.2" rx="1.2"/><rect class="rt-c3" x="17" y="14.5" width="6.5" height="3.2" rx="1.2"/></svg></button>' +
       '<button class="rt-syl" aria-pressed="' + sylCountsOn() + '" aria-label="Syllable counts" title="Syllable counts beside each line">123</button>');
     onPress(box, function (b) {
       if (b.classList.contains("rt-letters")) settings.rhymeLetters = !rhymeLettersOn();

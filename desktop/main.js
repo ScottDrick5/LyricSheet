@@ -106,11 +106,12 @@ function buildMenu() {
       label: "View",
       submenu: [
         cmd("Write", "CmdOrCtrl+1", "mode-basic"),
-        cmd("Sections", "CmdOrCtrl+2", "mode-advanced"),
+        cmd("Build", "CmdOrCtrl+2", "mode-advanced"),
         { type: "separator" },
         cmd("Songs as List", "Alt+CmdOrCtrl+1", "view-list"),
         cmd("Songs as Gallery", "Alt+CmdOrCtrl+2", "view-gallery"),
         { type: "separator" },
+        cmd("Show / Hide Sidebar", "Ctrl+CmdOrCtrl+S", "toggle-sidebar"),
         cmd("Show / Hide Top Bar", "Shift+CmdOrCtrl+H", "toggle-bar"),
         cmd("Customize Top Bar…", undefined, "customize-bar"),
         { type: "separator" },

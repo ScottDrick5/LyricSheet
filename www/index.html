@@ -2861,7 +2861,7 @@
   }
   function moveSongToFolder(song, folderId) {
     song.folderId = folderId || null;
-    song.lastEditedAt = Date.now();
+    song.lastEditedAt = song.folderSetAt = Date.now();
     persistSongs();
     renderSidebar();
   }
@@ -5305,6 +5305,16 @@
   var SYNC_KEY = "lyricapp_sync_v1";
   var GIST_DESC = "Lyric Sheet sync - do not edit";
   var META_FILE = "lyricsheet-meta.json";
+  // Songs are packed into a fixed set of bundle files: GitHub only lists the first 300 files of a gist,
+  // so one file per song (the old layout, "song-<id>.json") hid every song past the 299th.
+  // A song always lands in the same bundle, so an edit only re-uploads that one file.
+  var BUNDLES = 16;
+  function bundleName(i) { return "songs-" + (i < 10 ? "0" : "") + i + ".json"; }
+  function bundleOf(id) {
+    var h = 0;
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return h % BUNDLES;
+  }
   var sync = { token: "", gistId: "", deleted: {}, lastSync: 0, state: "off", message: "", running: false, again: false, timer: null };
 
   function loadSync() {
@@ -5412,11 +5422,18 @@
     var wd = [L, R].filter(function (x) { return x.writtenOn; })
       .sort(function (a, b) { return (a.writtenOnSetAt || 0) - (b.writtenOnSetAt || 0); })[0];
     if (wd) { m.writtenOn = wd.writtenOn; m.writtenOnSetAt = wd.writtenOnSetAt; }
+    // a folder change made without editing the song (re-filed by an import) still wins
+    if ((loser.folderSetAt || 0) > (winner.folderSetAt || 0)) { m.folderId = loser.folderId; m.folderSetAt = loser.folderSetAt; }
     return m;
   }
 
   function mergeRemote(pairs) {
-    var remote = {}, remoteRaw = {}, meta = { format: 1, deleted: {}, savedHeaders: [] }, metaRaw = null;
+    var remote = {}, bundleRaw = {}, legacy = [], meta = { format: 1, deleted: {}, savedHeaders: [] }, metaRaw = null;
+    function addRemote(s) {
+      if (!s || !s.id || !s.sections) return;
+      var have = remote[s.id];
+      remote[s.id] = have ? mergeSong(have, s) : s;   // the same song in an old file and a bundle
+    }
     pairs.forEach(function (pr) {
       var n = pr[0], c = pr[1];
       if (n === META_FILE) {
@@ -5426,8 +5443,13 @@
           meta.deleted = mo.deleted || {}; meta.savedHeaders = mo.savedHeaders || [];
           meta.folders = mo.folders || []; meta.deletedFolders = mo.deletedFolders || {};
         } catch (e) {}
+      } else if (/^songs-\d+\.json$/.test(n)) {
+        bundleRaw[n] = c;
+        try { var b = JSON.parse(c); (b && b.songs || []).forEach(addRemote); } catch (e) {}
       } else if (/^song-.+\.json$/.test(n)) {
-        try { var s = JSON.parse(c); if (s && s.id && s.sections) { remote[s.id] = s; remoteRaw[s.id] = c; } } catch (e) {}
+        // old one-file-per-song layout: read it in, then delete the file (its song moves into a bundle)
+        legacy.push(n);
+        try { addRemote(JSON.parse(c)); } catch (e) {}
       }
     });
 
@@ -5441,14 +5463,14 @@
     Object.keys(remote).forEach(function (id) { ids[id] = true; });
     Object.keys(localMap).forEach(function (id) { ids[id] = true; });
 
-    var patch = {}, patchCount = 0;
+    var patch = {}, patchCount = 0, bundles = [];
+    for (var bi = 0; bi < BUNDLES; bi++) bundles.push([]);
     var next = [], localChanged = false, activeChanged = false, activeGone = false;
 
     Object.keys(ids).forEach(function (id) {
       var L = localMap[id], R = remote[id];
       var newest = Math.max(L ? L.lastEditedAt : 0, R ? R.lastEditedAt : 0);
       if (deleted[id] && deleted[id] >= newest) {
-        if (R) { patch["song-" + id + ".json"] = null; patchCount++; }
         if (L) {
           if (!trash.some(function (t) { return t.song.id === id; })) moveToTrash(L);
           localChanged = true;
@@ -5460,7 +5482,7 @@
 
       var merged = L && R ? mergeSong(L, R) : JSON.parse(JSON.stringify(L || R));
       var out = JSON.stringify(merged);
-      if (!R || out !== remoteRaw[id]) { patch["song-" + id + ".json"] = { content: out }; patchCount++; }
+      bundles[bundleOf(id)].push(merged);
 
       if (L) {
         if (JSON.stringify(L) !== out) {
@@ -5477,6 +5499,20 @@
         localChanged = true;
       }
     });
+
+    // write only the bundles whose contents changed (songs sorted by id so the text is stable)
+    bundles.forEach(function (list, i) {
+      var name = bundleName(i);
+      if (!list.length) {
+        if (bundleRaw[name] !== undefined) { patch[name] = null; patchCount++; }
+        return;
+      }
+      list.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+      var text = JSON.stringify({ format: 2, songs: list });
+      if (text !== bundleRaw[name]) { patch[name] = { content: text }; patchCount++; }
+    });
+    legacy.forEach(function (n) { patch[n] = null; patchCount++; });
+    sync.legacyLeft = legacy.length > 0;
 
     // saved headers follow you between devices
     var headers = settings.savedHeaders.slice();
@@ -5498,7 +5534,7 @@
       saveFolders(true);
       localChanged = true;
     }
-    var metaOut = JSON.stringify({ format: 1, deleted: deleted, savedHeaders: headers, folders: mergedFolders, deletedFolders: fdel });
+    var metaOut = JSON.stringify({ format: 2, deleted: deleted, savedHeaders: headers, folders: mergedFolders, deletedFolders: fdel });
     if (metaOut !== metaRaw) { patch[META_FILE] = { content: metaOut }; patchCount++; }
 
     sync.deleted = deleted;
@@ -5534,7 +5570,11 @@
         var patch = mergeRemote(pairs);
         if (patch) return gh("PATCH", "/gists/" + sync.gistId, { files: patch });
       })
-      .then(function () { sync.lastSync = Date.now(); saveSync(); setSyncState("ok"); })
+      .then(function () {
+        sync.lastSync = Date.now(); saveSync(); setSyncState("ok");
+        // old per-song files were just deleted: go again, GitHub may have been hiding more of them
+        if (sync.legacyLeft) { sync.legacyLeft = false; sync.again = true; }
+      })
       .catch(function (err) {
         if (err && err.kind === "notfound" && sync.gistId) { sync.gistId = ""; saveSync(); sync.again = true; setSyncState("syncing"); return; }
         console.warn("Sync failed", err);
@@ -6545,7 +6585,7 @@
       flushReadSync();
       var have = {};
       state.songs.forEach(function (s) { if (s.notesId) have[s.notesId] = s; });
-      var added = 0, refreshed = 0, skippedLocked = 0, skippedDup = 0, skippedBad = 0, lastFolder = null, i = 0;
+      var added = 0, refreshed = 0, refiled = 0, skippedLocked = 0, skippedDup = 0, skippedBad = 0, lastFolder = null, i = 0;
       function next() {
         if (i >= picked.length) return finish();
         var f = picked[i++];
@@ -6559,12 +6599,16 @@
             if (have[n.id]) {
               // already imported: bring in a fresh copy if the song hasn't been edited since
               var old = have[n.id];
+              if (old === true) { skippedDup++; return; }
+              // its folder is gone (deleted, or lost in a sync): put it back in the one it came from
+              if (!songFolderId(old)) { old.folderId = target.id; old.folderSetAt = Date.now(); refiled++; }
               // (songs imported before importedEditAt existed got the note's own last-change time)
-              var untouched = old !== true && (old.importedEditAt ? old.lastEditedAt === old.importedEditAt
+              var untouched = (old.importedEditAt ? old.lastEditedAt === old.importedEditAt
                 : Math.abs(old.lastEditedAt - Math.max(n.modified, n.created)) < 5000);
               if (untouched) {
-                var fresh = songFromNote(n, old.folderId || target.id);
+                var fresh = songFromNote(n, old.folderId);
                 fresh.id = old.id;
+                if (old.folderSetAt) fresh.folderSetAt = old.folderSetAt;
                 if (JSON.stringify(fresh.sections) !== JSON.stringify(old.sections)) {
                   state.songs[state.songs.indexOf(old)] = fresh;
                   refreshed++;
@@ -6584,9 +6628,10 @@
       function finish(error) {
         busy = false;
         cancelBtn.disabled = false;
-        if (added || refreshed) { saveFolders(); persistSongs(); }
+        if (added || refreshed || refiled) { saveFolders(); persistSongs(); }
         var parts = [added + (added === 1 ? " note" : " notes") + " imported"];
         if (refreshed) parts.push(refreshed + " re-imported with fixes");
+        if (refiled) parts.push(refiled + " put back in " + (refiled === 1 ? "its folder" : "their folders"));
         if (skippedDup) parts.push(skippedDup + " already imported");
         if (skippedLocked) parts.push(skippedLocked + " locked (unlock them in Notes to import)");
         if (skippedBad) parts.push(skippedBad + " couldn't be read");
@@ -6594,7 +6639,7 @@
         list.querySelectorAll("input").forEach(function (b) { b.checked = false; });
         refreshGo();
         cancelBtn.textContent = "Done";
-        if ((added || refreshed) && lastFolder) setNav("songs", lastFolder);
+        if ((added || refreshed || refiled) && lastFolder) setNav("songs", lastFolder);
         renderAll();
       }
       next();

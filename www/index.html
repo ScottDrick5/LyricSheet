@@ -472,6 +472,14 @@
 
   #meta-bar .spacer { flex: 1; }
 
+  .align-seg { display: flex; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); overflow: hidden; }
+  .align-seg button {
+    width: 36px; height: 30px; display: flex; align-items: center; justify-content: center;
+    background: none; border: none; color: var(--shell-text-dim); cursor: pointer;
+  }
+  .align-seg button + button { border-left: 1px solid var(--shell-border); }
+  .align-seg button[aria-pressed="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
+  #canvas .read-editor, #canvas .read-title, #canvas .line-input { text-align: var(--lyric-align, left); }
   .metro-controls { display: flex; gap: 6px; }
   .metro-controls button {
     height: 30px; min-width: 38px; padding: 0 10px; position: relative;
@@ -2325,6 +2333,15 @@
             <button id="font-inc" title="Larger">A+</button>
           </div>
         </div>
+        <div class="meta-field" data-hud="align">
+          <label>Alignment</label>
+          <div class="align-seg" role="group" aria-label="Line alignment">
+            <button data-align="left" aria-label="Align left" title="Align left"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+            <button data-align="center" aria-label="Center" title="Center"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+            <button data-align="right" aria-label="Align right" title="Align right"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+            <button data-align="justify" aria-label="Justify" title="Justify (wrapped lines fill the width)"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+          </div>
+        </div>
         <div class="meta-field" data-hud="wordcount">
           <label>Word count</label>
           <span id="wordcount-val" class="meta-readout">0 words</span>
@@ -3175,6 +3192,7 @@
     showSheet(title, [
       { label: "Details", fn: function () { openDetails(song); } },
       note ? null : { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
+      { label: "Share\u2026", fn: function () { shareSong(song, null); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
       note ? null : { label: "Remove section headers", disabled: !song.sections.some(function (x) { return x.type; }),
         fn: function () { removeSectionHeaders(song); } },
@@ -3704,6 +3722,7 @@
     timeSigSelect.value = song.timeSig || "\u2014";
     applyHud(song);
     updateWordCount(song);
+    applyAlign(song);
     refreshDetails();
 
     document.documentElement.style.setProperty("--lyric-size-val", settings.fontSize + "px");
@@ -3734,10 +3753,25 @@
     return ((song.title.trim() ? song.title.trim() + "\n\n" : "") + body).trim() + "\n";
   }
 
+  // Share a song as text: the share sheet on iPhone, the Share menu on the Mac, else the browser's
+  // own sharing, else it's copied
+  function shareSong(song, btn) {
+    if (song.id === state.activeId) flushReadSync();
+    var text = songAsText(song), desk = window.lyricDesktop;
+    function copy() { if (btn) copyText(text, btn); }
+    if (desk && desk.share && desk.platform === "darwin") return desk.share(text).catch(copy);
+    if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.nativePromise) {
+      return Capacitor.nativePromise("Backup", "shareText", { text: text }).catch(function () {});
+    }
+    if (navigator.share) return navigator.share({ title: song.title || untitled(song), text: text }).catch(function () {});
+    copy();
+  }
   function copyText(text, btn) {
+    var label = btn.getAttribute("data-label") || btn.textContent;
+    btn.setAttribute("data-label", label);
     function done(ok) {
       btn.textContent = ok ? "Copied" : "Couldn't copy";
-      setTimeout(function () { btn.textContent = "Copy lyrics"; }, 1600);
+      setTimeout(function () { btn.textContent = label; }, 1600);
     }
     function fallback() {
       var ta = document.createElement("textarea");
@@ -4025,8 +4059,14 @@
     copyBtn.className = "read-copy";
     copyBtn.textContent = note ? "Copy note" : "Copy lyrics";
     copyBtn.addEventListener("click", function () { flushReadSync(); copyText(songAsText(song), copyBtn); });
+    var shareBtn = document.createElement("button");
+    shareBtn.className = "read-copy read-share";
+    shareBtn.textContent = "Share";
+    shareBtn.title = note ? "Send this note to someone" : "Send these lyrics to someone";
+    shareBtn.addEventListener("click", function () { shareSong(song, shareBtn); });
     bar.appendChild(hint);
     if (!note) bar.appendChild(rhymeToggles());
+    bar.appendChild(shareBtn);
     bar.appendChild(copyBtn);
     canvas.appendChild(bar);
 
@@ -4924,7 +4964,7 @@
   // layout, which "Save as Default" replaces (new songs start with it).
   var HUD_TOOLS = [
     { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
-    { id: "metronome", name: "Metronome & Tap Tempo" }, { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "wordcount", name: "Word Count" },
+    { id: "metronome", name: "Metronome & Tap Tempo" }, { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "align", name: "Alignment" }, { id: "wordcount", name: "Word Count" },
     { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Build" }, { id: "import", name: "Import New Lyrics" },
     { id: "history", name: "Version History" }, { id: "details", name: "Details" }, { id: "rhymes", name: "Rhymes" }
   ];
@@ -4962,7 +5002,7 @@
     var shown = layout.filter(function (id) { return id !== "rhymes" || rhymeFinderOn(); }).length;
     document.getElementById("hud-more").hidden = isNote(song) || shown >= hudToolsAvailable().length;
   }
-  var NOTE_TOOLS = ["title", "textsize", "wordcount", "undo", "history", "details"];
+  var NOTE_TOOLS = ["title", "textsize", "align", "wordcount", "undo", "history", "details"];
 
   // ---------- ⋯ panel: the tools that aren't in the top bar ----------
   // The real controls are moved into the panel while it's open (so they keep working as they
@@ -5436,6 +5476,26 @@
     markEdited(song);
   });
 
+  // ---------- line alignment (per song) ----------
+  var ALIGNS = ["left", "center", "right", "justify"];
+  function songAlign(song) { return song && ALIGNS.indexOf(song.align) !== -1 ? song.align : "left"; }
+  function applyAlign(song) {
+    var a = songAlign(song);
+    document.getElementById("canvas").style.setProperty("--lyric-align", a);
+    Array.prototype.forEach.call(document.querySelectorAll(".align-seg button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-align") === a));
+    });
+    scheduleRhymeLetters(0);   // the words moved: redraw the rhyme colors and letters
+  }
+  document.querySelector(".align-seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button"), song = getActiveSong();
+    if (!b || !song) return;
+    var a = b.getAttribute("data-align");
+    if (a === "left") delete song.align; else song.align = a;
+    markEdited(song);
+    applyAlign(song);
+  });
+
   // ---------- metronome and tap tempo (top bar) ----------
   // The tempo follows the song's BPM (120 when it has none) and beat 1 is accented using its time
   // signature. In the iPhone app the clicks are played by the app itself (MusicControl add-on): the web
@@ -5651,7 +5711,7 @@
   // ---------- appearance ----------
   var systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   function applyTheme() {
-    var pref = settings.theme || "dark";
+    var pref = settings.theme || "system";   // follows the phone / Mac until a theme is picked
     var resolved = pref === "system" ? (systemDark && systemDark.matches ? "dark" : "light") : pref;
     if (resolved === "dark" && settings.trueBlack) resolved = "black";
     document.documentElement.setAttribute("data-theme", resolved);

@@ -8,8 +8,18 @@ public class BackupPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "BackupPlugin"
     public let jsName = "Backup"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise)
     ]
+
+    /// Share a song's lyrics as text (Messages, Mail, AirDrop, Notes…): { text } → { completed: Bool }
+    @objc func shareText(_ call: CAPPluginCall) {
+        guard let text = call.getString("text"), !text.isEmpty else {
+            call.reject("Nothing to share")
+            return
+        }
+        DispatchQueue.main.async { self.present([text], call) }
+    }
 
     /// { name: "Lyric Sheet Backup 2026-09-25.json", text: "…" } → { completed: Bool }
     @objc func share(_ call: CAPPluginCall) {
@@ -30,26 +40,28 @@ public class BackupPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Couldn't create the backup file: \(error.localizedDescription)")
             return
         }
-        DispatchQueue.main.async {
-            guard let presenter = self.bridge?.viewController else {
-                call.reject("Couldn't show the share sheet")
-                return
-            }
-            let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-            sheet.completionWithItemsHandler = { _, completed, _, error in
-                if let error = error {
-                    call.reject(error.localizedDescription)
-                } else {
-                    call.resolve(["completed": completed])
-                }
-            }
-            // iPad shows the share sheet as a popover, which needs somewhere to point
-            if let pop = sheet.popoverPresentationController {
-                pop.sourceView = presenter.view
-                pop.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 0, height: 0)
-                pop.permittedArrowDirections = []
-            }
-            presenter.present(sheet, animated: true)
+        DispatchQueue.main.async { self.present([url], call) }
+    }
+
+    private func present(_ items: [Any], _ call: CAPPluginCall) {
+        guard let presenter = self.bridge?.viewController else {
+            call.reject("Couldn't show the share sheet")
+            return
         }
+        let sheet = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        sheet.completionWithItemsHandler = { _, completed, _, error in
+            if let error = error {
+                call.reject(error.localizedDescription)
+            } else {
+                call.resolve(["completed": completed])
+            }
+        }
+        // iPad shows the share sheet as a popover, which needs somewhere to point
+        if let pop = sheet.popoverPresentationController {
+            pop.sourceView = presenter.view
+            pop.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 0, height: 0)
+            pop.permittedArrowDirections = []
+        }
+        presenter.present(sheet, animated: true)
     }
 }

@@ -3010,12 +3010,13 @@
   });
   document.getElementById("folders-back").addEventListener("click", function () { setNav("folders"); });
 
-  // Song list headings by when a song was last edited: Today, Previous 30 Days,
+  // Song list headings by when a song was last edited: Today, Previous 7 Days, Previous 30 Days,
   // then each earlier month of this year by name, then each earlier year (2025, 2024…)
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   function editGroup(ts, now) {
     var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     if (ts >= today) return "Today";
+    if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).getTime()) return "Previous 7 Days";
     if (ts >= new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).getTime()) return "Previous 30 Days";
     var d = new Date(ts);
     if (d.getFullYear() === now.getFullYear()) return MONTHS[d.getMonth()];

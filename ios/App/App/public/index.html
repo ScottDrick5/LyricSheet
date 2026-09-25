@@ -2285,7 +2285,7 @@
           <button id="rhymeletters-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymeletters-label"><span></span></button>
         </div>
         <div class="set-item">
-          <div class="set-text"><span id="rhymecolors-label">Rhyme colors</span><small>Highlight the words that rhyme</small></div>
+          <div class="set-text"><span id="rhymecolors-label">Rhyme colors</span><small>Highlight the words that rhyme (in Write view)</small></div>
           <button id="rhymecolors-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymecolors-label"><span></span></button>
         </div>
         <div class="set-item set-stack" id="rhymestyle-item">
@@ -3739,7 +3739,7 @@
     canvas.style.setProperty("--lyric-size", settings.fontSize + "px");
     var topBar = document.createElement("div");
     topBar.className = "read-toolbar sections-toolbar";
-    topBar.appendChild(rhymeToggles());
+    topBar.appendChild(rhymeToggles(true));   // Build: letters only (its line boxes can't show colored words)
     canvas.appendChild(topBar);
 
     song.sections.forEach(function (section, sIdx) {
@@ -7285,13 +7285,13 @@
   })();
 
   // The ABC / color-dot switches at the top of the sheet. Pressing (not clicking) keeps the cursor and keyboard.
-  function rhymeToggles() {
+  function rhymeToggles(lettersOnly) {
     var box = document.createElement("div");
     box.className = "rhyme-toggles";
     box.innerHTML =
       '<button class="rt-letters" aria-pressed="' + rhymeLettersOn() + '" aria-label="Rhyme letters" title="Rhyme letters (A, B, C… beside each line)">ABC</button>' +
-      '<button class="rt-colors" aria-pressed="' + rhymeColorsOn() + '" aria-label="Rhyme colors" title="Rhyme colors (color the rhyming words)">' +
-      '<span class="rt-dot"></span><span class="rt-dot"></span><span class="rt-dot"></span></button>';
+      (lettersOnly ? "" : '<button class="rt-colors" aria-pressed="' + rhymeColorsOn() + '" aria-label="Rhyme colors" title="Rhyme colors (color the rhyming words)">' +
+      '<span class="rt-dot"></span><span class="rt-dot"></span><span class="rt-dot"></span></button>');
     onPress(box, function (b) {
       if (b.classList.contains("rt-letters")) settings.rhymeLetters = !rhymeLettersOn();
       else settings.rhymeColors = !rhymeColorsOn();

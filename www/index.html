@@ -706,6 +706,57 @@
      (the text column keeps a comfortable width on wide screens) */
   #editor, #editor #meta-bar { background: var(--paper); }
   #editor #meta-bar { border-bottom: none; }
+  /* ---------- the top bar, Notes style: one slim row, back on the left, matching tools on the right ---------- */
+  #editor #meta-bar {
+    align-items: center; justify-content: flex-end; gap: 8px; min-height: 56px;
+    padding: 10px 14px !important;
+  }
+  /* a lean bar always fits on one row: the back button's label shortens instead */
+  #editor #meta-bar.hud-one-row { flex-wrap: nowrap; }
+  #meta-bar.hud-one-row > * { flex-shrink: 0; }
+  #meta-bar.hud-one-row #songs-toggle { flex-shrink: 1; min-width: 44px; overflow: hidden; }
+  #meta-bar.hud-one-row #songs-toggle .back-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #meta-bar .hud-spacer { flex: 1 1 0; min-width: 4px; }
+  #meta-bar .hud-icon { position: static; width: 34px; height: 34px; flex-shrink: 0; }
+  #meta-bar #hud-customize { order: 950; }
+  #meta-bar #hud-hide { order: 960; }
+  #meta-bar #hud-more { order: 900; }
+  /* fields sit on the row with a small label in front: "BPM [92]" */
+  #meta-bar .meta-field { flex-direction: row; align-items: center; gap: 6px; }
+  #meta-bar .meta-field label { font-size: 0.62rem; }
+  /* the title (when it's added to the bar): big and borderless, filling the row */
+  #meta-bar [data-hud="title"] { flex: 1 1 160px; min-width: 0 !important; }
+  #meta-bar [data-hud="title"] label { display: none; }
+  #meta-bar #title-input {
+    width: 100%; border: none; background: none; padding: 2px 0;
+    font-family: var(--font-lyric); font-size: 1.3rem; color: var(--shell-text);
+  }
+  #meta-bar #title-input:focus { outline: none; }
+  /* one height and shape for every button in the bar */
+  #meta-bar #rhymes-btn, #meta-bar #paste-btn, #meta-bar #history-toggle, #meta-bar #details-btn,
+  #meta-bar #hud-more, #meta-bar #view-toggle button, #meta-bar .metro-controls button,
+  #meta-bar #undo-bar button, #meta-bar .align-seg button, #meta-bar .font-controls button {
+    height: 34px !important; min-height: 34px !important; align-self: center !important;
+  }
+  #meta-bar #rhymes-btn, #meta-bar #paste-btn, #meta-bar #history-toggle, #meta-bar #details-btn {
+    border-radius: 17px; padding: 0 14px; font-size: 0.82rem !important;
+  }
+  #meta-bar #hud-more { width: 38px !important; border-radius: 17px; }
+  #meta-bar #hud-more svg { width: 18px; height: 18px; }
+  #meta-bar #undo-bar { border-radius: 17px; }
+  #meta-bar #songs-toggle, #meta-bar #gallery-back { order: 0; align-self: center; }
+  @media (max-width: 640px) {
+    #editor #meta-bar { padding: 6px 10px !important; }
+    #meta-bar .meta-field:first-of-type { flex-basis: auto; }
+    /* on a phone, a title in the bar gets its own row under the buttons */
+    #meta-bar [data-hud="title"] { flex-basis: 100%; order: 999 !important; }
+    #meta-bar .hud-spacer { order: 5 !important; }
+    #meta-bar #songs-toggle { min-height: 40px; }
+    #editor #meta-bar { gap: 6px; }
+    #meta-bar #undo-bar button { width: 36px; }
+    #meta-bar #rhymes-btn { padding: 0 12px; }
+    #meta-bar #hud-hide { width: 30px; }
+  }
   #canvas {
     background: none;
     color: var(--ink);
@@ -1465,6 +1516,8 @@
     cursor: pointer;
   }
   .read-copy:hover { color: var(--ink); background: var(--tint-2); }
+  .read-title[contenteditable] { outline: none; cursor: text; }
+  .read-title:empty::before { content: attr(data-placeholder); color: var(--ink-dim); opacity: 0.6; }
   .read-title {
     font-weight: 600;
     font-size: 1.75em;
@@ -2371,6 +2424,7 @@
         <button id="details-btn" data-hud="details" title="Dates and other details for this song">Details</button>
         <button id="rhymes-btn" data-hud="rhymes" data-rhyme-ui aria-pressed="false" title="Show rhymes for the word you're on as you write">Rhymes</button>
         <button id="hud-more" aria-label="More song tools" title="More" hidden><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="5.5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18.5" cy="12" r="2" fill="currentColor"/></svg></button>
+        <span class="hud-spacer" aria-hidden="true"></span>
       </div>
 
       <div id="body-row">
@@ -4119,9 +4173,32 @@
     sheet.style.setProperty("--lyric-px", settings.fontSize + "px");
 
     if (song.title.trim()) {
+      // the title is edited right here on the sheet (tap it); Return goes on to the lyrics
       var t = document.createElement("h2");
       t.className = "read-title";
       t.textContent = song.title;
+      t.setAttribute("contenteditable", "plaintext-only");
+      if (t.contentEditable !== "plaintext-only") t.setAttribute("contenteditable", "true");
+      t.setAttribute("role", "textbox");
+      t.setAttribute("aria-label", "Title");
+      t.setAttribute("data-placeholder", untitled(song));
+      t.spellcheck = false;
+      t.addEventListener("input", function () {
+        song.title = t.textContent.replace(/\s*\n\s*/g, " ");
+        document.getElementById("title-input").value = song.title;
+        markEdited(song, true);
+        renderSidebarSoon();
+      });
+      t.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        var ed2 = sheet.querySelector(".read-editor");
+        if (!ed2) return;
+        ed2.focus();
+        var r = document.createRange(), sel = window.getSelection();
+        r.setStart(ed2, 0); r.collapse(true);
+        sel.removeAllRanges(); sel.addRange(r);
+      });
       sheet.appendChild(t);
     }
 
@@ -5013,7 +5090,7 @@
   ];
   // The top bar starts lean everywhere (title, undo/redo, Rhymes); everything else is under ⋯ and can be
   // added back with Customize Top Bar
-  var HUD_BUILTIN = ["title", "undo", "rhymes"];
+  var HUD_BUILTIN = ["undo", "rhymes"];
   var TIME_SIGS = ["\u2014", "4/4", "3/4", "2/4", "6/8", "12/8", "5/4", "7/8", "9/8", "7/4"];
   // the tools that can be shown (the Rhymes button only while the Rhyme finder is on in Settings)
   function hudToolsAvailable() {
@@ -5026,7 +5103,7 @@
     return out;
   }
   // Phones start with a lean bar (title and undo/redo); everything else is one tap away under ⋯
-  var HUD_PHONE_BUILTIN = ["title", "undo", "rhymes"];
+  var HUD_PHONE_BUILTIN = ["undo", "rhymes"];
   var phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 640px)") : null;
   function isPhoneLayout() { return !!(phoneQuery && phoneQuery.matches); }
   function defaultLayout() {
@@ -5046,6 +5123,9 @@
     // ⋯ appears whenever some tools aren't in the bar
     var shown = layout.filter(function (id) { return id !== "rhymes" || rhymeFinderOn(); }).length;
     document.getElementById("hud-more").hidden = isNote(song) || shown >= hudToolsAvailable().length;
+    var ti = layout.indexOf("title");
+    document.getElementById("meta-bar").classList.toggle("hud-one-row", ti === -1 && shown <= 3);
+    document.querySelector("#meta-bar .hud-spacer").style.order = ti === -1 ? "5" : String(10 + ti);
   }
   var NOTE_TOOLS = ["title", "textsize", "align", "wordcount", "undo", "history", "details"];
 
@@ -8056,6 +8136,8 @@
     items.forEach(function (it) {
       var t = textOf(it);
       if (!t.trim() || detectHeader(t)) { if (cur.length) groups.push(cur); cur = []; }
+      // a line that's only a note in parentheses, like "(Beat drops)": no letter, and it doesn't split the stanza
+      else if (!stripParentheticals(t).trim()) return;
       else cur.push(it);
     });
     if (cur.length) groups.push(cur);
@@ -8190,7 +8272,7 @@
       var v = row.querySelector(".line-input").value;
       if (row.dataset.sectionId !== lastSection || !v.trim()) { if (cur.length) groups.push(cur); cur = []; }
       lastSection = row.dataset.sectionId;
-      if (v.trim()) cur.push(row);
+      if (v.trim() && stripParentheticals(v).trim()) cur.push(row);   // (a note-only line gets no letter)
     });
     if (cur.length) groups.push(cur);
     var result = analyzeRhymes(rhymeDict, groups.map(function (g) { return g.map(function (r) { return r.querySelector(".line-input").value; }); }));

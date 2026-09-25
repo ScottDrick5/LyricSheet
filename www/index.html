@@ -2480,6 +2480,10 @@
           <div class="set-text"><span>Welcome song</span><small>The song with tips on how Lyric Sheet works</small></div>
           <button id="welcome-btn" class="setting-btn">Show</button>
         </div>
+        <div class="set-item">
+          <div class="set-text"><span>Reset settings</span><small>Every setting back to how a new user starts. Songs, notes, folders and sync stay.</small></div>
+          <button id="reset-settings-btn" class="setting-btn">Reset…</button>
+        </div>
       </div>
       <input id="restore-file" type="file" accept=".json,application/json,text/plain" hidden>
     </section>
@@ -5786,6 +5790,18 @@
   });
   document.getElementById("settings-done").addEventListener("click", closeSettings);
   document.getElementById("welcome-btn").addEventListener("click", showWelcomeSong);
+  // Settings back to a new user's (theme, top bar, rhymes, music player, views…). What you've made stays:
+  // songs, notes, folders, saved section names and sync. The app reloads to start fresh.
+  document.getElementById("reset-settings-btn").addEventListener("click", function () {
+    askConfirm("Put every setting back to how a new user starts? Your songs, notes, folders and sync stay as they are.", "Reset settings", true, function () {
+      maybeSnapshotOnLeave();
+      var fresh = { fontSize: 17, savedHeaders: settings.savedHeaders || [], welcomed: true };
+      if (settings.welcomeId) fresh.welcomeId = settings.welcomeId;
+      settings = fresh;   // (so nothing saves the old ones back on the way out)
+      persistSettings();
+      location.reload();
+    });
+  });
   settingsModal.addEventListener("click", function (e) { if (e.target === settingsModal) closeSettings(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && settingsModal.classList.contains("open")) closeSettings();

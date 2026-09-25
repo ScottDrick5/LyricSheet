@@ -6604,9 +6604,13 @@
     // "love") are so common they only count when the sound after them matches too (didn't / different).
     // Each sound has its own color throughout the song ("you" is always violet), so a rhyme that carries
     // on into the next stanza stands out. On a song checked against Rhymers Block this agrees on ~3/4 of words.
+    // Like Rhymers Block, line-end rhymes come first: a line end that rhymes (real, near or slant) with
+    // another line end in its stanza is always highlighted; then the other sound patterns are added.
     var SHORT_VOWEL = { IH: true, EH: true, AH: true, AE: true, UH: true };
-    var boxesByLine = [], li = 0;
+    var boxesByLine = [], li = 0, flatAt = 0;
     stanzas.forEach(function (st) {
+      var stEnds = flat.slice(flatAt, flatAt + st.length);
+      flatAt += st.length;
       var perLine = st.map(function (text) {
         var words = [];
         lineWords(text, true).forEach(function (w) {
@@ -6619,7 +6623,10 @@
         return words;
       });
       perLine.forEach(function (words, i) {
+        var end = stEnds[i].end;
+        var endRhymes = !!end && stEnds.some(function (o, j) { return j !== i && o.end && endsRhyme(end, o.end); });
         boxesByLine[li++] = words.filter(function (w) {
+          if (endRhymes && w.start === end.start) return true;
           for (var j = i - 1; j <= i + 1; j++) {
             var line = perLine[j];
             if (!line) continue;

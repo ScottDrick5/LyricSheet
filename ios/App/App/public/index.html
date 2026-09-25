@@ -6539,7 +6539,7 @@
       flushReadSync();
       var have = {};
       state.songs.forEach(function (s) { if (s.notesId) have[s.notesId] = true; });
-      var added = 0, skippedLocked = 0, skippedDup = 0, lastFolder = null, i = 0;
+      var added = 0, skippedLocked = 0, skippedDup = 0, skippedBad = 0, lastFolder = null, i = 0;
       function next() {
         if (i >= picked.length) return finish();
         var f = picked[i++];
@@ -6549,6 +6549,7 @@
           lastFolder = target.id;
           notes.forEach(function (n) {
             if (n.locked) { skippedLocked++; return; }
+            if (n.unreadable) { skippedBad++; return; }
             if (have[n.id]) { skippedDup++; return; }
             state.songs.push(songFromNote(n, target.id));
             have[n.id] = true;
@@ -6564,6 +6565,7 @@
         var parts = [added + (added === 1 ? " note" : " notes") + " imported"];
         if (skippedDup) parts.push(skippedDup + " already imported");
         if (skippedLocked) parts.push(skippedLocked + " locked (unlock them in Notes to import)");
+        if (skippedBad) parts.push(skippedBad + " couldn't be read");
         status.textContent = (error ? error + " " : "") + parts.join(", ") + ".";
         list.querySelectorAll("input").forEach(function (b) { b.checked = false; });
         refreshGo();

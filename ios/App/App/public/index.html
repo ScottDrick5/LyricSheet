@@ -6489,7 +6489,12 @@
       function nl() { if (out && out.charAt(out.length - 1) !== "\n") out += "\n"; }
       (function walk(n) {
         for (var c = n.firstChild; c; c = c.nextSibling) {
-          if (c.nodeType === 3) { out += c.data.replace(/\s*\n\s*/g, " "); continue; }
+          if (c.nodeType === 3) {
+            // Notes puts a line break between its line blocks; that isn't text (it made a blank line after every line)
+            if (!c.data.trim() && (!out || out.charAt(out.length - 1) === "\n")) continue;
+            out += c.data.replace(/\s*\n\s*/g, " ");
+            continue;
+          }
           if (c.nodeType !== 1) continue;
           var tag = c.nodeName;
           if (tag === "BR") { out += "\n"; continue; }
@@ -6528,6 +6533,7 @@
       song.writtenOnSetAt = Date.now();
       song.folderId = folderId;
       song.notesId = note.id;
+      song.importedEditAt = song.lastEditedAt;   // unchanged since import while lastEditedAt still equals this
       return song;
     }
     go.addEventListener("click", function () {
@@ -6538,8 +6544,8 @@
       cancelBtn.disabled = true;
       flushReadSync();
       var have = {};
-      state.songs.forEach(function (s) { if (s.notesId) have[s.notesId] = true; });
-      var added = 0, skippedLocked = 0, skippedDup = 0, skippedBad = 0, lastFolder = null, i = 0;
+      state.songs.forEach(function (s) { if (s.notesId) have[s.notesId] = s; });
+      var added = 0, refreshed = 0, skippedLocked = 0, skippedDup = 0, skippedBad = 0, lastFolder = null, i = 0;
       function next() {
         if (i >= picked.length) return finish();
         var f = picked[i++];
@@ -6550,7 +6556,24 @@
           notes.forEach(function (n) {
             if (n.locked) { skippedLocked++; return; }
             if (n.unreadable) { skippedBad++; return; }
-            if (have[n.id]) { skippedDup++; return; }
+            if (have[n.id]) {
+              // already imported: bring in a fresh copy if the song hasn't been edited since
+              var old = have[n.id];
+              // (songs imported before importedEditAt existed got the note's own last-change time)
+              var untouched = old !== true && (old.importedEditAt ? old.lastEditedAt === old.importedEditAt
+                : Math.abs(old.lastEditedAt - Math.max(n.modified, n.created)) < 5000);
+              if (untouched) {
+                var fresh = songFromNote(n, old.folderId || target.id);
+                fresh.id = old.id;
+                if (JSON.stringify(fresh.sections) !== JSON.stringify(old.sections)) {
+                  state.songs[state.songs.indexOf(old)] = fresh;
+                  refreshed++;
+                  return;
+                }
+              }
+              skippedDup++;
+              return;
+            }
             state.songs.push(songFromNote(n, target.id));
             have[n.id] = true;
             added++;
@@ -6561,8 +6584,9 @@
       function finish(error) {
         busy = false;
         cancelBtn.disabled = false;
-        if (added) { saveFolders(); persistSongs(); }
+        if (added || refreshed) { saveFolders(); persistSongs(); }
         var parts = [added + (added === 1 ? " note" : " notes") + " imported"];
+        if (refreshed) parts.push(refreshed + " re-imported with fixes");
         if (skippedDup) parts.push(skippedDup + " already imported");
         if (skippedLocked) parts.push(skippedLocked + " locked (unlock them in Notes to import)");
         if (skippedBad) parts.push(skippedBad + " couldn't be read");
@@ -6570,7 +6594,7 @@
         list.querySelectorAll("input").forEach(function (b) { b.checked = false; });
         refreshGo();
         cancelBtn.textContent = "Done";
-        if (added && lastFolder) setNav("songs", lastFolder);
+        if ((added || refreshed) && lastFolder) setNav("songs", lastFolder);
         renderAll();
       }
       next();

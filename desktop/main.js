@@ -111,6 +111,7 @@ function buildMenu() {
         cmd("Songs as List", "Alt+CmdOrCtrl+1", "view-list"),
         cmd("Songs as Gallery", "Alt+CmdOrCtrl+2", "view-gallery"),
         { type: "separator" },
+        cmd("Show / Hide Sidebar", "Ctrl+CmdOrCtrl+S", "toggle-sidebar"),
         cmd("Show / Hide Top Bar", "Shift+CmdOrCtrl+H", "toggle-bar"),
         cmd("Customize Top Bar…", undefined, "customize-bar"),
         { type: "separator" },

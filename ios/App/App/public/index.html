@@ -2926,10 +2926,31 @@
       { label: "Details", fn: function () { openDetails(song); } },
       { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
+      { label: "Remove section headers", disabled: !song.sections.some(function (x) { return x.type; }),
+        fn: function () { removeSectionHeaders(song); } },
       { label: "Delete song", danger: true, fn: function () {
         askConfirm('Move "' + title + '" to Recently Deleted? You can restore it for ' + TRASH_DAYS + ' days.', "Delete song", true, function () { deleteSong(song); });
       } }
     ]);
+  }
+  // Turns a song back into a plain body with no [Verse] / [Chorus] headers (e.g. ones added to older
+  // songs that never had any). The headers are kept in Version history, and Undo brings them back.
+  function removeSectionHeaders(song) {
+    if (song.id === state.activeId) flushReadSync();
+    if (addVersionIfChanged(song)) persistSongs();
+    var lines = [], fmt = [], any = false;
+    song.sections.forEach(function (sec) {
+      var t = tidyWithFmt(sec.lines, sec.fmt);
+      if (!t.lines.length) return;
+      if (lines.length) { lines.push(""); fmt.push(null); }
+      t.lines.forEach(function (l, i) { lines.push(l); fmt.push(t.fmt[i] || null); if (t.fmt[i]) any = true; });
+    });
+    var merged = { id: newSectionId(), type: "", note: "", lines: lines.length ? lines : [""] };
+    if (any) merged.fmt = fmt;
+    song.sections = [merged];
+    markEdited(song);
+    persistSongs();
+    renderAll();
   }
   function moveMenu(song) {
     var current = songFolderId(song);
@@ -3367,8 +3388,10 @@
     song.sections.forEach(function (s, i) {
       var t = tidyWithFmt(s.lines, s.fmt);
       if (i > 0) { push(""); push(""); }
-      push("[" + s.type + "]" + (s.note && s.note.trim() ? " (" + s.note.trim() + ")" : ""));
-      if (t.lines.length) push("");
+      if (s.type) {
+        push("[" + s.type + "]" + (s.note && s.note.trim() ? " (" + s.note.trim() + ")" : ""));
+        if (t.lines.length) push("");
+      }
       t.lines.forEach(function (l, j) { push(l, t.fmt[j]); });
     });
     return out;
@@ -3976,17 +3999,17 @@
       var sel = document.createElement("select");
       sel.className = "section-type-select " + typeClass(section.type);
       sel.setAttribute("aria-label", "Section header");
-      var opts = SECTION_TYPES.concat(settings.savedHeaders);
+      var opts = [""].concat(SECTION_TYPES, settings.savedHeaders);
       if (opts.indexOf(section.type) === -1) opts = [section.type].concat(opts);
       opts.forEach(function (t) {
         var o = document.createElement("option");
-        o.value = t; o.textContent = t;
+        o.value = t; o.textContent = t || "No header";
         if (t === section.type) o.selected = true;
         sel.appendChild(o);
       });
       var custom = document.createElement("option");
       custom.value = "__custom__";
-      custom.textContent = isBuiltIn(section.type) ? "Custom header…" : "Rename header…";
+      custom.textContent = isBuiltIn(section.type) || !section.type ? "Custom header…" : "Rename header…";
       sel.appendChild(custom);
 
       sel.addEventListener("change", function () {
@@ -3997,7 +4020,7 @@
       });
       wrap.appendChild(sel);
 
-      if (!isBuiltIn(section.type)) {
+      if (section.type && !isBuiltIn(section.type)) {
         var saved = savedIndex(section.type) !== -1;
         var star = document.createElement("button");
         star.className = "header-save" + (saved ? " saved" : "");
@@ -4021,7 +4044,7 @@
       input.className = "header-custom-input";
       input.placeholder = "e.g. Pre-Chorus, Hook, Outro";
       input.maxLength = 40;
-      input.value = isBuiltIn(section.type) ? "" : section.type;
+      input.value = isBuiltIn(section.type) ? "" : section.type || "";
       var done = false;
       function commit(keep) {
         if (done) return;
@@ -4253,8 +4276,7 @@
       }
       if (!line) {
         if (!cur) return;
-        if (cur.explicit) { cur.lines.push(""); cur.fmt.push(null); return; } // keep stanza breaks inside a labeled section
-        if (cur.lines.length) cur = null;                 // unlabeled text: blank line starts a new block
+        cur.lines.push(""); cur.fmt.push(null);           // keep stanza breaks as written
         return;
       }
       if (!cur) {
@@ -4267,16 +4289,9 @@
 
     sections.forEach(function (s) { var t = tidyWithFmt(s.lines, s.fmt); s.lines = t.lines; s.fmt = t.fmt; });
 
-    var counts = {};
-    sections.forEach(function (s) {
-      if (!s.explicit) {
-        var k = s.lines.join("\n").toLowerCase();
-        counts[k] = (counts[k] || 0) + 1;
-      }
-    });
     var out = sections.filter(function (s) { return s.explicit || s.lines.length; }).map(function (s) {
-      var type = s.type;
-      if (!s.explicit) type = counts[s.lines.join("\n").toLowerCase()] > 1 ? "Chorus" : "Verse";
+      // text without a section name stays a plain body with no header (type ""): no Verse / Chorus is made up
+      var type = s.explicit ? s.type : "";
       var sec = { id: newSectionId(), type: type, note: s.note, explicit: s.explicit, lines: s.lines.length ? s.lines : [""] };
       if (s.lines.length && s.fmt.some(function (f) { return f; })) sec.fmt = s.fmt;
       return sec;

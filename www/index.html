@@ -2354,7 +2354,7 @@
           <button id="view-read" aria-pressed="true" title="Write and read the song as plain text">Write</button>
           <button id="view-edit" aria-pressed="false" title="Build the song section by section, with syllable counts and line tools">Build</button>
         </div>
-        <button id="paste-btn" data-hud="import">Import New Lyrics</button>
+        <button id="paste-btn" data-hud="import">Paste Lyrics</button>
         <button id="history-toggle" data-hud="history">Version history</button>
         <button id="details-btn" data-hud="details" title="Dates and other details for this song">Details</button>
         <button id="rhymes-btn" data-hud="rhymes" data-rhyme-ui aria-pressed="false" title="Show rhymes for the word you're on as you write">Rhymes</button>
@@ -2382,7 +2382,7 @@
 
 <div id="paste-modal" role="dialog" aria-modal="true" aria-labelledby="paste-title">
   <div id="paste-panel">
-    <h2 id="paste-title">Import New Lyrics</h2>
+    <h2 id="paste-title">Paste Lyrics</h2>
     <p class="hint">Paste lyrics you've already written. A title on its own line at the top fills in the song title. Headers like [Verse 1], [Chorus] or Bridge: start a new section, and everything under a header stays together until the next one, including stanza breaks. A note after a header, like [Chorus] (stripped back), is kept as the section's note.</p>
     <textarea id="paste-text" placeholder="Paste your lyrics here…"></textarea>
     <label id="paste-title-row"><input type="checkbox" id="paste-use-title"> <span>Use <strong id="paste-title-name"></strong> as the song title</span></label>
@@ -2846,7 +2846,8 @@
       sec("Bridge", [
         "Tap \u2039 All Songs to see your songs and folders",
         "On iPhone, swipe in from the left edge to go back",
-        "Tap \u2026 for BPM, key, version history and more"
+        "Tap \u2026 for BPM, key, version history and more",
+        "Tap ABC or the colored dots to see how your lines rhyme"
       ]),
       sec("Outro", [
         "This song is just a guide: delete it whenever you like",
@@ -2916,8 +2917,32 @@
     return (song.title + "\n" + song.sections.map(function (s) { return s.type + "\n" + s.lines.join("\n"); }).join("\n")).toLowerCase();
   }
 
+  // A new song left without anything in it (no title, words, BPM or key) is thrown away when you move
+  // on, so empty sheets don't pile up. It never had anything worth keeping, so it skips Recently Deleted
+  // (the delete still syncs, so other devices drop their empty copy too).
+  function isBlankSong(song) {
+    return !!song && !(song.title || "").trim() && !hasLyrics(song.sections) && !song.bpm &&
+      (!song.key || song.key === "\u2014") && !(song.versions && song.versions.length);
+  }
+  function discardIfBlank(song) {
+    if (!isBlankSong(song)) return false;
+    state.songs = state.songs.filter(function (x) { return x !== song; });
+    recordDeletion(song.id);
+    if (state.activeId === song.id) state.activeId = null;
+    if (settings.lastOpenId === song.id) { settings.lastOpenId = null; persistSettings(); }
+    persistSongs();
+    return true;
+  }
+  // Leaving the open song (for the list, the gallery or another song)
+  function leaveSong() {
+    flushReadSync();
+    if (discardIfBlank(getActiveSong())) renderAll();
+  }
+
   function openSong(id) {
     maybeSnapshotOnLeave();
+    var prev = getActiveSong();
+    if (prev && prev.id !== id) discardIfBlank(prev);
     searchScrollPending = true;
     searchHlDismissed = false;
     galleryOpen = false;
@@ -3468,6 +3493,7 @@
   document.getElementById("gallery-back").addEventListener("click", function () {
     flushReadSync();
     maybeSnapshotOnLeave();
+    discardIfBlank(getActiveSong());
     galleryOpen = true;
     renderAll();
   });
@@ -4965,10 +4991,12 @@
   var HUD_TOOLS = [
     { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
     { id: "metronome", name: "Metronome & Tap Tempo" }, { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "align", name: "Alignment" }, { id: "wordcount", name: "Word Count" },
-    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Build" }, { id: "import", name: "Import New Lyrics" },
+    { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Build" }, { id: "import", name: "Paste Lyrics" },
     { id: "history", name: "Version History" }, { id: "details", name: "Details" }, { id: "rhymes", name: "Rhymes" }
   ];
-  var HUD_BUILTIN = ["title", "bpm", "metronome", "key", "textsize", "undo", "view", "import", "history", "details", "rhymes"];
+  // The top bar starts lean everywhere (title, undo/redo, Rhymes); everything else is under ⋯ and can be
+  // added back with Customize Top Bar
+  var HUD_BUILTIN = ["title", "undo", "rhymes"];
   var TIME_SIGS = ["\u2014", "4/4", "3/4", "2/4", "6/8", "12/8", "5/4", "7/8", "9/8", "7/4"];
   // the tools that can be shown (the Rhymes button only while the Rhyme finder is on in Settings)
   function hudToolsAvailable() {
@@ -5427,6 +5455,7 @@
   // ---------- events ----------
   document.getElementById("new-song-btn").addEventListener("click", function () {
     maybeSnapshotOnLeave();
+    discardIfBlank(getActiveSong());
     var song = newSong();
     if (nav.folder === "notes") {
       song.kind = "note";
@@ -5691,7 +5720,7 @@
   var appEl = document.getElementById("app");
   function closeSidebar() { appEl.classList.remove("sidebar-open"); }
 
-  document.getElementById("songs-toggle").addEventListener("click", function () { appEl.classList.add("sidebar-open"); });
+  document.getElementById("songs-toggle").addEventListener("click", function () { appEl.classList.add("sidebar-open"); leaveSong(); });
   document.getElementById("sidebar-backdrop").addEventListener("click", closeSidebar);
   document.getElementById("song-list").addEventListener("click", function (e) {
     if (!e.target.closest(".del")) closeSidebar();
@@ -5818,6 +5847,7 @@
 
   document.getElementById("songs-fab").addEventListener("click", function () {
     document.getElementById("app").classList.add("sidebar-open");
+    leaveSong();
   });
   // Like iOS: swipe right from the left edge of a song to go back to the list
   (function () {
@@ -5838,6 +5868,7 @@
         flushReadSync();
         if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
         appEl.classList.add("sidebar-open");
+        leaveSong();
       }
     }, { passive: true });
     mainEl.addEventListener("touchend", function () { start = null; }, { passive: true });
@@ -7583,7 +7614,7 @@
   }
   function rhymeFinderOn() { return settings.rhymeFinder !== false; }
   function rhymeLettersOn() { return settings.rhymeLetters !== false; }
-  function rhymeColorsOn() { return settings.rhymeColors !== false; }
+  function rhymeColorsOn() { return settings.rhymeColors === true; }   // off until turned on (the ●●● button)
   // "sounds": highlight every rhyming vowel sound (like Rhymers Block); "ends": color line-end rhymes' text
   function rhymeStyle() { return settings.rhymeStyle === "ends" ? "ends" : "sounds"; }
 
@@ -8402,6 +8433,18 @@
     if (bigPending[STORAGE_KEY]) persistSongs(true);
     if (bigPending[TRASH_KEY]) saveTrash();
     bigPending = {};
+    // empty sheets left behind (the app was closed on one); one just started and still open stays
+    var recent = Date.now() - 10 * 60 * 1000, before = state.songs.length;
+    state.songs.slice().forEach(function (x) {
+      if (!(x.id === state.activeId && x.createdAt > recent)) discardIfBlank(x);
+    });
+    if (state.songs.length !== before) {
+      if (!getActiveSong()) {
+        var latest = state.songs.slice().sort(function (a, b) { return b.lastEditedAt - a.lastEditedAt; })[0];
+        state.activeId = latest ? latest.id : null;
+      }
+      renderAll();
+    }
     if (sync.token) syncNow();
   });
   if (music.available) {

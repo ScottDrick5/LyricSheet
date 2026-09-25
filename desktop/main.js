@@ -43,7 +43,7 @@ function buildMenu() {
         cmd("New Folder", "Shift+CmdOrCtrl+N", "new-folder"),
         cmd("Duplicate Song", "CmdOrCtrl+D", "duplicate-song"),
         { type: "separator" },
-        cmd("Import New Lyrics…", "Shift+CmdOrCtrl+V", "paste-song"),
+        cmd("Paste Lyrics…", "Shift+CmdOrCtrl+V", "paste-song"),
         ...(isMac ? [cmd("Import from Apple Notes…", undefined, "import-notes")] : []),
         cmd("Copy Lyrics", "Shift+CmdOrCtrl+C", "copy-lyrics"),
         { type: "separator" },

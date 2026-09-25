@@ -2045,6 +2045,7 @@
     border-radius: var(--radius-sm); padding: 0 12px; font-family: var(--font-ui); font-size: 0.9rem; cursor: pointer;
   }
   .more-row { margin-bottom: 10px; color: var(--accent); }
+  .more-row.more-danger { color: var(--danger); border-color: rgba(201,103,78,0.45); }
   #more-tools #undo-bar, #more-tools #view-toggle { align-self: flex-start; }
   #more-done {
     width: 100%; background: var(--accent); border: none; color: var(--on-accent);
@@ -2723,6 +2724,7 @@
     <h2 id="more-title">Song tools</h2>
     <div id="more-tools"></div>
     <button id="more-customize" class="more-row">Customize Top Bar…</button>
+    <button id="more-delete" class="more-row more-danger">Delete Song</button>
     <button id="more-done">Done</button>
   </div>
 </div>
@@ -5198,7 +5200,7 @@
     });
     // ⋯ appears whenever some tools aren't in the bar
     var shown = layout.filter(function (id) { return id !== "rhymes" || rhymeFinderOn(); }).length;
-    document.getElementById("hud-more").hidden = isNote(song) || shown >= hudToolsAvailable().length;
+    document.getElementById("hud-more").hidden = false;   // always there: it also holds Delete
     var ti = layout.indexOf("title");
     document.getElementById("meta-bar").classList.toggle("hud-one-row", ti === -1 && shown <= 3);
     document.querySelector("#meta-bar .hud-spacer").style.order = ti === -1 ? "5" : String(10 + ti);
@@ -5214,6 +5216,8 @@
     var song = getActiveSong();
     if (!song) return;
     var layout = songLayout(song), box = document.getElementById("more-tools");
+    document.getElementById("more-delete").textContent = isNote(song) ? "Delete Note" : "Delete Song";
+    document.getElementById("more-title").textContent = isNote(song) ? "Note" : "Song tools";
     hudToolsAvailable().forEach(function (t) {
       if (layout.indexOf(t.id) !== -1) return;
       var el = document.querySelector('#meta-bar [data-hud="' + t.id + '"]');
@@ -5235,6 +5239,13 @@
     if (song) applyHud(song);
   }
   document.getElementById("hud-more").addEventListener("click", openMorePanel);
+  document.getElementById("more-delete").addEventListener("click", function () {
+    var song = getActiveSong();
+    closeMorePanel();
+    if (!song) return;
+    var what = isNote(song) ? "note" : "song", title = song.title || untitled(song);
+    askConfirm('Move "' + title + '" to Recently Deleted? You can restore it for ' + TRASH_DAYS + " days.", "Delete " + what, true, function () { deleteSong(song); });
+  });
   document.getElementById("more-done").addEventListener("click", closeMorePanel);
   moreModal.addEventListener("click", function (e) { if (e.target === moreModal) closeMorePanel(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && moreModal.classList.contains("open")) closeMorePanel(); });

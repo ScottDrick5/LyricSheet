@@ -1859,7 +1859,12 @@
     color: var(--accent); font: inherit; font-size: 0.8rem; font-weight: 600;
   }
   /* wider screens: the rhyme panel sits beside the sheet, so move the sheet over to make room */
-  @media (min-width: 641px) { body.rhyme-panel-open #canvas-wrap { padding-right: 330px; } }
+  @media (min-width: 641px) {
+    body.rhyme-panel-open #canvas-wrap { padding-right: 330px; }
+    /* sit above the music player when it's showing, and keep the New Note button beside the panel */
+    body.music-on #rhyme-panel { bottom: calc(var(--music-h, 64px) + 12px); }
+    body.rhyme-panel-open #new-fab { right: calc(18px + 300px + 16px); }
+  }
   #more-tools #rhymes-btn { align-self: flex-start; }
   #rhyme-pick { font-size: 0.8rem; font-weight: 600; padding: 0 10px; }
   /* phones: slimmer buttons so the whole format bar (with Rhyme) fits across the screen */
@@ -5879,8 +5884,14 @@
     musicBar.hidden = !on || collapsed;
     musicPill.hidden = !on || !collapsed;
     document.body.classList.toggle("music-on", on && !collapsed);
+    noteMusicHeight();
     return on;
   }
+  // The player's height (it grows when the timeline shows), for things that sit above it
+  function noteMusicHeight() {
+    if (!musicBar.hidden && musicBar.offsetHeight) document.body.style.setProperty("--music-h", musicBar.offsetHeight + "px");
+  }
+  if (window.ResizeObserver) new ResizeObserver(noteMusicHeight).observe(musicBar);
   // Swipe the player down (or tap its hide button) to shrink it to the round music button;
   // tap that button (or swipe it up) to bring the player back.
   function setMusicCollapsed(c) {
@@ -6407,7 +6418,7 @@
     else {
       rhymeWord = "";
       rhymeInput.value = "";
-      rhymeResults.innerHTML = '<p class="rp-empty">Type a word, or put the cursor on a word in your lyrics and tap Rhymes.</p>';
+      rhymeResults.innerHTML = '<p class="rp-empty">Type a word, or put the cursor on a word in your lyrics.</p>';
       if (!isPhoneLayout()) rhymeInput.focus();
     }
     loadRhymes().catch(function () {});

@@ -20,7 +20,9 @@ public class MusicControlPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "seek", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setRepeat", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "metronomeStart", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "metronomeStop", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "metronomeStop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speakLine", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "speakStop", returnType: CAPPluginReturnPromise)
     ]
 
     private var player: MPMusicPlayerController { MPMusicPlayerController.systemMusicPlayer }
@@ -205,6 +207,63 @@ extension MusicControlPlugin {
         DispatchQueue.main.async {
             metronomeNode?.stop()
             metronomeEngine?.stop()
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            call.resolve()
+        }
+    }
+}
+
+/// Read aloud: the page sends one line at a time and the promise resolves when that line has been
+/// spoken ({ finished: true }) or was cut off by the next one or by Stop ({ finished: false }).
+/// Spoken in a "playback" session (so the silent switch doesn't mute it) that turns other audio down.
+private let speechSynth = AVSpeechSynthesizer()
+private var speechWatcher: SpeechWatcher?
+
+private final class SpeechWatcher: NSObject, AVSpeechSynthesizerDelegate {
+    var calls: [ObjectIdentifier: CAPPluginCall] = [:]
+    func done(_ u: AVSpeechUtterance, _ finished: Bool) {
+        calls.removeValue(forKey: ObjectIdentifier(u))?.resolve(["finished": finished])
+    }
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) { done(u, true) }
+    func speechSynthesizer(_ s: AVSpeechSynthesizer, didCancel u: AVSpeechUtterance) { done(u, false) }
+}
+
+extension MusicControlPlugin {
+    /// The best-sounding installed voice for the phone's language (Premium, then Enhanced, then the default)
+    private static func bestVoice() -> AVSpeechSynthesisVoice? {
+        let lang = AVSpeechSynthesisVoice.currentLanguageCode()
+        let all = AVSpeechSynthesisVoice.speechVoices()
+        var pick = all.filter { $0.language == lang }
+        if pick.isEmpty { pick = all.filter { $0.language.hasPrefix(String(lang.prefix(2))) } }
+        return pick.max { $0.quality.rawValue < $1.quality.rawValue } ?? AVSpeechSynthesisVoice(language: lang)
+    }
+
+    /// { text, rate } (rate 1 = normal speed) → { finished }
+    @objc func speakLine(_ call: CAPPluginCall) {
+        guard let text = call.getString("text"), !text.isEmpty else { return call.resolve(["finished": true]) }
+        let rate = Float(call.getDouble("rate") ?? 1)
+        DispatchQueue.main.async {
+            let session = AVAudioSession.sharedInstance()
+            try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try? session.setActive(true)
+            if speechWatcher == nil {
+                let w = SpeechWatcher()
+                speechSynth.delegate = w
+                speechWatcher = w
+            }
+            if speechSynth.isSpeaking { speechSynth.stopSpeaking(at: .immediate) }
+            let u = AVSpeechUtterance(string: text)
+            u.voice = MusicControlPlugin.bestVoice()
+            u.rate = min(AVSpeechUtteranceMaximumSpeechRate, max(AVSpeechUtteranceMinimumSpeechRate, AVSpeechUtteranceDefaultSpeechRate * rate))
+            u.postUtteranceDelay = 0.12
+            speechWatcher?.calls[ObjectIdentifier(u)] = call
+            speechSynth.speak(u)
+        }
+    }
+
+    @objc func speakStop(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            speechSynth.stopSpeaking(at: .immediate)
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             call.resolve()
         }

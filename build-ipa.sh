@@ -13,6 +13,15 @@ fi
 # Put the latest app page and its rhyme dictionary into the iOS project (edit www/ to update the app)
 cp www/index.html www/rhymes.js ios/App/App/public/
 
+# Version: release builds set LYRIC_VERSION (e.g. 0.3.5); other builds show as a development build
+VERSION="${LYRIC_VERSION:-}"
+BUILT="$(date -u +%Y-%m-%d)"
+perl -pi -e "s/__LYRIC_VERSION__/${VERSION:-dev}/g; s/__LYRIC_BUILT__/$BUILT/g" ios/App/App/public/index.html
+VERSION_SETTINGS=()
+if [ -n "$VERSION" ]; then
+  VERSION_SETTINGS=(MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${LYRIC_BUILD_NUMBER:-1}")
+fi
+
 rm -rf build Payload LyricSheet.ipa
 echo "Building… (the first build downloads Capacitor and takes a few minutes)"
 
@@ -30,7 +39,11 @@ xcodebuild \
   -destination 'generic/platform=iOS' \
   -derivedDataPath build \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+  "${VERSION_SETTINGS[@]}" \
   build -quiet
+
+# leave the checked-in copy of the page unstamped
+cp www/index.html ios/App/App/public/index.html
 
 mkdir Payload
 cp -R build/Build/Products/Release-iphoneos/App.app Payload/

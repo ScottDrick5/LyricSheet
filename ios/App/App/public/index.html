@@ -1975,6 +1975,11 @@
     .read-toolbar .rhyme-toggles { margin-left: auto; }
   }
   .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .about-name { margin: 2px 0 0; font-family: var(--font-lyric); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .beta-badge {
+    font-family: var(--font-ui); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--accent-dim); border-radius: 10px; padding: 2px 7px;
+  }
   #backup-status:empty { display: none; }
 </style>
 </head>
@@ -2228,6 +2233,12 @@
         </div>
       </div>
     </div>
+    <div class="setting-row" id="about-setting">
+      <span class="setting-label">About</span>
+      <p class="about-name">Lyric Sheet <span class="beta-badge">Beta</span></p>
+      <p class="setting-help" id="about-version">Version —</p>
+      <p class="setting-help">This is a beta: Lyric Sheet is still being worked on, so things may change or not work quite right yet. Back up your songs now and then.</p>
+    </div>
     <button id="settings-done">Done</button>
   </div>
 </div>
@@ -2339,6 +2350,10 @@
 (function () {
   "use strict";
 
+  // Filled in by the build (release builds get e.g. "0.3.5"); left as-is in development builds
+  var APP_VERSION = "__LYRIC_VERSION__", APP_BUILT = "__LYRIC_BUILT__";
+  function appVersion() { return /^\d+(\.\d+)+$/.test(APP_VERSION) ? APP_VERSION : ""; }
+  function appVersionLabel() { return appVersion() ? appVersion() + " Beta" : "Development build"; }
   var STORAGE_KEY = "lyricapp_songs_v1";
   var SETTINGS_KEY = "lyricapp_settings_v1";
   // Key roots; a song's key is stored as the root, with "m" after each note name when minor (e.g. "C#m/Dbm")
@@ -6163,7 +6178,7 @@
     var btn = document.getElementById("updates-btn"), more = document.getElementById("updates-more");
     var found = null;
     row.hidden = false;
-    desk.updates("version").then(function (v) { status.textContent = "Version " + v; });
+    desk.updates("version").then(function (v) { status.textContent = "Version " + v + " Beta"; });
     function say(text, detail, link) {
       status.textContent = text;
       more.hidden = !detail && !link;
@@ -6180,7 +6195,7 @@
       if (found) {   // install
         btn.disabled = true;
         btn.textContent = "Installing\u2026";
-        say("Downloading version " + found.latest + "\u2026", "Lyric Sheet will close and reopen on its own when it's done.");
+        say("Downloading version " + found.latest + " Beta\u2026", "Lyric Sheet will close and reopen on its own when it's done.");
         desk.updates("install").catch(function (err) {
           btn.disabled = false;
           btn.textContent = "Download & Install";
@@ -6195,10 +6210,10 @@
         if (r.available) {
           found = r;
           btn.textContent = "Download & Install";
-          say("Version " + r.latest + " is available", "You have " + r.current + ".", r.page);
+          say("Version " + r.latest + " Beta is available", "You have " + r.current + " Beta.", r.page);
         } else {
           btn.textContent = "Check for updates";
-          say("You're up to date", "Version " + r.current + " is the newest.");
+          say("You're up to date", "Version " + r.current + " Beta is the newest.");
         }
       }).catch(function (err) {
         btn.disabled = false;
@@ -6207,6 +6222,18 @@
         say("Couldn't check for updates", /404/.test(msg) ? "No releases have been published yet." : "Check your internet connection and try again.");
       });
     });
+  })();
+
+  // ---------- Settings > About ----------
+  (function () {
+    var text = appVersion() ? "Version " + appVersionLabel() : "Development build (not a published release)";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(APP_BUILT)) {
+      var d = new Date(APP_BUILT + "T12:00:00");
+      text += " \u00B7 built " + d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    }
+    var plat = window.lyricDesktop ? "Mac" : (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? "iPhone" : "");
+    if (plat) text += " \u00B7 " + plat;
+    document.getElementById("about-version").textContent = text;
   })();
 
   // ---------- init ----------
@@ -6290,7 +6317,7 @@
   // For slant rhymes, a final t/d/k-type sound after another consonant doesn't count ("soul" / "gold", "time" / "mind")
   function slantEnd(rest) {
     var n = rest.length;
-    return n >= 2 && rest[n - 1] === "K" && rest[n - 2] !== "@" ? rest.slice(0, -1) : rest;
+    return n >= 1 && rest[n - 1] === "K" && (n === 1 || rest[n - 2] !== "@") ? rest.slice(0, -1) : rest;
   }
   // The rhyming part of a word: from its last stressed vowel to the end. That includes a lighter
   // (secondary) stress, the way songs rhyme: "satisfied" rhymes on "-fied", "sunshine" on "-shine".
@@ -6319,7 +6346,19 @@
     // two-syllable "-ee" endings with the same (or voiced/unvoiced) consonant: crazy / Lacey / Fugazi, baby / maybe
     var fem = null, lastP = ph[ph.length - 1], beforeP = ph[ph.length - 2];
     if (after >= 1 && lastP.name === "IY" && lastP.stress === 0 && beforeP && beforeP.stress < 0) fem = (VOICE_PAIR[beforeP.name] || beforeP.name) + " IY";
-    return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after, fem: fem,
+    // endings like "-in / -ing / -en / -n't": didn't / missin' / different / forgiven share the vowel,
+    // blessings / wasn't share the consonant after it
+    var nasV = null, nasC = null, core = tail.slice();
+    if (core.length > 2 && /^(T|D|S|Z)$/.test(core[core.length - 1].name)) core.pop();
+    var endP = core[core.length - 1], preP = core[core.length - 2];
+    if (after >= 1 && endP && /^(N|NG|M)$/.test(endP.name) && preP && preP.stress === 0 && tail[1] && tail[1].stress < 0) {
+      nasV = (VOWEL_FAMILY[tail[0].name] || tail[0].name) + "~N";
+      nasC = (VOICE_PAIR[tail[1].name] || tail[1].name) + "~N";
+    }
+    return { perfect: perfect.join(" "), near: near.join(" "), vowel: tail[0].name + "+" + after, fem: fem, nasV: nasV, nasC: nasC,
+             asson: after === 0 ? tail[0].name : null,
+             // an open "ee": stressed in me / see / free, unstressed at the end of ugly / heavy / crazy
+             eeS: tail.length === 1 && tail[0].name === "IY", eeU: after >= 1 && lastP.name === "IY" && lastP.stress === 0,
              slant: (VOWEL_FAMILY[tail[0].name] || tail[0].name) + " " + slantEnd(near.slice(1)).join(" "),
              syllables: ph.filter(function (p) { return p.stress >= 0; }).length };
   }
@@ -6332,12 +6371,12 @@
     var w = cleanWord(word);
     if (!w) return null;
     if (w in dict.cache) return dict.cache[w];
-    var tries = [w, w.replace(/in'$/, "ing"), w.replace(/'$/, ""), w.replace(/'s$/, ""), w.replace(/s$/, ""), w.replace(/es$/, ""),
+    var tries = [w, w.replace(/in'$/, "ing"), w.replace(/in$/, "ing"), w.replace(/'$/, ""), w.replace(/'s$/, ""), w.replace(/s$/, ""), w.replace(/es$/, ""),
                  w.replace(/ed$/, ""), w.replace(/ing$/, ""), w.replace(/ly$/, "")];
     var found = null;
     for (var i = 0; i < tries.length && !found; i++) {
       if (tries[i] && tries[i] in dict.index) found = decodePron(dict, dict.index[tries[i]]);
-      if (found && i >= 3) found = null;                 // plurals etc. below: only use for the ending guess
+      if (found && i >= 4) found = null;                 // plurals etc. below: only use for the ending guess
     }
     if (!found) {
       for (var len = Math.min(w.length - 1, 5); len >= 2 && !found; len--) {
@@ -6378,16 +6417,18 @@
     return "";
   }
   // ---------- Rhyme scheme ----------
-  // Every word's rhyme sound is grouped with the words it rhymes with (near, slant or "-ee" rhymes).
-  // Line-end words get letters that carry on through the song: a sound keeps its letter (and color)
-  // wherever it comes back, so a stanza that continues the last one's rhyme shows it. Words inside
-  // lines are colored when they rhyme with a word in the same or a neighboring stanza.
+  // Line ends rhyme on real, near or slant rhymes (close vowels, "-in / -en" endings, same vowel).
+  // Their letters carry on from the stanza before, and a repeated line end (a chorus again) keeps its
+  // letter. Words inside a line are colored when they really (or nearly) rhyme with the end of that
+  // line or a line beside it, or with another word in the same line. Words are compared pair by pair.
   var RHYME_SKIP = {};
   ("a an the and or but nor of to in on at by for with from into onto as if so than then too " +
-   "is am are was were be been being it its it's i i'm i'll i'd i've me my mine we we're our us you you're your " +
-   "he he's him his she she's her they they're them their this that these those there here " +
+   "is am are was were be been being it its it's i i'm i'll i'd i've me my mine we we're our us you you're your you'll " +
+   "he he's him his she she's her they they're them their this that that's these those there there's here " +
    "do does did don't doesn't didn't not no yes just can can't will won't would could should " +
-   "have has had got get oh ooh yeah uh um la da na hey").split(" ").forEach(function (w) { RHYME_SKIP[w] = true; });
+   "who what when where why how which one ones all some any every each up out off down over through about " +
+   "now never ever always still very really much more most " +
+   "have has had got get gonna wanna gotta oh ooh yeah uh um la da na hey").split(" ").forEach(function (w) { RHYME_SKIP[w] = true; });
   function lineWords(line) {
     var masked = line, prev;
     do { prev = masked; masked = masked.replace(/\([^()]*\)/g, function (m) { return new Array(m.length + 1).join(" "); }); } while (masked !== prev);
@@ -6400,67 +6441,73 @@
     return out;
   }
   function rhymeLetterName(i) { return String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26) + 1) : ""); }
+  function endsRhyme(a, b) {
+    var x = a.k, y = b.k;
+    return a.stem === b.stem || x.near === y.near || x.slant === y.slant || (x.fem && x.fem === y.fem) ||
+      (x.nasV && x.nasV === y.nasV) || (x.nasC && x.nasC === y.nasC) || (x.asson && x.asson === y.asson) ||
+      (x.eeS && y.eeU) || (x.eeU && y.eeS);           // me / ugly
+  }
+  function wordsRhyme(a, b) {
+    return a.stem !== b.stem && (a.k.near === b.k.near || (a.k.fem && a.k.fem === b.k.fem));
+  }
   // stanzas: [[line text, ...], ...]  →  per line: { letter, paired, cls, endSpan, inner: [{start, end, cls}] }
   function analyzeRhymes(dict, stanzas) {
-    var parent = {};
-    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
-    function join(a, b) { if (!(a in parent)) parent[a] = a; if (!(b in parent)) parent[b] = b; parent[find(a)] = find(b); }
-    var tokens = [];               // every word that can rhyme
-    var lines = stanzas.map(function (st, si) {
-      return st.map(function (text) {
-        var words = lineWords(text), L = { stanza: si, end: null, inner: [] };
-        words.forEach(function (w, i) {
-          var isEnd = i === words.length - 1;
-          if (!w.word || (!isEnd && (RHYME_SKIP[w.word] || w.word.length < 3))) return;
-          var ph = pronOf(dict, w.word);
-          if (!ph) return;
-          var k = rhymeKeys(ph);
-          var t = { word: w.word, stem: w.word.replace(/('s|s)$/, ""), start: w.start, end: w.end, stanza: si, isEnd: isEnd, node: "n:" + k.near };
-          join(t.node, t.node);
-          if (isEnd) join(t.node, "s:" + k.slant);     // slant rhymes ("satisfied" / "God") only count at line ends
-          if (k.fem) join(t.node, "f:" + k.fem);
-          tokens.push(t);
-          if (isEnd) L.end = t; else L.inner.push(t);
-        });
-        return L;
+    var flat = [];
+    stanzas.forEach(function (st, si) { st.forEach(function (text) {
+      var words = lineWords(text), L = { stanza: si, end: null, inner: [] };
+      words.forEach(function (w, i) {
+        var isEnd = i === words.length - 1;
+        if (!w.word || (!isEnd && (RHYME_SKIP[w.word] || w.word.length < 3))) return;
+        var ph = pronOf(dict, w.word);
+        if (!ph) return;
+        var t = { word: w.word, stem: w.word.replace(/('s|s)$/, ""), start: w.start, end: w.end, k: rhymeKeys(ph) };
+        if (isEnd) L.end = t; else L.inner.push(t);
+      });
+      flat.push(L);
+    }); });
+    // letters for line ends
+    var next = 0, count = {};
+    flat.forEach(function (L, i) {
+      if (!L.end) { L.letter = next++; return; }
+      for (var j = i - 1; j >= 0; j--) {
+        var o = flat[j];
+        if (!o.end) continue;
+        var near = o.stanza >= L.stanza - 1;
+        if ((near && endsRhyme(L.end, o.end)) || o.end.stem === L.end.stem) { L.letter = o.letter; break; }
+      }
+      if (L.letter == null) L.letter = next++;
+      (count[L.letter] = count[L.letter] || []).push(L);
+    });
+    // colors for rhymes inside lines
+    var extra = next;
+    flat.forEach(function (L, i) {
+      L.innerOut = [];
+      L.inner.forEach(function (t) {
+        var cls = null;
+        for (var d = -1; d <= 1 && cls == null; d++) {
+          var o = flat[i + d];
+          if (o && o.end && wordsRhyme(t, o.end) && (d === 0 || o.stanza === L.stanza)) { cls = o.letter; o.innerHit = true; }
+        }
+        if (cls == null) {
+          var mate = L.inner.filter(function (u) { return u !== t && wordsRhyme(t, u); })[0];
+          if (mate) cls = mate.color != null ? mate.color : (mate.color = extra++);
+        }
+        if (cls != null) { t.color = cls; L.innerOut.push({ start: t.start, end: t.end, cls: "rh-" + (cls % 8) }); }
       });
     });
-    tokens.forEach(function (t) { t.group = find(t.node); });
-    // letters for line ends, in order; later sounds that only rhyme inside lines get colors after them
-    var letterOf = {}, colorOf = {}, nextLetter = 0;
-    lines.forEach(function (st) { st.forEach(function (L) {
-      if (L.end && !(L.end.group in letterOf)) letterOf[L.end.group] = nextLetter++;
-    }); });
-    var nextColor = nextLetter;
-    function colorIndex(g) {
-      if (g in letterOf) return letterOf[g];
-      if (!(g in colorOf)) colorOf[g] = nextColor++;
-      return colorOf[g];
-    }
-    // does another word (not the same word repeated) in this sound group sit nearby?
-    var byGroup = {};
-    tokens.forEach(function (t) { (byGroup[t.group] = byGroup[t.group] || []).push(t); });
-    function rhymesNearby(t, anyDistanceForEnds) {
-      return byGroup[t.group].some(function (o) {
-        if (o === t) return false;
-        if (t.isEnd && o.isEnd) return anyDistanceForEnds;              // line ends: anywhere in the song (repeats count)
-        return o.stem !== t.stem && Math.abs(o.stanza - t.stanza) <= 1;   // not the same word again ("take" / "takes")
-      });
-    }
-    return lines.map(function (st) { return st.map(function (L) {
-      var out = { letter: "", paired: false, cls: "", endSpan: null, inner: [] };
-      if (L.end) {
-        var li = letterOf[L.end.group];
-        out.letter = rhymeLetterName(li);
-        out.paired = rhymesNearby(L.end, true);
-        out.cls = "rh-" + (li % 8);
-        out.endSpan = [L.end.start, L.end.end];
-      } else out.letter = rhymeLetterName(nextLetter++);   // a line whose last word isn't a word
-      L.inner.forEach(function (t) {
-        if (rhymesNearby(t, false)) out.inner.push({ start: t.start, end: t.end, cls: "rh-" + (colorIndex(t.group) % 8) });
-      });
-      return out;
-    }); });
+    var res = [], n = 0;
+    stanzas.forEach(function (st) {
+      res.push(st.map(function () {
+        var L = flat[n++];
+        // it rhymes with a different word (or repeats within its stanza); a chorus just repeated elsewhere keeps its letter only
+        var paired = !!L.end && (L.innerHit || (count[L.letter] || []).some(function (o) {
+          return o !== L && (o.end.stem !== L.end.stem || o.stanza === L.stanza);
+        }));
+        return { letter: rhymeLetterName(L.letter), paired: paired, cls: "rh-" + (L.letter % 8),
+                 endSpan: L.end ? [L.end.start, L.end.end] : null, inner: L.innerOut };
+      }));
+    });
+    return res;
   }
   function rhymeFinderOn() { return settings.rhymeFinder !== false; }
   function rhymeLettersOn() { return settings.rhymeLetters !== false; }

@@ -17,6 +17,7 @@ jobs:
         run: |
           mkdir -p app
           cp ../www/index.html ../www/rhymes.js app/
+          perl -pi -e "s/__LYRIC_VERSION__/dev/g; s/__LYRIC_BUILT__/$(date -u +%Y-%m-%d)/g" app/index.html
           npm ci
           npx electron-builder --mac dir --universal
           APP="$(ls -d dist/mac-universal/*.app | head -1)"

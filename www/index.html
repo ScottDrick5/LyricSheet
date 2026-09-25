@@ -1975,6 +1975,11 @@
     .read-toolbar .rhyme-toggles { margin-left: auto; }
   }
   .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .about-name { margin: 2px 0 0; font-family: var(--font-lyric); font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .beta-badge {
+    font-family: var(--font-ui); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid var(--accent-dim); border-radius: 10px; padding: 2px 7px;
+  }
   #backup-status:empty { display: none; }
 </style>
 </head>
@@ -2228,6 +2233,12 @@
         </div>
       </div>
     </div>
+    <div class="setting-row" id="about-setting">
+      <span class="setting-label">About</span>
+      <p class="about-name">Lyric Sheet <span class="beta-badge">Beta</span></p>
+      <p class="setting-help" id="about-version">Version —</p>
+      <p class="setting-help">This is a beta: Lyric Sheet is still being worked on, so things may change or not work quite right yet. Back up your songs now and then.</p>
+    </div>
     <button id="settings-done">Done</button>
   </div>
 </div>
@@ -2339,6 +2350,10 @@
 (function () {
   "use strict";
 
+  // Filled in by the build (release builds get e.g. "0.3.5"); left as-is in development builds
+  var APP_VERSION = "__LYRIC_VERSION__", APP_BUILT = "__LYRIC_BUILT__";
+  function appVersion() { return /^\d+(\.\d+)+$/.test(APP_VERSION) ? APP_VERSION : ""; }
+  function appVersionLabel() { return appVersion() ? appVersion() + " Beta" : "Development build"; }
   var STORAGE_KEY = "lyricapp_songs_v1";
   var SETTINGS_KEY = "lyricapp_settings_v1";
   // Key roots; a song's key is stored as the root, with "m" after each note name when minor (e.g. "C#m/Dbm")
@@ -6163,7 +6178,7 @@
     var btn = document.getElementById("updates-btn"), more = document.getElementById("updates-more");
     var found = null;
     row.hidden = false;
-    desk.updates("version").then(function (v) { status.textContent = "Version " + v; });
+    desk.updates("version").then(function (v) { status.textContent = "Version " + v + " Beta"; });
     function say(text, detail, link) {
       status.textContent = text;
       more.hidden = !detail && !link;
@@ -6180,7 +6195,7 @@
       if (found) {   // install
         btn.disabled = true;
         btn.textContent = "Installing\u2026";
-        say("Downloading version " + found.latest + "\u2026", "Lyric Sheet will close and reopen on its own when it's done.");
+        say("Downloading version " + found.latest + " Beta\u2026", "Lyric Sheet will close and reopen on its own when it's done.");
         desk.updates("install").catch(function (err) {
           btn.disabled = false;
           btn.textContent = "Download & Install";
@@ -6195,10 +6210,10 @@
         if (r.available) {
           found = r;
           btn.textContent = "Download & Install";
-          say("Version " + r.latest + " is available", "You have " + r.current + ".", r.page);
+          say("Version " + r.latest + " Beta is available", "You have " + r.current + " Beta.", r.page);
         } else {
           btn.textContent = "Check for updates";
-          say("You're up to date", "Version " + r.current + " is the newest.");
+          say("You're up to date", "Version " + r.current + " Beta is the newest.");
         }
       }).catch(function (err) {
         btn.disabled = false;
@@ -6207,6 +6222,18 @@
         say("Couldn't check for updates", /404/.test(msg) ? "No releases have been published yet." : "Check your internet connection and try again.");
       });
     });
+  })();
+
+  // ---------- Settings > About ----------
+  (function () {
+    var text = appVersion() ? "Version " + appVersionLabel() : "Development build (not a published release)";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(APP_BUILT)) {
+      var d = new Date(APP_BUILT + "T12:00:00");
+      text += " \u00B7 built " + d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    }
+    var plat = window.lyricDesktop ? "Mac" : (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? "iPhone" : "");
+    if (plat) text += " \u00B7 " + plat;
+    document.getElementById("about-version").textContent = text;
   })();
 
   // ---------- init ----------

@@ -1,7 +1,8 @@
-# Publishes a GitHub Release every time main changes (e.g. when a pull request is merged):
+# Publishes a GitHub Release (marked Beta in its title and notes) every time main changes (e.g. when a pull request is merged):
 # the Mac app (LyricSheet-mac.zip, which the Mac app's "Check for updates" downloads) and the
 # iPhone app (LyricSheet.ipa). Versions are the base in desktop/package.json plus this workflow's
-# run number: 0.3.1, 0.3.2, ...
+# run number: 0.3.1, 0.3.2, ... The version is also stamped into the app (Settings > About).
+# (Not GitHub's "pre-release" flag: the Mac app's update check looks at the latest regular release.)
 name: Release
 on:
   push:
@@ -34,12 +35,16 @@ jobs:
         run: |
           mkdir -p app
           cp ../www/index.html ../www/rhymes.js app/
+          perl -pi -e "s/__LYRIC_VERSION__/${{ steps.ver.outputs.version }}/g; s/__LYRIC_BUILT__/$(date -u +%Y-%m-%d)/g" app/index.html
           npm ci
           npx electron-builder --mac dir --universal
           APP="$(ls -d dist/mac-universal/*.app | head -1)"
           codesign --force --deep --sign - "$APP"
           ditto -c -k --sequesterRsrc --keepParent "$APP" ../LyricSheet-mac.zip
       - name: Build LyricSheet.ipa
+        env:
+          LYRIC_VERSION: ${{ steps.ver.outputs.version }}
+          LYRIC_BUILD_NUMBER: ${{ github.run_number }}
         run: bash build-ipa.sh
       - name: Publish the release
         env:
@@ -47,5 +52,6 @@ jobs:
         run: |
           gh release create "v${{ steps.ver.outputs.version }}" LyricSheet-mac.zip LyricSheet.ipa \
             --target "${{ github.sha }}" \
-            --title "Lyric Sheet ${{ steps.ver.outputs.version }}" \
+            --title "Lyric Sheet ${{ steps.ver.outputs.version }} Beta" \
+            --notes "**Beta release.** Lyric Sheet is still being worked on, so things may change or not work quite right yet. Back up your songs (Settings › Backup) before updating." \
             --generate-notes

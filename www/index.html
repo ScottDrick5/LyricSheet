@@ -279,6 +279,26 @@
     transition: background 0.12s ease;
   }
   .song-item:hover { background: var(--shell-hover); }
+  /* swipe-left actions (touch screens): the row's content slides over Share / Move / Delete */
+  .song-item.has-swipe { position: relative; overflow: hidden; }
+  .song-item.has-swipe > .info, .song-item.has-swipe > .more {
+    transform: translateX(var(--sx, 0px)); transition: transform 0.2s ease;
+  }
+  .song-item.has-swipe.dragging > .info, .song-item.has-swipe.dragging > .more,
+  .song-item.has-swipe.dragging > .swipe-actions { transition: none; }
+  .swipe-actions {
+    position: absolute; top: 0; bottom: 0; right: 0; display: flex;
+    transform: translateX(calc(100% + var(--sx, 0px))); transition: transform 0.2s ease;
+  }
+  .swipe-actions button {
+    width: 68px; border: none; padding: 0; color: #fff; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-family: var(--font-ui); font-size: 0.68rem; font-weight: 600;
+  }
+  .swipe-actions .sw-share { background: #3478f6; }
+  .swipe-actions .sw-move { background: #8e5ad8; }
+  .swipe-actions .sw-del { background: #e0483e; }
+  @media (prefers-reduced-motion: reduce) { .song-item.has-swipe > *, .swipe-actions { transition: none !important; } }
   .song-item.active {
     background: rgba(201,162,75,0.12);
     border-color: rgba(201,162,75,0.35);
@@ -3149,7 +3169,7 @@
     renderSidebar();
   }
   function trashMenu(t) {
-    var title = t.song.title || untitled(song);
+    var title = t.song.title || untitled(t.song);
     showSheet(title, [
       { label: "Restore song", fn: function () { restoreSong(t.song.id); closeSidebar(); } },
       { label: "Delete forever", danger: true, fn: function () {
@@ -3178,7 +3198,7 @@
       info.className = "info";
       var name = document.createElement("span");
       name.className = "name";
-      name.textContent = t.song.title || untitled(song);
+      name.textContent = t.song.title || untitled(t.song);
       var sub = document.createElement("span");
       sub.className = "sub";
       var left = trashDaysLeft(t);
@@ -3188,7 +3208,7 @@
       more.className = "del more";
       more.textContent = "\u22EF";
       more.title = "Restore or delete";
-      more.setAttribute("aria-label", "Options for " + (t.song.title || untitled(song)));
+      more.setAttribute("aria-label", "Options for " + (t.song.title || untitled(t.song)));
       more.addEventListener("click", function (e) { e.stopPropagation(); trashMenu(t); });
       item.appendChild(info); item.appendChild(more);
       item.addEventListener("click", function () { trashMenu(t); });
@@ -3736,10 +3756,86 @@
 
       item.appendChild(info);
       item.appendChild(more);
-      item.addEventListener("click", function () { openSong(song.id); });
+      item.addEventListener("click", function (e) {
+        if (item.classList.contains("swiped") || item.getAttribute("data-swiping")) { e.stopPropagation(); closeSwipes(); return; }
+        openSong(song.id);
+      });
+      addSwipeActions(item, song);
       card.appendChild(item);
     });
   }
+  // Swipe a song left in the list (touch screens) to show Share, Move and Delete, like Mail and Notes.
+  // The row slides over the buttons; a tap elsewhere, or on the row, slides it back.
+  var SWIPE_W = 204;
+  var SWIPE_ICONS = {
+    share: '<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M10 12.5V2.8M6.6 6.1L10 2.7l3.4 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 8.5H5.4c-.8 0-1.4.6-1.4 1.4v6.2c0 .8.6 1.4 1.4 1.4h9.2c.8 0 1.4-.6 1.4-1.4V9.9c0-.8-.6-1.4-1.4-1.4H13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    move: '<svg viewBox="0 0 20 16" width="22" height="18" aria-hidden="true"><path d="M1.5 3.2c0-.9.7-1.7 1.7-1.7h4.1l1.9 2h7.6c.9 0 1.7.8 1.7 1.7v8.1c0 .9-.8 1.7-1.7 1.7H3.2c-1 0-1.7-.8-1.7-1.7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+    del: '<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M3.5 5.5h13M8 5.5V3.8c0-.5.4-.8.8-.8h2.4c.5 0 .8.4.8.8v1.7M5 5.5l.8 10.8c.1.9.8 1.7 1.7 1.7h5c.9 0 1.7-.8 1.7-1.7L15 5.5M8.3 8.5v6M11.7 8.5v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+  function closeSwipes(except) {
+    Array.prototype.forEach.call(document.querySelectorAll(".song-item.swiped"), function (it) {
+      if (it === except) return;
+      it.classList.remove("swiped");
+      it.style.setProperty("--sx", "0px");
+    });
+  }
+  function addSwipeActions(item, song) {
+    if (!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) return;
+    var acts = document.createElement("div");
+    acts.className = "swipe-actions";
+    var defs = [["share", "Share", function () { shareSong(song, null); }]];
+    if (!isNote(song)) defs.push(["move", "Move", function () { moveMenu(song); }]);
+    defs.push(["del", "Delete", function () { deleteSong(song); }]);
+    defs.forEach(function (d) {
+      var b = document.createElement("button");
+      b.className = "sw-" + d[0];
+      b.innerHTML = SWIPE_ICONS[d[0]] + "<span>" + d[1] + "</span>";
+      b.setAttribute("aria-label", d[1] + " \u201C" + (song.title || untitled(song)) + "\u201D");
+      b.addEventListener("click", function (e) { e.stopPropagation(); closeSwipes(); d[2](); });
+      acts.appendChild(b);
+    });
+    var width = defs.length * (SWIPE_W / 3);
+    item.appendChild(acts);
+    item.classList.add("has-swipe");
+    var start = null, base = 0, dx = 0, sideways = false;
+    item.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 1 || e.target.closest(".swipe-actions")) return;
+      closeSwipes(item);
+      var t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+      base = item.classList.contains("swiped") ? -width : 0;
+      dx = base; sideways = false;
+    }, { passive: true });
+    item.addEventListener("touchmove", function (e) {
+      if (!start) return;
+      var t = e.touches[0], mx = t.clientX - start.x, my = t.clientY - start.y;
+      if (!sideways) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        if (Math.abs(my) > Math.abs(mx)) { start = null; return; }   // scrolling the list
+        sideways = true;
+        item.setAttribute("data-swiping", "1");
+        item.classList.add("dragging");
+      }
+      e.preventDefault();
+      dx = Math.max(-width - 30, Math.min(0, base + mx));
+      item.style.setProperty("--sx", dx + "px");
+    }, { passive: false });
+    item.addEventListener("touchend", function () {
+      if (!start) return;
+      start = null;
+      item.classList.remove("dragging");
+      if (sideways) {
+        var open = dx < -width / 2;
+        item.classList.toggle("swiped", open);
+        item.style.setProperty("--sx", open ? -width + "px" : "0px");
+        setTimeout(function () { item.removeAttribute("data-swiping"); }, 0);
+      }
+    });
+  }
+  document.addEventListener("touchstart", function (e) {
+    if (!e.target.closest || !e.target.closest(".song-item.swiped")) closeSwipes();
+  }, { passive: true });
+
   // Clear (x) buttons in the search boxes
   Array.prototype.forEach.call(document.querySelectorAll(".search-wrap"), function (wrap) {
     var input = wrap.querySelector("input"), btn = wrap.querySelector(".search-clear");

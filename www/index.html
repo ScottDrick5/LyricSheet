@@ -472,6 +472,22 @@
 
   #meta-bar .spacer { flex: 1; }
 
+  .metro-controls { display: flex; gap: 6px; }
+  .metro-controls button {
+    height: 30px; min-width: 38px; padding: 0 10px; position: relative;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: none; border: 1px solid var(--shell-border); border-radius: var(--radius-sm);
+    color: var(--shell-text-dim); font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  .metro-controls button:hover { color: var(--shell-text); border-color: var(--accent-dim); }
+  #metro-play .metro-ico-stop, #metro-play .metro-dot { display: none; }
+  #metro-play[aria-pressed="true"] { color: var(--accent); border-color: var(--accent-dim); }
+  #metro-play[aria-pressed="true"] .metro-ico-play { display: none; }
+  #metro-play[aria-pressed="true"] .metro-ico-stop, #metro-play[aria-pressed="true"] .metro-dot { display: block; }
+  .metro-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tint-2); }
+  .metro-dot.beat { background: var(--accent); }
+  .metro-dot.beat.one { background: var(--danger); }
+  #tap-tempo.tapped { color: var(--accent); border-color: var(--accent-dim); }
   .font-controls {
     display: flex;
     align-items: center;
@@ -949,6 +965,26 @@
   #settings-panel #settings-done {
     width: auto; margin: 0; padding: 7px 16px; border-radius: 16px; font-size: 0.85rem;
   }
+  #settings-back { display: none; }
+  /* iPhone: Settings is a full page with a back button, like the iPhone's own Settings */
+  @media (max-width: 640px) {
+    #settings-modal { padding: 0; background: var(--bg-raised); }
+    #settings-panel {
+      max-width: none; height: 100%; max-height: none; border: none; border-radius: 0;
+      padding: 0 18px calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    .settings-head {
+      flex-direction: column; align-items: flex-start; gap: 4px;
+      margin: 0 -18px 8px; padding: calc(8px + env(safe-area-inset-top, 0px)) 18px 10px;
+    }
+    .settings-head h2 { font-size: 1.76rem !important; font-weight: 700 !important; }
+    #settings-panel #settings-done { display: none; }
+    #settings-back {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: none; border: none; padding: 6px 4px 6px 0; margin-left: -2px; min-height: 44px;
+      color: var(--accent); font-family: var(--font-ui); font-size: 0.95rem; cursor: pointer;
+    }
+  }
   .set-group { margin: 0 0 18px; }
   .set-group[hidden] { display: none; }
   .set-group h3 {
@@ -975,7 +1011,9 @@
   .about-name { margin: 0; }
   #settings-panel .setting-btn { padding: 6px 12px; }
   #updates-more a { color: var(--accent); }
-  #settings-modal { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  @media (min-width: 641px) {
+    #settings-modal { padding-top: calc(20px + env(safe-area-inset-top, 0px)); padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  }
   #sync-connect { display: flex; gap: 8px; margin-top: 10px; }
   #sync-connect[hidden], #sync-connected[hidden] { display: none; }
   #sync-token {
@@ -1624,7 +1662,9 @@
     color: var(--shell-text-dim); display: flex; align-items: center; justify-content: center;
   }
   .nav-icon:hover { color: var(--shell-text); background: var(--shell-hover); }
-  #new-folder-btn { color: var(--accent); }
+  #new-folder-btn { color: var(--accent); width: 40px; height: 36px; }
+  #new-folder-btn svg { width: 26px; height: 26px; }
+  @media (max-width: 640px) { #new-folder-btn { width: 44px; height: 44px; } #new-folder-btn svg { width: 30px; height: 30px; } }
   .sidebar-hide, #sidebar-show { display: none; }
   .folder-item.current { background: var(--tint-2); }
   .view-toggle { display: none; }
@@ -2017,6 +2057,10 @@
     color: var(--ink-dim); opacity: 0.5;
   }
   .rl-letter { position: absolute; left: 0; width: 16px; }
+  .read-sheet.show-syl .read-editor { padding-right: 2.2em; }
+  .syl-gutter { position: absolute; right: 0; top: 0; width: 2em; z-index: 2; pointer-events: none; user-select: none; -webkit-user-select: none; }
+  .syl-n { position: absolute; right: 0; font-family: var(--font-ui); font-size: 0.6em; color: var(--ink-dim); opacity: 0.8; text-align: right; }
+  .rhyme-toggles .rt-syl { font-size: 0.66rem; letter-spacing: 0.02em; }
   .rl-letter.paired, .rhyme-badge.paired { opacity: 1; }
   .rhyme-badge { flex-shrink: 0; width: 14px; margin-top: 0.55em; }
   .rhyme-badge:empty { display: none; }
@@ -2217,6 +2261,13 @@
             </select>
           </div>
         </div>
+        <div class="meta-field" data-hud="metronome">
+          <label>Metronome</label>
+          <div class="metro-controls">
+            <button id="metro-play" aria-pressed="false" aria-label="Start metronome" title="Play a click at this song's BPM"><svg class="metro-ico-play" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M4 2.5v11l9.5-5.5z" fill="currentColor"/></svg><svg class="metro-ico-stop" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/></svg><span class="metro-dot"></span></button>
+            <button id="tap-tempo" title="Tap along with the beat to set the BPM">Tap</button>
+          </div>
+        </div>
         <div class="meta-field" data-hud="timesig">
           <label for="timesig-input">Time sig</label>
           <select id="timesig-input" class="small-input" aria-label="Time signature"></select>
@@ -2290,6 +2341,7 @@
 <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div id="settings-panel">
     <div class="settings-head">
+      <button id="settings-back" aria-label="Back"><svg class="back-chev" viewBox="0 0 12 20" width="11" height="18" aria-hidden="true"><path d="M10 2L2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="settings-back-label">Back</span></button>
       <h2 id="settings-title">Settings</h2>
       <button id="settings-done">Done</button>
     </div>
@@ -3530,6 +3582,7 @@
     document.body.classList.toggle("is-note", isNote(song));
     var editorEl = document.getElementById("editor");
     var emptyEl = document.getElementById("empty-state");
+    if (metro && metro.on && (!song || song.id !== metro.songId)) metroStop();
     if (song && undo.id !== song.id) resetUndo(song);
 
     var showGallery = galleryWanted() && galleryOpen;
@@ -4776,11 +4829,11 @@
   // layout, which "Save as Default" replaces (new songs start with it).
   var HUD_TOOLS = [
     { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
-    { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "wordcount", name: "Word Count" },
+    { id: "metronome", name: "Metronome & Tap Tempo" }, { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "wordcount", name: "Word Count" },
     { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Build" }, { id: "import", name: "Import New Lyrics" },
     { id: "history", name: "Version History" }, { id: "details", name: "Details" }, { id: "rhymes", name: "Rhymes" }
   ];
-  var HUD_BUILTIN = ["title", "bpm", "key", "textsize", "undo", "view", "import", "history", "details", "rhymes"];
+  var HUD_BUILTIN = ["title", "bpm", "metronome", "key", "textsize", "undo", "view", "import", "history", "details", "rhymes"];
   var TIME_SIGS = ["\u2014", "4/4", "3/4", "2/4", "6/8", "12/8", "5/4", "7/8", "9/8", "7/4"];
   // the tools that can be shown (the Rhymes button only while the Rhyme finder is on in Settings)
   function hudToolsAvailable() {
@@ -5288,6 +5341,90 @@
     markEdited(song);
   });
 
+  // ---------- metronome and tap tempo (top bar) ----------
+  // Clicks are scheduled ahead on the Web Audio clock so they stay steady; the tempo follows the
+  // song's BPM (120 when it has none) and beat 1 is accented using its time signature.
+  var metro = { ctx: null, on: false, next: 0, beat: 0, timer: null, songId: null };
+  function metroBpm() {
+    var song = getActiveSong(), b = song ? +song.bpm : 0;
+    return b >= 20 && b <= 400 ? b : 120;
+  }
+  function metroBeats() {
+    var song = getActiveSong(), m = song && /^(\d+)\//.exec(song.timeSig || "");
+    return m ? +m[1] : 4;
+  }
+  function metroClick(t, accent) {
+    var ctx = metro.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = accent ? 1500 : 1000;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(accent ? 0.9 : 0.55, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + 0.06);
+  }
+  function metroFlash(t, one) {
+    var dot = document.querySelector("#metro-play .metro-dot");
+    setTimeout(function () {
+      if (!metro.on || !dot) return;
+      dot.className = "metro-dot beat" + (one ? " one" : "");
+      setTimeout(function () { dot.className = "metro-dot"; }, 110);
+    }, Math.max(0, (t - metro.ctx.currentTime) * 1000));
+  }
+  function metroTick() {
+    while (metro.next < metro.ctx.currentTime + 0.12) {
+      var one = metro.beat % metroBeats() === 0;
+      metroClick(metro.next, one);
+      metroFlash(metro.next, one);
+      metro.next += 60 / metroBpm();
+      metro.beat++;
+    }
+  }
+  function metroStart() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!metro.ctx) metro.ctx = new AC();
+    if (metro.ctx.resume) metro.ctx.resume();
+    metro.on = true; metro.beat = 0; metro.songId = state.activeId;
+    metro.next = metro.ctx.currentTime + 0.05;
+    metroTick();
+    metro.timer = setInterval(metroTick, 25);
+    metroButton();
+  }
+  function metroStop() {
+    metro.on = false;
+    clearInterval(metro.timer);
+    metroButton();
+  }
+  function metroButton() {
+    var b = document.getElementById("metro-play");
+    b.setAttribute("aria-pressed", String(metro.on));
+    b.setAttribute("aria-label", metro.on ? "Stop metronome" : "Start metronome");
+    b.title = metro.on ? "Stop the metronome" : "Play a click at this song's BPM (" + metroBpm() + ")";
+  }
+  document.getElementById("metro-play").addEventListener("click", function () { if (metro.on) metroStop(); else metroStart(); });
+  // Tap Tempo: tap along with the beat; the BPM is the average of the last few taps
+  var taps = [];
+  document.getElementById("tap-tempo").addEventListener("click", function (e) {
+    var now = performance.now(), btn = e.currentTarget;
+    if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];   // a pause starts over
+    taps.push(now);
+    if (taps.length > 8) taps.shift();
+    btn.classList.add("tapped");
+    setTimeout(function () { btn.classList.remove("tapped"); }, 90);
+    if (taps.length < 2) { btn.textContent = "Tap…"; return; }
+    var bpm = Math.round(60000 / ((taps[taps.length - 1] - taps[0]) / (taps.length - 1)));
+    if (bpm < 20 || bpm > 400) return;
+    btn.textContent = bpm + " BPM";
+    var song = getActiveSong();
+    if (!song) return;
+    song.bpm = String(bpm);
+    document.getElementById("bpm-input").value = song.bpm;
+    markEdited(song);
+    metroButton();
+    clearTimeout(btn.resetTimer);
+    btn.resetTimer = setTimeout(function () { btn.textContent = "Tap"; taps = []; }, 2500);
+  });
+
   var keySelect = document.getElementById("key-input");
   KEYS.forEach(function (k) {
     var opt = document.createElement("option");
@@ -5398,10 +5535,20 @@
   });
   var settingsModal = document.getElementById("settings-modal");
   function closeSettings() { settingsModal.classList.remove("open"); }
+  var settingsFromList = false;
   document.getElementById("settings-btn").addEventListener("click", function () {
+    // the back button returns to the list Settings was opened from
+    settingsFromList = appEl.classList.contains("sidebar-open");
+    document.getElementById("settings-back-label").textContent = !settingsFromList ? "Back"
+      : nav.view === "folders" ? "Folders" : document.getElementById("folder-title").textContent;
     closeSidebar();
     applyTheme();
     settingsModal.classList.add("open");
+    document.getElementById("settings-panel").scrollTop = 0;
+  });
+  document.getElementById("settings-back").addEventListener("click", function () {
+    closeSettings();
+    if (settingsFromList) appEl.classList.add("sidebar-open");
   });
   document.getElementById("settings-done").addEventListener("click", closeSettings);
   document.getElementById("welcome-btn").addEventListener("click", showWelcomeSong);
@@ -7639,9 +7786,33 @@
     if (cur.length) groups.push(cur);
     return groups;
   }
+  // Syllable counts at the right of each line in Write (Build has its own per-line counts)
+  function sylCountsOn() { return settings.writeSyllables !== false; }
+  function refreshSylGutter(ed) {
+    var sheet = ed.parentNode, gutter = sheet.querySelector(".syl-gutter");
+    var on = sylCountsOn() && !isNote(getActiveSong());
+    sheet.classList.toggle("show-syl", on);
+    if (!on) { if (gutter) gutter.parentNode.removeChild(gutter); return; }
+    if (!gutter) {
+      gutter = document.createElement("div");
+      gutter.className = "syl-gutter";
+      gutter.setAttribute("aria-hidden", "true");
+      sheet.appendChild(gutter);
+    }
+    var lh = parseFloat(getComputedStyle(ed).lineHeight) || 24, top0 = sheet.getBoundingClientRect().top, html = "";
+    Array.prototype.forEach.call(ed.childNodes, function (d) {
+      if (d.nodeType !== 1) return;
+      var t = d.textContent;
+      if (!t.trim() || detectHeader(t)) return;
+      var n = countSyllablesInLine(t);
+      if (n) html += '<span class="syl-n" style="top:' + Math.round(d.getBoundingClientRect().top - top0) + "px;height:" + lh + "px;line-height:" + lh + 'px">' + n + "</span>";
+    });
+    if (gutter.innerHTML !== html) gutter.innerHTML = html;
+  }
   function refreshRhymeLetters() {
     var canvas = document.getElementById("canvas");
     var ed = canvas.querySelector(".read-editor:not(.pv-sheet)");
+    if (ed) refreshSylGutter(ed);
     var note = isNote(getActiveSong());   // notes aren't lyrics: no letters or colors
     if (note || !rhymeLettersOn()) {
       Array.prototype.forEach.call(canvas.querySelectorAll(".rhyme-gutter"), function (g) { g.parentNode.removeChild(g); });
@@ -7764,7 +7935,7 @@
       new MutationObserver(function (list) {
         for (var i = 0; i < list.length; i++) {
           var t = list[i].target, el = t.nodeType === 1 ? t : t.parentNode;
-          if (!(el && el.closest && el.closest(".rhyme-gutter, .rhyme-boxes"))) { scheduleRhymeLetters(); return; }
+          if (!(el && el.closest && el.closest(".rhyme-gutter, .rhyme-boxes, .syl-gutter"))) { scheduleRhymeLetters(); return; }
         }
       }).observe(canvas, { childList: true, subtree: true, characterData: true });
     }
@@ -7781,9 +7952,11 @@
     box.innerHTML =
       '<button class="rt-letters" aria-pressed="' + rhymeLettersOn() + '" aria-label="Rhyme letters" title="Rhyme letters (A, B, C… beside each line)">ABC</button>' +
       (lettersOnly ? "" : '<button class="rt-colors" aria-pressed="' + rhymeColorsOn() + '" aria-label="Rhyme colors" title="Rhyme colors (color the rhyming words)">' +
-      '<span class="rt-dot"></span><span class="rt-dot"></span><span class="rt-dot"></span></button>');
+      '<span class="rt-dot"></span><span class="rt-dot"></span><span class="rt-dot"></span></button>' +
+      '<button class="rt-syl" aria-pressed="' + sylCountsOn() + '" aria-label="Syllable counts" title="Syllable counts beside each line">123</button>');
     onPress(box, function (b) {
       if (b.classList.contains("rt-letters")) settings.rhymeLetters = !rhymeLettersOn();
+      else if (b.classList.contains("rt-syl")) settings.writeSyllables = !sylCountsOn();
       else settings.rhymeColors = !rhymeColorsOn();
       persistSettings();
       applyRhymeSettings();
@@ -7793,6 +7966,7 @@
   function applyRhymeSettings() {
     Array.prototype.forEach.call(document.querySelectorAll(".rt-letters"), function (b) { b.setAttribute("aria-pressed", String(rhymeLettersOn())); });
     Array.prototype.forEach.call(document.querySelectorAll(".rt-colors"), function (b) { b.setAttribute("aria-pressed", String(rhymeColorsOn())); });
+    Array.prototype.forEach.call(document.querySelectorAll(".rt-syl"), function (b) { b.setAttribute("aria-pressed", String(sylCountsOn())); });
     document.body.classList.toggle("rhymes-off", !rhymeFinderOn());
     document.getElementById("rhymefind-switch").setAttribute("aria-checked", String(rhymeFinderOn()));
     document.getElementById("rhymeletters-switch").setAttribute("aria-checked", String(rhymeLettersOn()));

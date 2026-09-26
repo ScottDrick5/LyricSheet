@@ -16,3 +16,6 @@ The whole app is `www/index.html`. The `ios/` folder is the native wrapper that 
 ## Updating the app later
 Replace `www/index.html` with the new version and build again (or push to GitHub). If you install with the
 same bundle ID (`com.lyricsheet.prototype`), your songs carry over.
+
+## Other tools in this repo
+- `voice-saver-extension/` — Chrome extension that saves ChatGPT and Claude voice audio. See its README.

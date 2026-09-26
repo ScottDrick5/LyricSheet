@@ -1,0 +1,19 @@
+.avs-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  font: 500 12px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.avs-save-btn:hover { opacity: 1; background: rgba(127, 127, 127, 0.15); }
+.avs-save-btn.avs-fallback { margin: 4px 0; border: 1px solid rgba(127, 127, 127, 0.35); }
+.avs-save-btn.avs-busy { cursor: progress; opacity: 0.5; }
+.avs-save-btn.avs-busy svg { animation: avs-pulse 0.9s ease-in-out infinite; }
+@keyframes avs-pulse { 50% { transform: translateY(2px); } }

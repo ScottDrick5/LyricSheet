@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="20" height="20">
+    <h1>AI Voice Saver</h1>
+    <span id="site" class="pill"></span>
+  </header>
+
+  <p id="unsupported" class="note" hidden>Open <b>chatgpt.com</b> or <b>claude.ai</b> in this tab to save voice audio.</p>
+
+  <main id="main" hidden>
+    <section>
+      <label for="voice">Voice</label>
+      <div class="row">
+        <select id="voice"></select>
+        <input id="customVoice" type="text" placeholder="Voice name" hidden>
+      </div>
+      <p id="voiceHint" class="hint"></p>
+    </section>
+
+    <section id="chatgptSection" hidden>
+      <label for="format">File type</label>
+      <select id="format">
+        <option value="aac">AAC (.aac)</option>
+        <option value="mp3">MP3 (.mp3)</option>
+      </select>
+      <p class="hint">Click <b>Voice</b> under any ChatGPT reply to save it, or save every reply in this chat at once.</p>
+      <button id="saveAll" class="primary">Save every reply in this chat</button>
+      <p id="saveAllStatus" class="status"></p>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Record this tab</h2>
+        <span id="timer" class="timer"></span>
+      </div>
+      <p class="hint">Records everything the tab plays. Use it for live voice conversations or when a reply can't be saved directly. Saves as .webm.</p>
+      <button id="record" class="record">Start recording</button>
+      <p id="recordStatus" class="status"></p>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Audio played in this tab</h2>
+        <button id="refresh" class="link">Refresh</button>
+      </div>
+      <ul id="clips"></ul>
+      <p id="clipsEmpty" class="hint">Nothing yet. Press read aloud on a reply and it appears here.</p>
+    </section>
+  </main>
+
+  <script src="voices.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

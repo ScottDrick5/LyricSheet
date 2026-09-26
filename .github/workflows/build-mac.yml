@@ -1,7 +1,9 @@
 name: Build Mac app
 on:
   workflow_dispatch:
+  # main is built by the Release workflow, so only other branches get these test builds
   push:
+    branches-ignore: [main]
 jobs:
   build:
     runs-on: macos-15

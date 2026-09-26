@@ -1205,6 +1205,12 @@
     font-family: var(--font-ui); font-size: 0.8rem; padding: 9px 8px; border-radius: var(--radius-sm); cursor: pointer;
   }
   .hudcfg-actions button:disabled { opacity: 0.4; cursor: default; }
+  #hudcfg-original {
+    display: block; width: 100%; margin-bottom: 10px; background: none; border: 1px solid var(--shell-border);
+    color: var(--shell-text); font-family: var(--font-ui); font-size: 0.8rem; padding: 9px 8px;
+    border-radius: var(--radius-sm); cursor: pointer;
+  }
+  #hudcfg-original[hidden] { display: none; }
   #settings-done, #details-done, #hudcfg-done {
     width: 100%;
     background: var(--accent); border: none; color: var(--on-accent);
@@ -2696,6 +2702,7 @@
       <button id="hudcfg-default" class="hudcfg-secondary">Use Default</button>
       <button id="hudcfg-save">Save as Default for New Songs</button>
     </div>
+    <button id="hudcfg-original" class="hudcfg-secondary">Restore Original Top Bar</button>
     <button id="hudcfg-done">Done</button>
   </div>
 </div>
@@ -5413,6 +5420,7 @@
   function setSongLayout(song, layout) {
     if (sameLayout(layout, defaultLayout())) { delete song.hud; delete song.hudV; }
     else { song.hud = layout.slice(); song.hudV = HUD_LAYOUT_V; }
+    song.hudSetAt = Date.now();   // so sync keeps the latest layout change (it isn't an edit to the song)
     persistSongs();
     applyHud(song);
     renderHudPanel();
@@ -5473,6 +5481,7 @@
       ? "This song has its own layout. New songs start with your default layout."
       : "This song uses your default layout. Changes you make here apply to this song only, until you save them as the default.";
     document.getElementById("hudcfg-default").disabled = !custom;
+    document.getElementById("hudcfg-original").hidden = !savedDefault() && !custom;
     document.getElementById("hudcfg-save").disabled = !custom;
   }
   function openHudPanel() {
@@ -5487,12 +5496,20 @@
     var song = hudSong(); if (!song) return;
     setSongLayout(song, defaultLayout());
   });
+  // back to the app's own lean bar: forget the saved default and this song's own layout
+  document.getElementById("hudcfg-original").addEventListener("click", function () {
+    var song = hudSong(); if (!song) return;
+    delete settings.hudDefault; delete settings.hudDefaultV;
+    persistSettings();
+    setSongLayout(song, defaultLayout());
+    document.getElementById("hudcfg-status").textContent = "Back to the original top bar.";
+  });
   document.getElementById("hudcfg-save").addEventListener("click", function () {
     var song = hudSong(); if (!song) return;
     settings.hudDefault = songLayout(song).slice();
     settings.hudDefaultV = HUD_LAYOUT_V;
     persistSettings();
-    delete song.hud; delete song.hudV;          // it's the default now
+    delete song.hud; delete song.hudV; song.hudSetAt = Date.now();   // it's the default now
     persistSongs();
     applyHud(song);
     renderHudPanel();
@@ -6379,6 +6396,12 @@
     if (wd) { m.writtenOn = wd.writtenOn; m.writtenOnSetAt = wd.writtenOnSetAt; }
     // a folder change made without editing the song (re-filed by an import) still wins
     if ((loser.folderSetAt || 0) > (winner.folderSetAt || 0)) { m.folderId = loser.folderId; m.folderSetAt = loser.folderSetAt; }
+    // likewise the top bar layout: the latest change (or reset) on either device wins
+    if ((loser.hudSetAt || 0) > (winner.hudSetAt || 0)) {
+      delete m.hud; delete m.hudV;
+      if (loser.hud) { m.hud = loser.hud.slice(); m.hudV = loser.hudV; }
+      m.hudSetAt = loser.hudSetAt;
+    }
     return m;
   }
 

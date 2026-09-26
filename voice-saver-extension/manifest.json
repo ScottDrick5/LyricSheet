@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AI Voice Saver",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Download the spoken audio from ChatGPT and Claude, labeled with the voice you pick.",
   "permissions": ["storage", "downloads", "tabCapture", "offscreen"],
   "host_permissions": [

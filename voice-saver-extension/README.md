@@ -11,12 +11,21 @@ Saves the spoken audio from **ChatGPT** and **Claude**, labeled with the voice y
 Files go to your normal Downloads folder, named like `chatgpt-ember-2026-09-26_14-03-22.aac`.
 
 ## ChatGPT
-- Pick a **Voice** and **File type** (AAC or MP3) in the extension popup.
-- A **Voice** button appears next to Copy under every ChatGPT reply. Click it to download that reply
-  spoken in the voice you picked. It doesn't matter which voice ChatGPT itself is set to.
-- **Save every reply in this chat** downloads every reply at once, numbered in order. Chrome may ask
-  once to allow multiple downloads.
-- The voice list is loaded from ChatGPT when it can be. **Custom…** lets you type any other voice name.
+- Every finished reply gets a **player bar** at the end with:
+  - **Play/Pause**
+  - a **scrub bar** you can drag to jump anywhere in the reply, plus the time
+  - a **voice picker**
+  - a **Download** button
+- The player's voice picker and the popup's voice picker are one setting. Change either and all players
+  and the popup switch to that voice. Play and Download always use it, whatever voice ChatGPT itself is
+  set to.
+- Only one reply plays at a time. Audio is fetched the first time you press play or download, then reused
+  until you change the voice or file type.
+- Pick the **File type** (AAC or MP3) for downloads in the popup.
+- **Save every reply in this chat** in the popup downloads every reply at once, numbered in order. Chrome
+  may ask once to allow multiple downloads.
+- The voice list is loaded from ChatGPT when it can be. **Custom…** in the popup lets you type any other
+  voice name, and it then shows up in the players too.
 - This only works in saved chats. Temporary chats can't be read aloud.
 
 ## Claude

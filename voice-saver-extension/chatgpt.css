@@ -1,19 +1,52 @@
-.avs-save-btn {
+.avs-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 560px;
+  margin: 10px 0 4px;
+  padding: 6px 8px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-radius: 999px;
+  color: inherit;
+  font: 500 12px/1 system-ui, sans-serif;
+  box-sizing: border-box;
+}
+.avs-player button {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 8px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.avs-player button:hover { background: rgba(127, 127, 127, 0.18); }
+.avs-player .avs-play { background: #10a37f; color: #fff; }
+.avs-player .avs-play:hover { background: #0d8c6c; }
+.avs-player .avs-seek { flex: 1; min-width: 60px; margin: 0; accent-color: #10a37f; cursor: pointer; }
+.avs-player .avs-seek:disabled { cursor: default; opacity: 0.5; }
+.avs-player .avs-time { flex: none; min-width: 34px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+.avs-player .avs-voice {
+  flex: none;
+  max-width: 110px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
   border-radius: 8px;
   background: transparent;
   color: inherit;
-  opacity: 0.7;
-  font: 500 12px/1 system-ui, sans-serif;
+  font: inherit;
   cursor: pointer;
 }
-.avs-save-btn:hover { opacity: 1; background: rgba(127, 127, 127, 0.15); }
-.avs-save-btn.avs-fallback { margin: 4px 0; border: 1px solid rgba(127, 127, 127, 0.35); }
-.avs-save-btn.avs-busy { cursor: progress; opacity: 0.5; }
-.avs-save-btn.avs-busy svg { animation: avs-pulse 0.9s ease-in-out infinite; }
-@keyframes avs-pulse { 50% { transform: translateY(2px); } }
+.avs-player .avs-voice option { color: #1f1f1f; background: #fff; }
+.avs-player.avs-loading .avs-play,
+.avs-player.avs-loading .avs-dl { cursor: progress; }
+.avs-player.avs-loading .avs-play svg,
+.avs-player.avs-loading .avs-dl svg { animation: avs-pulse 0.9s ease-in-out infinite; }
+@keyframes avs-pulse { 50% { opacity: 0.3; } }

@@ -59,8 +59,10 @@ async function poll() {
   ts.hidden = !s.split;
   if (s.split) {
     const saved = `${s.saved} song${s.saved === 1 ? '' : 's'} saved`;
+    const total = s.maxSongs && (!s.playlistSize || s.maxSongs < s.playlistSize) ? s.maxSongs : s.playlistSize;
+    const of = total ? ` of ${total}` : '';
     ts.innerHTML = s.trackNumber
-      ? `<b>Song ${s.trackNumber}</b> recording · ${fmtTime(s.trackSeconds)} · ${saved}`
+      ? `<b>Song ${s.trackNumber}${of}</b> recording · ${fmtTime(s.trackSeconds)} · ${saved}`
       : `Waiting for the next song… · ${saved}`;
   }
 }
@@ -77,6 +79,8 @@ function applySettings(settings) {
   $('silenceSeconds').value = String(settings.silenceSeconds);
   $('silenceDb').value = String(settings.silenceDb);
   $('endAfterSilenceMinutes').value = String(settings.endAfterSilenceMinutes);
+  $('stopAtPlaylistEnd').checked = settings.stopAtPlaylistEnd;
+  $('maxSongs').value = settings.maxSongs > 0 ? String(settings.maxSongs) : '';
   $('folder').value = settings.folder;
   $('saveAs').checked = settings.saveAs;
 }
@@ -112,6 +116,11 @@ async function refresh() {
   state = res.state;
   applySettings(res.settings);
   render();
+  const ended = {
+    playlistEnd: 'Your playlist finished, so recording stopped and the songs are saved.',
+    songLimit: 'Reached your song limit, so recording stopped and the songs are saved.'
+  }[state.endReason];
+  if (!state.recording && ended) showMessage(ended, 'info');
   renderRecent();
 }
 
@@ -155,6 +164,8 @@ $('includeMic').onchange = (e) => save({ includeMic: e.target.checked });
 $('splitOnSilence').onchange = (e) => save({ splitOnSilence: e.target.checked });
 $('silenceSeconds').onchange = (e) => save({ silenceSeconds: Number(e.target.value) });
 $('silenceDb').onchange = (e) => save({ silenceDb: Number(e.target.value) });
+$('stopAtPlaylistEnd').onchange = (e) => save({ stopAtPlaylistEnd: e.target.checked });
+$('maxSongs').onchange = (e) => save({ maxSongs: Math.max(0, parseInt(e.target.value, 10) || 0) });
 $('endAfterSilenceMinutes').onchange = (e) => save({ endAfterSilenceMinutes: Number(e.target.value) });
 $('autoStopMinutes').onchange = (e) => save({ autoStopMinutes: Number(e.target.value) });
 $('folder').onchange = (e) => save({ folder: e.target.value.trim() });

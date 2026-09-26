@@ -75,6 +75,7 @@ select, input[type=text] {
   padding: 4px 6px; font: inherit;
 }
 input[type=text] { width: 130px; }
+input[type=number] { width: 56px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; }
 input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
 
 .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }

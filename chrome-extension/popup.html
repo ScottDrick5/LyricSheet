@@ -82,6 +82,14 @@
           <option value="-60">-60 dB (strict)</option>
         </select>
       </div>
+      <label class="row">
+        <span>Stop when my playlist ends</span>
+        <input type="checkbox" id="stopAtPlaylistEnd">
+      </label>
+      <div class="row">
+        <span>Stop after</span>
+        <span><input type="number" id="maxSongs" min="0" max="999" placeholder="all"> songs</span>
+      </div>
       <div class="row">
         <span>Stop after silence of</span>
         <select id="endAfterSilenceMinutes">
@@ -107,7 +115,7 @@
     </div>
     <div class="row">
       <span>Save in Downloads/</span>
-      <input type="text" id="folder" placeholder="(Downloads)" spellcheck="false">
+      <input type="text" id="folder" placeholder="(none)" spellcheck="false">
     </div>
     <label class="row">
       <span>Ask where to save each file</span>

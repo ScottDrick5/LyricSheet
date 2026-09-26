@@ -24,10 +24,10 @@ class Mp3Sink {
     const buf = this.encoder.encodeBuffer(l16, r16);
     if (buf.length) this.chunks.push(new Uint8Array(buf));
   }
-  finish() {
+  finish(tag) {
     const buf = this.encoder.flush();
     if (buf.length) this.chunks.push(new Uint8Array(buf));
-    return new Blob(this.chunks, { type: 'audio/mpeg' });
+    return new Blob(tag ? [tag, ...this.chunks] : this.chunks, { type: 'audio/mpeg' });
   }
 }
 
@@ -45,11 +45,14 @@ class WavSink {
     this.chunks.push(inter);
     this.bytes += inter.byteLength;
   }
-  finish() {
+  finish(tag) {
+    // Optional "id3 " chunk after the audio carries the cover art.
+    const tagSize = tag ? tag.size + (tag.size & 1) : 0;
+    const extra = tag ? 8 + tagSize : 0;
     const h = new DataView(new ArrayBuffer(44));
     const str = (o, s) => [...s].forEach((c, i) => h.setUint8(o + i, c.charCodeAt(0)));
     str(0, 'RIFF');
-    h.setUint32(4, 36 + this.bytes, true);
+    h.setUint32(4, 36 + this.bytes + extra, true);
     str(8, 'WAVE');
     str(12, 'fmt ');
     h.setUint32(16, 16, true);
@@ -61,7 +64,15 @@ class WavSink {
     h.setUint16(34, 16, true);                  // bits per sample
     str(36, 'data');
     h.setUint32(40, this.bytes, true);
-    return new Blob([h.buffer, ...this.chunks], { type: 'audio/wav' });
+    const parts = [h.buffer, ...this.chunks];
+    if (tag) {
+      const ch = new DataView(new ArrayBuffer(8));
+      [...'id3 '].forEach((c, i) => ch.setUint8(i, c.charCodeAt(0)));
+      ch.setUint32(4, tag.size, true);
+      parts.push(ch.buffer, tag);
+      if (tag.size & 1) parts.push(new Uint8Array(1)); // chunks are word-aligned
+    }
+    return new Blob(parts, { type: 'audio/wav' });
   }
 }
 
@@ -132,6 +143,9 @@ async function start(streamId, settings) {
     gapFrames: sec(settings.silenceSeconds),
     endFrames: settings.endAfterSilenceMinutes > 0 ? sec(settings.endAfterSilenceMinutes * 60) : 0,
     minTrackFrames: sec(5), // shorter blips (clicks, notification sounds) are thrown away
+    maxSongs: settings.maxSongs > 0 ? settings.maxSongs : 0,
+    playlistSize: 0,      // how many songs the page's playlist has (from the song watcher)
+    done: false,          // playlist finished: ignore any audio that follows
     pending: [],          // quiet chunks held back until we know if it's a gap or just a quiet moment
     quietFrames: 0,
     preroll: [],          // last few quiet chunks before a song starts, so the first note isn't clipped
@@ -167,8 +181,12 @@ function queueSave(s, track) {
   s.saved++;
   // Chain saves so files are handed over in order, even mid-recording.
   s.saves = s.saves.then(async () => {
+    // The song's cover art, embedded in the file.
+    const meta = await chrome.runtime.sendMessage({ target: 'background', type: 'trackMeta', track: number }).catch(() => null);
+    const art = meta && (await fetchArt(meta.art));
+    const tag = art ? coverArtTag(art) : null;
     for (const { ext, sink } of track.sinks) {
-      const url = URL.createObjectURL(sink.finish());
+      const url = URL.createObjectURL(sink.finish(tag));
       await chrome.runtime.sendMessage({ target: 'background', type: 'save', url, ext, track: number }).catch(() => {});
     }
   });
@@ -186,6 +204,21 @@ function endTrack(s) {
   s.preroll = [];
   if (track.frames >= s.minTrackFrames) queueSave(s, track);
   else s.trackCount--; // too short to be a song, reuse its number
+  if (s.maxSongs && s.saved >= s.maxSongs) finishPlaylist(s, 'songLimit');
+}
+
+// The playlist is done (song limit reached, or the page moved on to a song
+// that isn't in the playlist). Drop whatever came after and stop.
+function finishPlaylist(s, reason) {
+  if (s.done) return;
+  s.done = true;
+  if (s.track && s.track.frames < s.minTrackFrames) {
+    // The first moments of the unwanted next song: throw them away.
+    s.track = null;
+    s.trackCount--;
+  }
+  s.pending = [];
+  finishAndNotify(reason);
 }
 
 // The page switched songs (reported by the song watcher). Cut there even if
@@ -195,16 +228,21 @@ function endTrack(s) {
 // between the old song ending and the new one starting.
 const CUT_WINDOW = Math.round(0.6 * SAMPLE_RATE);
 
-function songChange() {
+// final: the new song isn't part of the playlist, so end the recording at the cut.
+function songChange(final) {
   const s = session;
-  if (!s || !s.split || s.stopping || !s.track || s.cut) return { ok: true };
-  // A track this young already belongs to the new song (its audio beat the
-  // page's announcement), so keep it going.
-  if (s.track.frames < s.minTrackFrames) return { ok: true };
+  if (!s || !s.split || s.stopping || s.done) return { ok: true };
+  if (s.cut) { s.cut.final = s.cut.final || final; return { ok: true }; }
+  // No song in progress, or one so young it already belongs to the new song
+  // (its audio beat the page's announcement).
+  if (!s.track || s.track.frames < s.minTrackFrames) {
+    if (final) finishPlaylist(s, 'playlistEnd');
+    return { ok: true };
+  }
   for (const [l, r] of s.pending) writeTrack(s.track, l, r);
   s.pending = [];
   s.quietFrames = 0;
-  s.cut = { chunks: [], frames: 0 };
+  s.cut = { chunks: [], frames: 0, final };
   return { ok: true };
 }
 
@@ -218,6 +256,7 @@ function joinChunks(chunks, ch) {
 function performCut(s) {
   const L = joinChunks(s.cut.chunks, 0);
   const R = joinChunks(s.cut.chunks, 1);
+  const final = s.cut.final;
   s.cut = null;
   const block = 480; // 10 ms
   let best = 0;
@@ -230,12 +269,18 @@ function performCut(s) {
   const at = best + block / 2;
   writeTrack(s.track, L.subarray(0, at), R.subarray(0, at));
   queueSave(s, s.track);
+  s.track = null;
+  if (final || (s.maxSongs && s.saved >= s.maxSongs)) {
+    finishPlaylist(s, final ? 'playlistEnd' : 'songLimit');
+    return;
+  }
   s.track = newTrack(s);
   writeTrack(s.track, L.subarray(at), R.subarray(at));
   chrome.runtime.sendMessage({ target: 'background', type: 'trackStart', track: s.track.number }).catch(() => {});
 }
 
 function onChunk(s, left, right) {
+  if (s.done) return;
   const l16 = floatTo16(left);
   const r16 = floatTo16(right);
   s.frames += l16.length;
@@ -321,10 +366,10 @@ function stop() {
   return s.stopping;
 }
 
-async function finishAndNotify() {
+async function finishAndNotify(reason) {
   if (!session || session.stopping) return;
   await stop();
-  chrome.runtime.sendMessage({ target: 'background', type: 'ended' });
+  chrome.runtime.sendMessage({ target: 'background', type: 'ended', reason: typeof reason === 'string' ? reason : '' });
 }
 
 function status() {
@@ -341,6 +386,8 @@ function status() {
     split: session.split,
     saved: session.saved,
     trackNumber: t ? t.number : 0,
+    playlistSize: session.playlistSize,
+    maxSongs: session.maxSongs,
     trackSeconds: t ? t.frames / SAMPLE_RATE : 0
   };
 }
@@ -354,7 +401,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     pause: () => { session && session.worklet.port.postMessage({ type: 'pause' }); return { ok: true }; },
     resume: () => { session && session.worklet.port.postMessage({ type: 'resume' }); return { ok: true }; },
     status,
-    songChange
+    songChange: () => songChange(!!msg.final),
+    playlistInfo: () => { if (session) session.playlistSize = msg.size; return { ok: true }; }
   }[msg.type];
   if (!run) return false;
   Promise.resolve()

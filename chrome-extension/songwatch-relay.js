@@ -9,8 +9,8 @@
   };
   const onMessage = (e) => {
     if (e.source !== window || !e.data || e.data.__audioGrabber !== 'song') return;
-    const { title, artist, key } = e.data;
-    chrome.runtime.sendMessage({ target: 'background', type: 'song', title, artist, key })
+    const { id, title, artist, art, key, playlistIds } = e.data;
+    chrome.runtime.sendMessage({ target: 'background', type: 'song', id, title, artist, art, key, playlistIds })
       .then((res) => { if (res && res.keep === false) stop(); })
       .catch(stop);
   };

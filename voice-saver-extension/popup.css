@@ -41,3 +41,8 @@ li { display: flex; align-items: center; justify-content: space-between; gap: 8p
 li:last-child { border-bottom: 0; }
 li span { color: var(--muted); }
 li button { border: 1px solid var(--line); background: var(--field); color: var(--fg); border-radius: 6px; padding: 3px 10px; }
+label.check { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 6px 0 0; cursor: pointer; }
+label.check input { flex: none; width: auto; margin: 0; accent-color: var(--accent); }
+.settings { border-top: 1px solid var(--line); }
+.diag-head { margin-top: 10px; }
+.diag { margin: 6px 0 0; padding: 8px; max-height: 140px; overflow: auto; border-radius: 6px; background: var(--field); color: var(--muted); font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; word-break: break-all; }

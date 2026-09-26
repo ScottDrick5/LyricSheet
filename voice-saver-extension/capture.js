@@ -1,14 +1,20 @@
-// Keeps the audio clips page-hook.js spots on this page so the popup can list and save them.
+// Keeps the audio clips page-hook.js spots on this page so the popup can list and save them,
+// and passes clips and request notes from a player capture on to claude.js.
 
 const avsClips = [];
 const AVS_MAX_CLIPS = 30;
+const avsPageListeners = new Set(); // functions called with every message from page-hook.js
 
 window.addEventListener('message', (e) => {
-  if (e.source !== window || !e.data || e.data.__aiVoiceSaver !== 'clip') return;
-  const blob = e.data.blob;
-  if (!(blob instanceof Blob)) return;
-  avsClips.unshift({ id: Date.now() + Math.random(), blob, source: e.data.source, time: Date.now() });
-  if (avsClips.length > AVS_MAX_CLIPS) avsClips.length = AVS_MAX_CLIPS;
+  if (e.source !== window || !e.data || e.data.__aiVoiceSaver !== true) return;
+  const d = e.data;
+  if (d.kind === 'clip' && d.blob instanceof Blob) {
+    avsClips.unshift({ id: Date.now() + Math.random(), blob: d.blob, source: d.source, time: Date.now() });
+    if (avsClips.length > AVS_MAX_CLIPS) avsClips.length = AVS_MAX_CLIPS;
+  }
+  for (const fn of avsPageListeners) {
+    try { fn(d); } catch {}
+  }
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

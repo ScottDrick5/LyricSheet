@@ -64,7 +64,7 @@ function initVoicePicker() {
   $('customVoice').value = settings[site + 'CustomVoice'] || '';
   $('voiceHint').innerHTML = site === 'chatgpt'
     ? 'Replies are downloaded in this voice, whatever voice ChatGPT itself is set to.'
-    : 'Claude plays replies in the voice set in <b>Claude → Settings → Voice</b>. Pick the same one here so your files are named correctly.';
+    : 'The player uses this voice if Claude lets it be changed. Otherwise Claude reads in the voice from its own settings, so pick that same one here and your files are named correctly.';
 
   $('voice').addEventListener('change', async (e) => {
     $('customVoice').hidden = e.target.value !== 'custom';
@@ -106,6 +106,52 @@ async function initChatGPT() {
     const msg = `Saved ${res.saved} of ${res.total} replies.` + (res.errors.length ? ' ' + res.errors[0] : '');
     setStatus($('saveAllStatus'), msg, res.saved === 0 && res.total > 0);
   });
+}
+
+// ---------- Claude ----------
+
+function describeDiagnostics(d) {
+  if (!d) return 'Press play on a Claude reply first.';
+  const lines = [`Result: ${d.result}`, `Checked: ${new Date(d.time).toLocaleString()}`];
+  if (d.button) lines.push(`Read-aloud button: "${d.button}"`);
+  if (d.buttons) lines.push(`Buttons on the reply: ${d.buttons.map((b) => `"${b}"`).join(', ') || 'none found'}`);
+  for (const r of d.requests || []) {
+    const bits = [r.method, r.path];
+    if (r.params && r.params.length) bits.push(`params: ${r.params.join(', ')}`);
+    if (r.bodyKeys && r.bodyKeys.length) bits.push(`body: ${r.bodyKeys.join(', ')}`);
+    if (r.status) bits.push(String(r.status));
+    if (r.type) bits.push(r.type);
+    if (r.voiceSwapped) bits.push('voice switched');
+    lines.push('• ' + bits.join(' · '));
+  }
+  return lines.join('\n');
+}
+
+async function initClaude() {
+  $('claudeSection').hidden = false;
+  const show = async () => {
+    const { claudeDiagnostics } = await chrome.storage.local.get('claudeDiagnostics');
+    $('diag').textContent = describeDiagnostics(claudeDiagnostics);
+    $('copyDiag').hidden = !claudeDiagnostics;
+  };
+  await show();
+  chrome.storage.local.onChanged.addListener(show);
+  $('copyDiag').addEventListener('click', async () => {
+    await navigator.clipboard.writeText($('diag').textContent);
+    $('copyDiag').textContent = 'Copied';
+    setTimeout(() => ($('copyDiag').textContent = 'Copy'), 1500);
+  });
+}
+
+// ---------- Settings ----------
+
+async function initSettings() {
+  const s = { ...DEFAULTS, ...(await chrome.storage.sync.get(DEFAULTS)) };
+  for (const key of ['showPlayerChatgpt', 'showPlayerClaude']) {
+    const box = $(key);
+    box.checked = s[key] !== false;
+    box.addEventListener('change', () => chrome.storage.sync.set({ [key]: box.checked }));
+  }
 }
 
 // ---------- Recorder ----------
@@ -201,6 +247,7 @@ async function refreshClips() {
 // ---------- Start ----------
 
 (async () => {
+  initSettings();
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   site = tab && siteFor(tab.url);
   if (!site) {
@@ -213,6 +260,7 @@ async function refreshClips() {
 
   initVoicePicker();
   if (site === 'chatgpt') initChatGPT();
+  if (site === 'claude') initClaude();
   initRecorder();
   refreshClips();
   $('refresh').addEventListener('click', refreshClips);

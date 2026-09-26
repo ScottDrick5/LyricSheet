@@ -12,7 +12,8 @@ const VOICES = {
     { id: 'spruce', name: 'Spruce' },
     { id: 'vale', name: 'Vale' }
   ],
-  // Claude doesn't let other apps choose the voice; this only labels the saved file.
+  // Claude's read-aloud voices. If Claude's request carries a voice setting it's switched to this one;
+  // otherwise Claude uses the voice from its own settings and this names the saved file.
   claude: [
     { id: 'buttery', name: 'Buttery' },
     { id: 'airy', name: 'Airy' },
@@ -27,5 +28,7 @@ const DEFAULTS = {
   chatgptCustomVoice: '',
   chatgptFormat: 'aac',
   claudeVoice: 'buttery',
-  claudeCustomVoice: ''
+  claudeCustomVoice: '',
+  showPlayerChatgpt: true,
+  showPlayerClaude: true
 };

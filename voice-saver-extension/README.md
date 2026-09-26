@@ -29,13 +29,22 @@ Files go to your normal Downloads folder, named like `chatgpt-ember-2026-09-26_1
 - This only works in saved chats. Temporary chats can't be read aloud.
 
 ## Claude
-Claude doesn't let other apps choose which voice speaks, so the voice is set in Claude itself
-(**Settings → Voice**). Pick the same voice in the popup and your files will be named after it. There
-are two ways to save Claude's audio:
-- **Audio played in this tab:** when a reply is played aloud, the extension keeps a copy. Open the popup
-  and click **Save**.
-- **Record this tab:** click **Start recording**, talk to Claude or play the reply, then click
-  **Stop and save**. This works for live voice conversations too. You still hear everything while it records.
+- Every finished Claude reply gets the same **player bar** as ChatGPT: play/pause, scrub bar, voice
+  picker and download.
+- Pressing play presses Claude's own **read aloud** button for that reply behind the scenes. The
+  extension catches the audio Claude sends back, mutes Claude's own playback, and plays it in the bar
+  instead, so you can scrub and download it.
+- **Voice:** if Claude's read-aloud request includes a voice setting, the extension switches it to the
+  voice picked in the extension. If it doesn't, Claude reads in the voice from its own settings. In that
+  case pick the same voice in the extension so your files are named after it.
+- **If a Claude player doesn't work:** open the popup and look at **Read-aloud diagnostics**. It shows
+  whether the read-aloud button was found and what Claude's request looked like, with no personal
+  content. **Copy** it and send it along so the extension can be adjusted.
+- **Audio played in this tab** in the popup also keeps a copy of anything Claude reads aloud.
+
+## Settings
+At the bottom of the popup, **Show player bar on ChatGPT** and **Show player bar on Claude** turn the
+bars off and on for each site without disabling the extension.
 
 ## Record this tab (both sites)
 This records everything the tab plays and saves it as `.webm` (Opus audio). VLC, Chrome and most

@@ -34,6 +34,15 @@
       <p id="saveAllStatus" class="status"></p>
     </section>
 
+    <section id="claudeSection" hidden>
+      <p class="hint">Press play in the bar under any Claude reply. The extension uses Claude's own read-aloud and plays it there, so you can scrub and download it.</p>
+      <div class="section-head diag-head">
+        <h2>Read-aloud diagnostics</h2>
+        <button id="copyDiag" class="link" hidden>Copy</button>
+      </div>
+      <pre id="diag" class="diag">Press play on a Claude reply first.</pre>
+    </section>
+
     <section>
       <div class="section-head">
         <h2>Record this tab</h2>
@@ -53,6 +62,12 @@
       <p id="clipsEmpty" class="hint">Nothing yet. Press read aloud on a reply and it appears here.</p>
     </section>
   </main>
+
+  <section id="settings" class="settings">
+    <h2>Settings</h2>
+    <label class="check"><input type="checkbox" id="showPlayerChatgpt"> Show player bar on ChatGPT</label>
+    <label class="check"><input type="checkbox" id="showPlayerClaude"> Show player bar on Claude</label>
+  </section>
 
   <script src="voices.js"></script>
   <script src="popup.js"></script>

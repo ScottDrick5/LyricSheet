@@ -50,3 +50,5 @@
 .avs-player.avs-loading .avs-play svg,
 .avs-player.avs-loading .avs-dl svg { animation: avs-pulse 0.9s ease-in-out infinite; }
 @keyframes avs-pulse { 50% { opacity: 0.3; } }
+html.avs-hide-player .avs-player { display: none !important; }
+.avs-player .avs-msg { flex: 1; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -15,21 +15,21 @@ so the file is ready the moment you press Stop. No converting afterwards, no acc
 1. Go to the tab that's playing audio (YouTube, SoundCloud, a web DAW, a Zoom web call…).
 2. Click the Audio Grabber icon → **Record**. The toolbar badge shows **REC**.
 3. Click the icon again → **Stop & Save**. The file lands in your **Downloads** folder,
-   named after the song (or the tab title) plus the date and time.
+   named after the song (or the tab title).
 
 ## Record a whole playlist, one file per song (great for Suno)
 1. Open the playlist in a tab (e.g. a Suno playlist) and don't press play yet.
 2. In the popup, turn on **Split into separate songs**.
 3. Press **Record**, then press play on the playlist. You can walk away now.
 
-Each song is saved straight into your **Downloads** folder as its own file, numbered in play order
-and named after the song, with the song's cover art embedded:
+Each song is saved straight into your **Downloads** folder as its own file, named after the song,
+with the song's cover art embedded (if a file with that name already exists, Chrome adds " (1)"):
 
 ```
 Downloads/
-    01 - Midnight Drive.mp3
-    02 - Neon Rain.mp3
-    03 - Last Call.mp3
+    Midnight Drive.mp3
+    Neon Rain.mp3
+    Last Call.mp3
 ```
 
 How it knows where one song ends and the next begins:

@@ -278,26 +278,14 @@ async function trackInfo(track) {
   return { title: cleanTitle(info.title), art: info.art || [] };
 }
 
-function stamp(d) {
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
-}
-
 async function saveFile({ url, ext, track }) {
   const settings = await getSettings();
   const state = await getState();
   const folder = settings.folder ? sanitize(settings.folder) : '';
-  let base;
-  if (track) {
-    // Split mode: songs numbered in play order.
-    const info = await trackInfo(track);
-    const title = sanitize(info.title || 'Track');
-    base = `${String(track).padStart(2, '0')} - ${title}.${ext}`;
-  } else {
-    // One file: if exactly one song played, name it after that song.
-    const name = (await trackInfo()).title;
-    base = `${sanitize(name || 'Recording')} ${stamp(new Date())}.${ext}`;
-  }
+  // Just the song name (in single-file mode: the song if exactly one played,
+  // else the tab title). Chrome adds " (1)" if a file by that name exists.
+  const info = await trackInfo(track);
+  const base = `${sanitize(info.title || (track ? 'Track' : 'Recording'))}.${ext}`;
   const filename = folder ? `${folder}/${base}` : base;
 
   const downloadId = await chrome.downloads.download({

@@ -236,23 +236,28 @@ async function onSong(msg, sender) {
   if (msg.title && lastTrack && Date.now() - lastTrack.at < 4000) {
     await setTrackInfo(lastTrack.track, { title: msg.title, artist: msg.artist, art: msg.art || [] });
   }
-  // Remember which songs make up the playlist on the page when playback starts.
-  let { playlistIds = [] } = await chrome.storage.session.get('playlistIds');
-  if (!playlistIds.length && msg.playlistIds && msg.playlistIds.length) {
-    playlistIds = msg.playlistIds;
-    await chrome.storage.session.set({ playlistIds });
+  // Remember which songs make up the playlist on the page when playback starts,
+  // and only trust that list if it checks out: it must list several songs and
+  // include the first song that played. Otherwise ending the recording on an
+  // "unknown" song could stop after one song, so playlist-end is switched off.
+  let { playlistIds = [], playlistCheck = '' } = await chrome.storage.session.get(['playlistIds', 'playlistCheck']);
+  if (!playlistCheck && msg.id) {
+    const ids = msg.playlistIds || [];
+    playlistCheck = ids.length >= 2 && ids.includes(msg.id) ? 'ok' : 'off';
+    playlistIds = playlistCheck === 'ok' ? ids : [];
+    await chrome.storage.session.set({ playlistIds, playlistCheck });
     await sendToOffscreen({ type: 'playlistInfo', size: playlistIds.length }).catch(() => {});
   }
   // Cut to a new file right at the song change, even if there was no silent gap.
   // If the new song isn't in the playlist (Suno moving on to other people's
   // songs), make that cut the end of the recording.
-  const final = !!(state.stopAtPlaylistEnd && playlistIds.length && msg.id && !playlistIds.includes(msg.id));
+  const final = !!(state.stopAtPlaylistEnd && playlistCheck === 'ok' && msg.id && !playlistIds.includes(msg.id));
   if (changed && state.split) await sendToOffscreen({ type: 'songChange', final }).catch(() => {});
   return { keep: true };
 }
 
 async function startSongWatch(tabId) {
-  await chrome.storage.session.set({ nowPlaying: null, lastTrack: null, songsSeen: 0, trackTitles: {}, playlistIds: [] });
+  await chrome.storage.session.set({ nowPlaying: null, lastTrack: null, songsSeen: 0, trackTitles: {}, playlistIds: [], playlistCheck: '' });
   try {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['songwatch-relay.js'] });
     await chrome.scripting.executeScript({ target: { tabId }, files: ['songwatch-main.js'], world: 'MAIN' });

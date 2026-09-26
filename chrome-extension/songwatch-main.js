@@ -9,9 +9,21 @@
 
   const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
+  // The element playing the music. Muted videos (animated covers, background
+  // loops) are ignored, and a real <audio> player wins over any video.
   function currentAudio() {
-    const els = [...document.querySelectorAll('audio, video')];
-    return els.find((el) => !el.paused) || els.find((el) => el.currentSrc || el.src) || null;
+    const els = [...document.querySelectorAll('audio, video')].filter((el) => !el.muted && el.volume > 0);
+    const playing = els.filter((el) => !el.paused);
+    return playing.find((el) => el.tagName === 'AUDIO') || playing[0] ||
+      els.find((el) => el.tagName === 'AUDIO' && (el.currentSrc || el.src)) || null;
+  }
+
+  // A song ID from a URL. Temporary blob: addresses carry a random UUID that
+  // has nothing to do with the song, so they don't count.
+  function idFrom(url) {
+    if (!url || url.startsWith('blob:')) return '';
+    const m = url.match(UUID);
+    return m ? m[0].toLowerCase() : '';
   }
 
   function linkTitle(id) {
@@ -51,7 +63,9 @@
     const md = navigator.mediaSession && navigator.mediaSession.metadata;
     const el = currentAudio();
     const src = el ? el.currentSrc || el.src || '' : '';
-    const id = (src.match(UUID) || [])[0] || '';
+    // From the audio address, or else the cover image (Suno names covers after the song).
+    let id = idFrom(src);
+    if (!id && md && md.artwork) for (const a of md.artwork) if ((id = idFrom(a.src))) break;
     let title = (md && md.title) || '';
     if (!title && id) title = linkTitle(id);
     return {
@@ -67,8 +81,8 @@
   function pageSongIds() {
     const ids = new Set();
     for (const a of document.querySelectorAll('a[href*="/song/"]')) {
-      const m = a.getAttribute('href').match(UUID);
-      if (m) ids.add(m[0].toLowerCase());
+      const id = idFrom(a.getAttribute('href'));
+      if (id) ids.add(id);
     }
     return [...ids];
   }
@@ -81,7 +95,6 @@
     last = song.key;
     // Snapshot the playlist when playback starts, before the page can change.
     if (!playlistIds) playlistIds = pageSongIds();
-    song.id = song.id.toLowerCase();
     window.postMessage({ __audioGrabber: 'song', ...song, playlistIds }, '*');
   }, 100);
 

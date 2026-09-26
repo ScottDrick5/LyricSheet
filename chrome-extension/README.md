@@ -42,7 +42,9 @@ How it knows where one song ends and the next begins:
   (your playlist). As soon as Suno moves on to a song that isn't one of them (someone else's),
   it saves your last song, discards the stranger's, stops, and pauses Suno. The popup shows
   "Song 3 of 12" so you can check it counted your playlist right. Start recording from the
-  playlist's own page for this to work.
+  playlist's own page for this to work. If it can't reliably read the playlist from the page
+  ("Song 3" with no "of 12"), this check switches itself off for that recording rather than risk
+  stopping early; use **Stop after N songs** instead.
 - **Stop after N songs.** A backup if you want an exact count.
 - When nothing has played for **2 minutes** (changeable), it assumes the playlist is over,
   stops, and saves.

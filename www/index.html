@@ -1813,7 +1813,8 @@
     .sidebar-hide { display: flex; }
     body.sidebar-hidden #sidebar { display: none; }
     body.sidebar-hidden #sidebar-show { display: flex; position: fixed; top: 12px; left: 10px; z-index: 30; background: var(--bg-raised); border: 1px solid var(--shell-border); }
-    body.sidebar-hidden #meta-bar { padding-left: 52px; }
+    /* room for the show-sidebar button at the top left (the Notes-style bar's own padding is !important) */
+    body.sidebar-hidden #editor #meta-bar { padding-left: 58px !important; }
     body.sidebar-hidden #gallery { padding-left: 52px; }
     body.sidebar-hidden #music-bar { left: 0; }
     body.sidebar-hidden #music-pill { left: 22px; }
@@ -2095,6 +2096,7 @@
   .font-controls button, .align-seg button, #metro-play { min-width: var(--ctl); }
   #meta-bar #undo-bar button { width: var(--ctl) !important; }
   #meta-bar #rhymes-btn, #meta-bar #paste-btn, #meta-bar #history-toggle, #meta-bar #details-btn, #meta-bar #hud-more { border-radius: 18px; }
+  #meta-bar #gallery-back { height: var(--ctl); border-radius: 18px; padding: 0 14px; }
   .rhyme-toggles button, .read-toolbar .read-copy { min-width: var(--ctl) !important; }
   @media (max-width: 640px) {
     #meta-bar #undo-bar button { width: var(--ctl); }
@@ -6056,6 +6058,10 @@
 
   // ---------- appearance ----------
   var systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  if (window.lyricDesktop) {   // the Mac app follows the Mac, not a phone
+    var sysBtn = document.querySelector('#theme-seg [data-theme-choice="system"]');
+    if (sysBtn) sysBtn.textContent = "Match Mac";
+  }
   function applyTheme() {
     var pref = settings.theme || "system";   // follows the phone / Mac until a theme is picked
     var resolved = pref === "system" ? (systemDark && systemDark.matches ? "dark" : "light") : pref;

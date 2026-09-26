@@ -5312,10 +5312,15 @@
   var HUD_PHONE_BUILTIN = ["undo", "rhymes"];
   var phoneQuery = window.matchMedia ? window.matchMedia("(max-width: 640px)") : null;
   function isPhoneLayout() { return !!(phoneQuery && phoneQuery.matches); }
+  // Layouts saved before the Notes-style top bar (HUD_LAYOUT_V 2) are ignored, so songs and defaults
+  // customized back then get the new lean bar too; anything customized from now on is kept.
+  var HUD_LAYOUT_V = 2;
+  function savedDefault() { return settings.hudDefaultV === HUD_LAYOUT_V ? validLayout(settings.hudDefault) : null; }
+  function savedSongLayout(song) { return song && song.hudV === HUD_LAYOUT_V ? validLayout(song.hud) : null; }
   function defaultLayout() {
-    return validLayout(settings.hudDefault) || (isPhoneLayout() ? HUD_PHONE_BUILTIN : HUD_BUILTIN).slice();
+    return savedDefault() || (isPhoneLayout() ? HUD_PHONE_BUILTIN : HUD_BUILTIN).slice();
   }
-  function songLayout(song) { return (song && validLayout(song.hud)) || defaultLayout(); }
+  function songLayout(song) { return savedSongLayout(song) || defaultLayout(); }
   function sameLayout(a, b) { return a.join(",") === b.join(","); }
   function applyHud(song) {
     var layout = songLayout(song);
@@ -5406,7 +5411,8 @@
   var hudModal = document.getElementById("hudcfg-modal");
   function hudSong() { return getActiveSong(); }
   function setSongLayout(song, layout) {
-    if (sameLayout(layout, defaultLayout())) delete song.hud; else song.hud = layout.slice();
+    if (sameLayout(layout, defaultLayout())) { delete song.hud; delete song.hudV; }
+    else { song.hud = layout.slice(); song.hudV = HUD_LAYOUT_V; }
     persistSongs();
     applyHud(song);
     renderHudPanel();
@@ -5462,7 +5468,7 @@
       li.appendChild(mover("\u2193", 1, !on || pos === layout.length - 1));
       list.appendChild(li);
     });
-    var custom = !!validLayout(song.hud);
+    var custom = !!savedSongLayout(song);
     document.getElementById("hudcfg-status").textContent = custom
       ? "This song has its own layout. New songs start with your default layout."
       : "This song uses your default layout. Changes you make here apply to this song only, until you save them as the default.";
@@ -5484,8 +5490,9 @@
   document.getElementById("hudcfg-save").addEventListener("click", function () {
     var song = hudSong(); if (!song) return;
     settings.hudDefault = songLayout(song).slice();
+    settings.hudDefaultV = HUD_LAYOUT_V;
     persistSettings();
-    delete song.hud;          // it's the default now
+    delete song.hud; delete song.hudV;          // it's the default now
     persistSongs();
     applyHud(song);
     renderHudPanel();

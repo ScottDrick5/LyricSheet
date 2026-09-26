@@ -162,6 +162,7 @@ function avsCreatePlayer(opts) {
 
   p.playBtn.addEventListener('click', async () => {
     if (p.clip && !p.audio.paused) return p.audio.pause();
+    if (!avsExtensionAlive()) return avsToast(AVS_RELOAD_MSG, true);
     try {
       await p.load();
       await p.audio.play();
@@ -173,6 +174,7 @@ function avsCreatePlayer(opts) {
 
   p.dlBtn.addEventListener('click', async () => {
     if (el.classList.contains('avs-loading')) return;
+    if (!avsExtensionAlive()) return avsToast(AVS_RELOAD_MSG, true);
     try {
       const { blob, voice, ext } = await p.load();
       avsDownloadBlob(blob, avsFilename(p.site, voice, ext));
@@ -183,7 +185,10 @@ function avsCreatePlayer(opts) {
   });
 
   // Picking a voice here changes the extension's voice, same as the popup.
-  p.voice.addEventListener('change', () => chrome.storage.sync.set({ [p.site + 'Voice']: p.voice.value }));
+  p.voice.addEventListener('change', () => {
+    if (!avsExtensionAlive()) return avsToast(AVS_RELOAD_MSG, true);
+    chrome.storage.sync.set({ [p.site + 'Voice']: p.voice.value });
+  });
 
   p.fillVoices = () => opts.fillVoices(p.voice);
   p.fillVoices();

@@ -52,6 +52,10 @@ editors can play it. For an MP3 or WAV, convert it with any audio converter (for
 `ffmpeg -i file.webm file.mp3`). While it records, the icon shows a red **REC** badge.
 
 ## Notes
+- **After updating the extension, reload your ChatGPT and Claude tabs.** Tabs that were already open keep
+  running the old version until they're reloaded, and the player will ask you to reload.
+- A message like "Couldn't reach ChatGPT" means the request never got through. It's usually a dropped
+  connection or an ad or privacy blocker blocking chatgpt.com or claude.ai.
 - ChatGPT downloads use the same read-aloud service as ChatGPT's own speaker button, and you have to be
   logged in. If OpenAI changes that service, the per-reply buttons may stop working until the
   extension is updated. Tab recording keeps working either way.

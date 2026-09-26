@@ -66,3 +66,30 @@ function avsToast(text, isError = false) {
   (document.body || document.documentElement).appendChild(el);
   setTimeout(() => el.remove(), isError ? 6000 : 2500);
 }
+
+// After the extension is updated or reloaded, scripts already running in open tabs are cut off.
+function avsExtensionAlive() {
+  try {
+    return !!chrome.runtime && !!chrome.runtime.id;
+  } catch {
+    return false;
+  }
+}
+
+const AVS_RELOAD_MSG = 'AI Voice Saver was updated. Reload this page to use it.';
+
+// fetch() for the site's own services, with a readable message instead of "Failed to fetch".
+async function avsSiteFetch(url, options) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      if (attempt === 0 && err && err.name === 'TypeError') {
+        await new Promise((r) => setTimeout(r, 700));
+        continue;
+      }
+      const site = AVS_SITE === 'claude' ? 'Claude' : 'ChatGPT';
+      throw new Error(`Couldn't reach ${site} (${err && err.message ? err.message : 'network error'}). Check your connection, reload this page, and try again. If you use an ad or privacy blocker, allow ${location.hostname}.`);
+    }
+  }
+}

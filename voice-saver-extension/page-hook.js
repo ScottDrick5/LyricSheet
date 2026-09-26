@@ -110,7 +110,11 @@
 
   // 1. Audio downloaded with fetch()
   const origFetch = window.fetch;
-  window.fetch = async function (input, init) {
+  // The site's own requests go straight through untouched: the page gets fetch's own promise
+  // back, so a request that fails (an ad blocker, a dropped connection) fails exactly as it would
+  // without the extension. We only look at the response on the side.
+  window.fetch = function (input, init) {
+    let args = arguments;
     let swapped = false;
     let info = null;
     try {
@@ -124,26 +128,31 @@
             const newUrl = swapVoiceInUrl(url, capture.voice);
             const newBody = swapVoiceInBody(body, capture.voice);
             if (newUrl || newBody) {
+              let nextInput = input;
+              if (newUrl) nextInput = input instanceof Request ? new Request(newUrl, input) : newUrl;
+              args = [nextInput, newBody ? { ...init, body: newBody } : init];
               swapped = true;
-              if (input instanceof Request && newUrl) input = new Request(newUrl, input);
-              else if (newUrl) input = newUrl;
-              if (newBody) init = { ...init, body: newBody };
             }
           }
         }
       }
-    } catch {}
-    const res = await origFetch.call(this, input, init);
-    try {
-      const type = (res.headers.get('content-type') || '').split(';')[0].trim();
-      if (info) noteRequest(info, { status: res.status, type, voiceSwapped: swapped });
-      if (isAudio(type)) {
-        res.clone().blob()
-          .then((b) => emit(b.type ? b : new Blob([b], { type }), 'fetch'))
-          .catch(() => {});
-      }
-    } catch {}
-    return res;
+    } catch {
+      args = arguments;
+      swapped = false;
+    }
+    const promise = origFetch.apply(this, args);
+    promise.then((res) => {
+      try {
+        const type = (res.headers.get('content-type') || '').split(';')[0].trim();
+        if (info) noteRequest(info, { status: res.status, type, voiceSwapped: swapped });
+        if (isAudio(type)) {
+          res.clone().blob()
+            .then((b) => emit(b.type ? b : new Blob([b], { type }), 'fetch'))
+            .catch(() => {});
+        }
+      } catch {}
+    }, () => {});
+    return promise;
   };
 
   // 2. Audio turned into a blob: URL for an <audio> element

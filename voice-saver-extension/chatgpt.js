@@ -6,7 +6,7 @@ let avsTokenTime = 0;
 
 async function avsGetToken() {
   if (avsToken && Date.now() - avsTokenTime < 5 * 60 * 1000) return avsToken;
-  const res = await fetch('/api/auth/session', { credentials: 'include' });
+  const res = await avsSiteFetch('/api/auth/session', { credentials: 'include' });
   if (!res.ok) throw new Error(`Couldn't read your ChatGPT login (${res.status}).`);
   const data = await res.json();
   if (!data || !data.accessToken) throw new Error('You need to be logged in to ChatGPT.');
@@ -25,7 +25,7 @@ async function avsSynthesize(messageId, voice, format) {
   if (!conversationId) throw new Error('Open a saved chat first (temporary chats can’t be read aloud).');
   const token = await avsGetToken();
   const q = new URLSearchParams({ message_id: messageId, conversation_id: conversationId, voice, format });
-  const res = await fetch(`/backend-api/synthesize?${q}`, {
+  const res = await avsSiteFetch(`/backend-api/synthesize?${q}`, {
     credentials: 'include',
     headers: { Authorization: `Bearer ${token}` }
   });
@@ -148,7 +148,7 @@ async function avsSaveAll() {
 
 async function avsListVoices() {
   const token = await avsGetToken();
-  const res = await fetch('/backend-api/settings/voices', {
+  const res = await avsSiteFetch('/backend-api/settings/voices', {
     credentials: 'include',
     headers: { Authorization: `Bearer ${token}` }
   });

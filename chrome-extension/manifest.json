@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Audio Grabber",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Record the audio playing in any tab (plus your mic, if you like) and save it straight to MP3 or WAV.",
   "minimum_chrome_version": "116",
   "permissions": [

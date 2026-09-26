@@ -88,6 +88,9 @@ a:hover { text-decoration: underline; }
 
 .recent { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
 .recent-head { display: flex; justify-content: space-between; align-items: center; }
+.recent-links { display: flex; gap: 12px; }
+#clearHistory { color: var(--muted); }
+#clearHistory:hover { color: var(--text); }
 .recent ul { list-style: none; margin: 6px 0 0; padding: 0; }
 .recent li { padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent li a { color: var(--text); }

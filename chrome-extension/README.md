@@ -85,7 +85,8 @@ Keyboard shortcut: **Alt+Shift+R** starts/stops recording the current tab
 
 **Mute** (while recording) silences the tab on your speakers without affecting the recording. Handy for
 watching something else while a playlist records. **Pause** skips the paused section, so it isn't in the file. Closing the tab you're recording
-stops and saves automatically. **Recent** lists your last 10 files; click one to show it in its folder.
+stops and saves automatically. **Recent** lists your last 10 files; click one to show it in its folder, or click
+**Clear history** to empty the list (your saved files aren't touched).
 
 ## Good to know
 - It records one tab at a time.

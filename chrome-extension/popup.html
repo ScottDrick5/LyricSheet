@@ -27,6 +27,8 @@
     <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
   </section>
 
+  <div class="track-status" id="trackStatus" hidden></div>
+
   <div class="message" id="message" hidden></div>
 
   <section class="settings" id="settings">
@@ -55,6 +57,41 @@
       <span>Mix in microphone <a href="#" id="micSetup">allow mic</a></span>
       <input type="checkbox" id="includeMic">
     </label>
+    <label class="row">
+      <span>Split into separate songs</span>
+      <input type="checkbox" id="splitOnSilence">
+    </label>
+    <div class="sub" id="splitOptions">
+      <div class="row">
+        <span>Silent gap that splits</span>
+        <select id="silenceSeconds">
+          <option value="1">1 sec</option>
+          <option value="2">2 sec</option>
+          <option value="3">3 sec</option>
+          <option value="5">5 sec</option>
+          <option value="8">8 sec</option>
+        </select>
+      </div>
+      <div class="row">
+        <span>Silence level</span>
+        <select id="silenceDb">
+          <option value="-35">-35 dB (noisy)</option>
+          <option value="-45">-45 dB</option>
+          <option value="-50">-50 dB</option>
+          <option value="-60">-60 dB (strict)</option>
+        </select>
+      </div>
+      <div class="row">
+        <span>Stop after silence of</span>
+        <select id="endAfterSilenceMinutes">
+          <option value="0">Never</option>
+          <option value="1">1 min</option>
+          <option value="2">2 min</option>
+          <option value="5">5 min</option>
+          <option value="10">10 min</option>
+        </select>
+      </div>
+    </div>
     <div class="row">
       <span>Auto-stop after</span>
       <select id="autoStopMinutes">

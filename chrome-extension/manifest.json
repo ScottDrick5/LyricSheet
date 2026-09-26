@@ -1,11 +1,23 @@
 {
   "manifest_version": 3,
   "name": "Audio Grabber",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Record the audio playing in any tab (plus your mic, if you like) and save it straight to MP3 or WAV.",
   "minimum_chrome_version": "116",
-  "permissions": ["tabs", "tabCapture", "offscreen", "downloads", "storage"],
-  "background": { "service_worker": "background.js" },
+  "permissions": [
+    "tabs",
+    "tabCapture",
+    "offscreen",
+    "downloads",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Audio Grabber",
@@ -24,7 +36,9 @@
   },
   "commands": {
     "toggle-recording": {
-      "suggested_key": { "default": "Alt+Shift+R" },
+      "suggested_key": {
+        "default": "Alt+Shift+R"
+      },
       "description": "Start / stop recording the current tab"
     }
   }

@@ -32,6 +32,7 @@ function render() {
   $('sourceLabel').textContent = rec ? 'Recording' : 'Source';
   $('tabTitle').textContent = rec ? state.title : (activeTab ? activeTab.title : '—');
   if (!rec) {
+    $('trackStatus').hidden = true;
     $('time').textContent = '00:00';
     $('meterFill').style.width = '0%';
   }
@@ -51,6 +52,15 @@ async function poll() {
   const db = 20 * Math.log10(Math.max(s.level, 1e-5));
   const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
   $('meterFill').style.width = (state.paused ? 0 : pct) + '%';
+
+  const ts = $('trackStatus');
+  ts.hidden = !s.split;
+  if (s.split) {
+    const saved = `${s.saved} song${s.saved === 1 ? '' : 's'} saved`;
+    ts.innerHTML = s.trackNumber
+      ? `<b>Song ${s.trackNumber}</b> recording · ${fmtTime(s.trackSeconds)} · ${saved}`
+      : `Waiting for the next song… · ${saved}`;
+  }
 }
 
 function applySettings(settings) {
@@ -60,6 +70,11 @@ function applySettings(settings) {
   $('keepPlaying').checked = settings.keepPlaying;
   $('includeMic').checked = settings.includeMic;
   $('autoStopMinutes').value = String(settings.autoStopMinutes);
+  $('splitOnSilence').checked = settings.splitOnSilence;
+  $('splitOptions').hidden = !settings.splitOnSilence;
+  $('silenceSeconds').value = String(settings.silenceSeconds);
+  $('silenceDb').value = String(settings.silenceDb);
+  $('endAfterSilenceMinutes').value = String(settings.endAfterSilenceMinutes);
   $('folder').value = settings.folder;
   $('saveAs').checked = settings.saveAs;
 }
@@ -105,7 +120,7 @@ $('recordBtn').onclick = async () => {
     if (state.recording) {
       const res = await bg('stop');
       if (res && res.ok === false) showMessage(res.error);
-      else showMessage('Saved to your Downloads folder.', 'info');
+      else showMessage(res && res.saved > 1 ? `Saved ${res.saved} songs to your Downloads folder.` : 'Saved to your Downloads folder.', 'info');
     } else {
       if (!activeTab) throw new Error('No tab to record.');
       const res = await bg('start', { tabId: activeTab.id });
@@ -130,6 +145,10 @@ document.querySelectorAll('#format button').forEach((b) => {
 $('bitrate').onchange = (e) => save({ bitrate: Number(e.target.value) });
 $('keepPlaying').onchange = (e) => save({ keepPlaying: e.target.checked });
 $('includeMic').onchange = (e) => save({ includeMic: e.target.checked });
+$('splitOnSilence').onchange = (e) => save({ splitOnSilence: e.target.checked });
+$('silenceSeconds').onchange = (e) => save({ silenceSeconds: Number(e.target.value) });
+$('silenceDb').onchange = (e) => save({ silenceDb: Number(e.target.value) });
+$('endAfterSilenceMinutes').onchange = (e) => save({ endAfterSilenceMinutes: Number(e.target.value) });
 $('autoStopMinutes').onchange = (e) => save({ autoStopMinutes: Number(e.target.value) });
 $('folder').onchange = (e) => save({ folder: e.target.value.trim() });
 $('saveAs').onchange = (e) => save({ saveAs: e.target.checked });

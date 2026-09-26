@@ -9,6 +9,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   width: 320px;
@@ -88,3 +89,8 @@ a:hover { text-decoration: underline; }
 .recent li { padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent li a { color: var(--text); }
 .recent li.empty { color: var(--muted); }
+
+.sub { margin: 0 0 4px 10px; padding-left: 10px; border-left: 2px solid var(--line); }
+.sub[hidden] { display: none; }
+.track-status { margin-top: 8px; color: var(--muted); font-size: 12px; }
+.track-status b { color: var(--text); font-weight: 600; }

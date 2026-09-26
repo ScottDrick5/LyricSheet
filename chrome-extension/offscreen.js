@@ -112,31 +112,175 @@ async function start(streamId, settings) {
   silent.gain.value = 0;
   worklet.connect(silent).connect(ctx.destination);
 
-  const sinks = [];
-  if (settings.format === 'mp3' || settings.format === 'both') sinks.push({ ext: 'mp3', sink: new Mp3Sink(settings.bitrate) });
-  if (settings.format === 'wav' || settings.format === 'both') sinks.push({ ext: 'wav', sink: new WavSink() });
-
+  const sec = (n) => Math.round(n * SAMPLE_RATE);
   session = {
-    ctx, tabStream, micStream, analyser, worklet, sinks,
-    frames: 0,
-    peak: 0,
-    maxFrames: settings.autoStopMinutes > 0 ? settings.autoStopMinutes * 60 * SAMPLE_RATE : Infinity,
-    stopping: null
+    ctx, tabStream, micStream, analyser, worklet, settings,
+    frames: 0,            // everything captured this session (excludes paused time)
+    maxFrames: settings.autoStopMinutes > 0 ? sec(settings.autoStopMinutes * 60) : Infinity,
+    track: null,          // the file currently being written
+    trackCount: 0,
+    saved: 0,
+    saves: Promise.resolve(),
+    stopping: null,
+    cut: null,            // song change announced; collecting audio to find the exact cut point
+    // Split-on-silence
+    split: !!settings.splitOnSilence,
+    threshold: Math.pow(10, settings.silenceDb / 20),
+    gapFrames: sec(settings.silenceSeconds),
+    endFrames: settings.endAfterSilenceMinutes > 0 ? sec(settings.endAfterSilenceMinutes * 60) : 0,
+    minTrackFrames: sec(5), // shorter blips (clicks, notification sounds) are thrown away
+    pending: [],          // quiet chunks held back until we know if it's a gap or just a quiet moment
+    quietFrames: 0,
+    preroll: [],          // last few quiet chunks before a song starts, so the first note isn't clipped
+    idleFrames: 0         // silence since the last song ended
   };
+  if (!session.split) session.track = newTrack(session);
 
   worklet.port.onmessage = (e) => {
-    if (e.data.type !== 'data' || !session) return;
-    const l16 = floatTo16(e.data.left);
-    const r16 = floatTo16(e.data.right);
-    for (const { sink } of session.sinks) sink.write(l16, r16);
-    session.frames += l16.length;
-    if (session.frames >= session.maxFrames) finishAndNotify();
+    if (e.data.type === 'data' && session && !session.stopping) onChunk(session, e.data.left, e.data.right);
   };
 
   // Tab closed or navigated somewhere uncapturable: save what we have.
   tabStream.getAudioTracks().forEach((t) => t.addEventListener('ended', finishAndNotify));
 
   return { ok: true, warning };
+}
+
+function newTrack(s) {
+  const { format, bitrate } = s.settings;
+  const sinks = [];
+  if (format === 'mp3' || format === 'both') sinks.push({ ext: 'mp3', sink: new Mp3Sink(bitrate) });
+  if (format === 'wav' || format === 'both') sinks.push({ ext: 'wav', sink: new WavSink() });
+  return { sinks, frames: 0, number: ++s.trackCount };
+}
+
+function writeTrack(track, l16, r16) {
+  for (const { sink } of track.sinks) sink.write(l16, r16);
+  track.frames += l16.length;
+}
+
+function queueSave(s, track) {
+  const number = s.split ? track.number : undefined;
+  s.saved++;
+  // Chain saves so files are handed over in order, even mid-recording.
+  s.saves = s.saves.then(async () => {
+    for (const { ext, sink } of track.sinks) {
+      const url = URL.createObjectURL(sink.finish());
+      await chrome.runtime.sendMessage({ target: 'background', type: 'save', url, ext, track: number }).catch(() => {});
+    }
+  });
+}
+
+// A song just went quiet for long enough: close its file and save it.
+function endTrack(s) {
+  const track = s.track;
+  // Keep a short tail so the natural decay of the last note isn't chopped off.
+  for (const [l, r] of s.pending.slice(0, 3)) writeTrack(track, l, r);
+  s.idleFrames = s.quietFrames;
+  s.track = null;
+  s.pending = [];
+  s.quietFrames = 0;
+  s.preroll = [];
+  if (track.frames >= s.minTrackFrames) queueSave(s, track);
+  else s.trackCount--; // too short to be a song, reuse its number
+}
+
+// The page switched songs (reported by the song watcher). Cut there even if
+// there was no silent gap, as happens when a playlist runs straight on.
+// The page announces the change a little before that audio reaches us, so
+// collect the next moment of sound and cut at its quietest point: the gap
+// between the old song ending and the new one starting.
+const CUT_WINDOW = Math.round(0.6 * SAMPLE_RATE);
+
+function songChange() {
+  const s = session;
+  if (!s || !s.split || s.stopping || !s.track || s.cut) return { ok: true };
+  // A track this young already belongs to the new song (its audio beat the
+  // page's announcement), so keep it going.
+  if (s.track.frames < s.minTrackFrames) return { ok: true };
+  for (const [l, r] of s.pending) writeTrack(s.track, l, r);
+  s.pending = [];
+  s.quietFrames = 0;
+  s.cut = { chunks: [], frames: 0 };
+  return { ok: true };
+}
+
+function joinChunks(chunks, ch) {
+  const out = new Int16Array(chunks.reduce((n, c) => n + c[ch].length, 0));
+  let o = 0;
+  for (const c of chunks) { out.set(c[ch], o); o += c[ch].length; }
+  return out;
+}
+
+function performCut(s) {
+  const L = joinChunks(s.cut.chunks, 0);
+  const R = joinChunks(s.cut.chunks, 1);
+  s.cut = null;
+  const block = 480; // 10 ms
+  let best = 0;
+  let bestEnergy = Infinity;
+  for (let b = 0; b + block <= L.length; b += block) {
+    let e = 0;
+    for (let i = b; i < b + block; i++) e += L[i] * L[i] + R[i] * R[i];
+    if (e < bestEnergy) { bestEnergy = e; best = b; }
+  }
+  const at = best + block / 2;
+  writeTrack(s.track, L.subarray(0, at), R.subarray(0, at));
+  queueSave(s, s.track);
+  s.track = newTrack(s);
+  writeTrack(s.track, L.subarray(at), R.subarray(at));
+  chrome.runtime.sendMessage({ target: 'background', type: 'trackStart', track: s.track.number }).catch(() => {});
+}
+
+function onChunk(s, left, right) {
+  const l16 = floatTo16(left);
+  const r16 = floatTo16(right);
+  s.frames += l16.length;
+
+  if (!s.split) {
+    writeTrack(s.track, l16, r16);
+  } else if (s.cut) {
+    s.cut.chunks.push([l16, r16]);
+    s.cut.frames += l16.length;
+    if (s.cut.frames >= CUT_WINDOW) performCut(s);
+  } else {
+    let peak = 0;
+    for (let i = 0; i < left.length; i++) {
+      const v = Math.max(Math.abs(left[i]), Math.abs(right[i]));
+      if (v > peak) peak = v;
+    }
+    const loud = peak >= s.threshold;
+
+    if (!s.track) {
+      if (loud) {
+        // Next song starts.
+        s.track = newTrack(s);
+        for (const [l, r] of s.preroll) writeTrack(s.track, l, r);
+        s.preroll = [];
+        writeTrack(s.track, l16, r16);
+        s.idleFrames = 0;
+        chrome.runtime.sendMessage({ target: 'background', type: 'trackStart', track: s.track.number }).catch(() => {});
+      } else {
+        s.preroll.push([l16, r16]);
+        if (s.preroll.length > 3) s.preroll.shift();
+        s.idleFrames += l16.length;
+        // Playlist is over: nothing has played for a long while after at least one song.
+        if (s.saved && s.endFrames && s.idleFrames >= s.endFrames) finishAndNotify();
+      }
+    } else if (loud) {
+      // Only a quiet moment inside the song: keep it.
+      for (const [l, r] of s.pending) writeTrack(s.track, l, r);
+      s.pending = [];
+      s.quietFrames = 0;
+      writeTrack(s.track, l16, r16);
+    } else {
+      s.pending.push([l16, r16]);
+      s.quietFrames += l16.length;
+      if (s.quietFrames >= s.gapFrames) endTrack(s);
+    }
+  }
+
+  if (s.frames >= s.maxFrames) finishAndNotify();
 }
 
 function stop() {
@@ -146,22 +290,30 @@ function stop() {
   s.stopping = (async () => {
     // Pull the last partial batch out of the worklet before finishing.
     await new Promise((resolve) => {
-      const done = (e) => { if (e.data.type === 'flushed') resolve(); };
-      s.worklet.port.addEventListener('message', done);
+      s.worklet.port.onmessage = (e) => {
+        if (e.data.type === 'data') onChunk(s, e.data.left, e.data.right);
+        if (e.data.type === 'flushed') resolve();
+      };
       s.worklet.port.postMessage({ type: 'flush' });
       setTimeout(resolve, 1000);
     });
+    s.worklet.port.onmessage = null;
     s.tabStream.getTracks().forEach((t) => t.stop());
     if (s.micStream) s.micStream.getTracks().forEach((t) => t.stop());
     await s.ctx.close();
     session = null;
 
-    if (!s.frames) return { ok: false, error: 'Nothing was recorded.' };
-    for (const { ext, sink } of s.sinks) {
-      const url = URL.createObjectURL(sink.finish());
-      await chrome.runtime.sendMessage({ target: 'background', type: 'save', url, ext });
+    if (s.cut) {
+      for (const [l, r] of s.cut.chunks) writeTrack(s.track, l, r);
+      s.cut = null;
     }
-    return { ok: true };
+    if (s.track) {
+      if (s.split) endTrack(s);
+      else if (s.track.frames) queueSave(s, s.track);
+    }
+    await s.saves;
+    if (!s.saved) return { ok: false, error: s.split ? 'No songs were detected, so nothing was saved.' : 'Nothing was recorded.' };
+    return { ok: true, saved: s.saved };
   })();
   return s.stopping;
 }
@@ -178,7 +330,16 @@ function status() {
   session.analyser.getFloatTimeDomainData(buf);
   let peak = 0;
   for (const v of buf) peak = Math.max(peak, Math.abs(v));
-  return { recording: true, seconds: session.frames / SAMPLE_RATE, level: peak };
+  const t = session.track;
+  return {
+    recording: true,
+    seconds: session.frames / SAMPLE_RATE,
+    level: peak,
+    split: session.split,
+    saved: session.saved,
+    trackNumber: t ? t.number : 0,
+    trackSeconds: t ? t.frames / SAMPLE_RATE : 0
+  };
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -188,7 +349,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     stop,
     pause: () => { session && session.worklet.port.postMessage({ type: 'pause' }); return { ok: true }; },
     resume: () => { session && session.worklet.port.postMessage({ type: 'resume' }); return { ok: true }; },
-    status
+    status,
+    songChange
   }[msg.type];
   if (!run) return false;
   Promise.resolve()

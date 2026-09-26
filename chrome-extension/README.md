@@ -17,6 +17,36 @@ so the file is ready the moment you press Stop. No converting afterwards, no acc
 3. Click the icon again → **Stop & Save**. The file lands in `Downloads/Audio Grabber/`,
    named after the tab title plus the date and time.
 
+## Record a whole playlist, one file per song (great for Suno)
+1. Open the playlist in a tab (e.g. a Suno playlist) and don't press play yet.
+2. In the popup, turn on **Split into separate songs**.
+3. Press **Record**, then press play on the playlist. You can walk away now.
+
+Each song is saved as its own file, named after the song, in a folder for the session:
+
+```
+Downloads/Audio Grabber/My Playlist 2026-09-26 21-04-11/
+    01 - Midnight Drive.mp3
+    02 - Neon Rain.mp3
+    03 - Last Call.mp3
+```
+
+How it knows where one song ends and the next begins:
+- **Song change.** When the site switches to the next song (Suno and YouTube both announce this),
+  it cuts right at the gap between the two songs, even if there's no silence between them.
+- **Silence.** A silent gap (2 seconds by default) also ends a song. The silence is trimmed off,
+  and the next file starts when sound comes back.
+- Sounds shorter than 5 seconds (clicks, notification pings) are ignored.
+- When nothing has played for **2 minutes** (changeable), it assumes the playlist is over,
+  stops, and saves.
+
+Song names come from the site's "now playing" info (the same info shown on your media keys and
+lock screen). On Suno, if that's missing, it uses the song's link on the page. Otherwise it uses the
+tab title, with "| Suno", "- YouTube" and similar removed.
+
+If songs get split in the middle of a quiet part, raise **Silent gap that splits** or lower
+**Silence level**. If songs don't split on a noisy source, choose -35 dB.
+
 Keyboard shortcut: **Alt+Shift+R** starts/stops recording the current tab
 (change it at `chrome://extensions/shortcuts`).
 
@@ -27,6 +57,10 @@ Keyboard shortcut: **Alt+Shift+R** starts/stops recording the current tab
 | MP3 quality | 128 / 192 / 256 / 320 kbps |
 | Keep playing while recording | On: you still hear the tab. Off: the tab is silenced but still recorded |
 | Mix in microphone | Records your mic along with the tab. Click **allow mic** once first to give Chrome permission |
+| Split into separate songs | One file per song, named after it (see above) |
+| Silent gap that splits | How long a silence has to last to end a song |
+| Silence level | How quiet counts as silence |
+| Stop after silence of | Stops the whole recording once the playlist has finished |
 | Auto-stop after | Stops and saves automatically after 5 min to 3 hours |
 | Save in Downloads/ | Subfolder name. Leave it blank to save straight into Downloads |
 | Ask where to save each file | Shows Chrome's Save As dialog instead of auto-saving |
@@ -46,5 +80,6 @@ stops and saves automatically. **Recent** lists your last 10 files; click one to
 - `background.js`: service worker (start/stop, badge, saving files)
 - `offscreen.js` + `recorder-worklet.js`: capture the audio and encode MP3/WAV live
 - `popup.*`: the toolbar popup
+- `songwatch-*.js`: injected into the recorded tab to read the playing song's name
 - `mic.*`: one-time microphone permission page
 - `lib/lame.min.js`: [lamejs](https://github.com/zhuker/lamejs) MP3 encoder (LGPL)

@@ -10,7 +10,11 @@ const DEFAULT_SETTINGS = {
   includeMic: false,    // mix the microphone in
   autoStopMinutes: 0,   // 0 = never
   folder: 'Audio Grabber',
-  saveAs: false         // ask where to save each file
+  saveAs: false,        // ask where to save each file
+  splitOnSilence: false, // save each song as its own file
+  silenceSeconds: 2,     // this much quiet ends a song
+  silenceDb: -50,        // anything quieter than this counts as silence
+  endAfterSilenceMinutes: 2 // stop the whole recording when nothing plays this long (0 = never)
 };
 
 // downloadId -> true, for files still being written to disk
@@ -86,11 +90,13 @@ async function startRecording(tabId) {
   await setState({
     recording: true,
     paused: false,
+    split: !!settings.splitOnSilence,
     tabId,
     title: tab.title || 'Recording',
     startedAt: Date.now(),
     warning: res.warning || ''
   });
+  await startSongWatch(tabId);
   return { ok: true, warning: res.warning || '' };
 }
 
@@ -99,9 +105,10 @@ async function stopRecording() {
   if (!state.recording) return { ok: true };
   // The offscreen page sends back one 'save' message per file, then replies here.
   const res = await sendToOffscreen({ type: 'stop' }).catch(() => null);
+  chrome.tabs.sendMessage(state.tabId, { type: 'songwatch-stop' }).catch(() => {});
   await setState({ recording: false });
   await closeOffscreenIfIdle();
-  return res && res.ok === false ? res : { ok: true };
+  return res || { ok: true };
 }
 
 async function togglePause() {
@@ -122,18 +129,93 @@ function sanitize(name) {
     .slice(0, 100) || 'Recording';
 }
 
+// "(3) Song name - YouTube" -> "Song name"
+function cleanTitle(title) {
+  return (title || '')
+    .replace(/^\(\d+\+?\)\s*/, '')
+    .replace(/\s+[-|•]\s+(Suno|YouTube|YouTube Music|SoundCloud|Spotify|Bandcamp|Apple Music|Deezer|TIDAL)$/i, '')
+    .trim();
+}
+
+async function setTrackTitle(track, title) {
+  const { trackTitles = {} } = await chrome.storage.session.get('trackTitles');
+  trackTitles[track] = title;
+  await chrome.storage.session.set({ trackTitles });
+}
+
+// A new song file was started (split mode). Name it after what the page says is
+// playing (Suno's song name, YouTube's video title...). If the page doesn't say,
+// use the tab title a few seconds in, once the page has caught up.
+async function noteTrackStart(track) {
+  const at = Date.now();
+  await chrome.storage.session.set({ lastTrack: { track, at } });
+  const { nowPlaying } = await chrome.storage.session.get('nowPlaying');
+  if (nowPlaying && nowPlaying.title) return setTrackTitle(track, nowPlaying.title);
+
+  await new Promise((r) => setTimeout(r, 3000));
+  const now = await chrome.storage.session.get(['nowPlaying', 'lastTrack']);
+  // The page reported the song name meanwhile, or this was a blip that got
+  // thrown away and a newer file has started: leave the name alone.
+  if ((now.nowPlaying && now.nowPlaying.title) || !now.lastTrack || now.lastTrack.at !== at) return;
+  const state = await getState();
+  const tab = state.tabId && (await chrome.tabs.get(state.tabId).catch(() => null));
+  if (tab) await setTrackTitle(track, tab.title);
+}
+
+// The song watcher in the recorded tab saw a new song.
+async function onSong(msg, sender) {
+  const state = await getState();
+  if (!state.recording || !sender.tab || sender.tab.id !== state.tabId) return { keep: false };
+  const { nowPlaying, lastTrack, songsSeen = 0 } =
+    await chrome.storage.session.get(['nowPlaying', 'lastTrack', 'songsSeen']);
+  const changed = !!nowPlaying && nowPlaying.key !== msg.key;
+  const newTitle = msg.title && (!nowPlaying || nowPlaying.title !== msg.title);
+  await chrome.storage.session.set({
+    nowPlaying: { title: msg.title, key: msg.key },
+    songsSeen: songsSeen + (newTitle ? 1 : 0)
+  });
+  // The audio of a new song can arrive a moment before the page reports its name.
+  if (msg.title && lastTrack && Date.now() - lastTrack.at < 4000) await setTrackTitle(lastTrack.track, msg.title);
+  // Cut to a new file right at the song change, even if there was no silent gap.
+  if (changed && state.split) await sendToOffscreen({ type: 'songChange' }).catch(() => {});
+  return { keep: true };
+}
+
+async function startSongWatch(tabId) {
+  await chrome.storage.session.set({ nowPlaying: null, lastTrack: null, songsSeen: 0, trackTitles: {} });
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['songwatch-relay.js'] });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['songwatch-main.js'], world: 'MAIN' });
+  } catch (err) {
+    console.warn('Audio Grabber: song names unavailable on this page:', err.message);
+  }
+}
+
 function stamp(d) {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
 }
 
-async function saveFile({ url, ext }) {
+async function saveFile({ url, ext, track }) {
   const settings = await getSettings();
   const state = await getState();
-  const title = sanitize(state.title || 'Recording');
   const folder = settings.folder ? sanitize(settings.folder) : '';
-  const base = `${title} ${stamp(new Date())}.${ext}`;
-  const filename = folder ? `${folder}/${base}` : base;
+  let base;
+  let dir = folder;
+  if (track) {
+    // Split mode: one subfolder per session, songs numbered in play order.
+    const { trackTitles = {} } = await chrome.storage.session.get('trackTitles');
+    const title = sanitize(cleanTitle(trackTitles[track] || state.title) || 'Track');
+    base = `${String(track).padStart(2, '0')} - ${title}.${ext}`;
+    const session = `${sanitize(cleanTitle(state.title) || 'Session')} ${stamp(new Date(state.startedAt || Date.now()))}`;
+    dir = folder ? `${folder}/${session}` : session;
+  } else {
+    // One file: if exactly one song played, name it after that song.
+    const { nowPlaying, songsSeen } = await chrome.storage.session.get(['nowPlaying', 'songsSeen']);
+    const name = songsSeen === 1 && nowPlaying && nowPlaying.title ? nowPlaying.title : cleanTitle(state.title);
+    base = `${sanitize(name || 'Recording')} ${stamp(new Date())}.${ext}`;
+  }
+  const filename = dir ? `${dir}/${base}` : base;
 
   const downloadId = await chrome.downloads.download({
     url,
@@ -171,6 +253,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     togglePause,
     // From the offscreen page:
     save: () => saveFile(msg),
+    trackStart: () => { noteTrackStart(msg.track); return { ok: true }; },
+    // From the song watcher in the recorded tab:
+    song: () => onSong(msg, sender),
     ended: async () => {
       // Tab closed / auto-stop hit: offscreen already saved the files.
       const state = await getState();

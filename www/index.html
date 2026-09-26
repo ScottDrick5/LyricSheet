@@ -1813,7 +1813,8 @@
     .sidebar-hide { display: flex; }
     body.sidebar-hidden #sidebar { display: none; }
     body.sidebar-hidden #sidebar-show { display: flex; position: fixed; top: 12px; left: 10px; z-index: 30; background: var(--bg-raised); border: 1px solid var(--shell-border); }
-    body.sidebar-hidden #meta-bar { padding-left: 52px; }
+    /* room for the show-sidebar button at the top left (the Notes-style bar's own padding is !important) */
+    body.sidebar-hidden #editor #meta-bar { padding-left: 58px !important; }
     body.sidebar-hidden #gallery { padding-left: 52px; }
     body.sidebar-hidden #music-bar { left: 0; }
     body.sidebar-hidden #music-pill { left: 22px; }
@@ -2095,6 +2096,7 @@
   .font-controls button, .align-seg button, #metro-play { min-width: var(--ctl); }
   #meta-bar #undo-bar button { width: var(--ctl) !important; }
   #meta-bar #rhymes-btn, #meta-bar #paste-btn, #meta-bar #history-toggle, #meta-bar #details-btn, #meta-bar #hud-more { border-radius: 18px; }
+  #meta-bar #gallery-back { height: var(--ctl); border-radius: 18px; padding: 0 14px; }
   .rhyme-toggles button, .read-toolbar .read-copy { min-width: var(--ctl) !important; }
   @media (max-width: 640px) {
     #meta-bar #undo-bar button { width: var(--ctl); }
@@ -3981,11 +3983,15 @@
     var out = [];
     function push(t, r) { out.push({ text: t, runs: r || null }); }
     song.sections.forEach(function (s, i) {
-      var t = tidyWithFmt(s.lines, s.fmt);
-      if (i > 0) { push(""); push(""); }
+      // spacing as written on the sheet (gap: blank lines before the header, pad: after it), else the default
+      var t = s.gap != null ? trimBlankEnds(s.lines, s.fmt) : tidyWithFmt(s.lines, s.fmt);
+      var gap = s.gap != null ? s.gap : i > 0 ? 2 : 0;
+      for (var g = 0; g < gap; g++) push("");
       if (s.type) {
-        push("[" + s.type + "]" + (s.note && s.note.trim() ? " (" + s.note.trim() + ")" : ""));
-        if (t.lines.length) push("");
+        var note = s.note && s.note.trim() ? s.note.trim() : "";
+        push("[" + s.type + "]" + (note ? (s.bare ? " " + note : " (" + note + ")") : ""));
+        var pad = s.pad != null ? s.pad : t.lines.length ? 1 : 0;
+        for (var q = 0; q < pad; q++) push("");
       }
       t.lines.forEach(function (l, j) { push(l, t.fmt[j]); });
     });
@@ -3995,7 +4001,7 @@
     return sectionsAsLines(song).map(function (l) { return l.text; }).join("\n");
   }
   function songAsText(song) {
-    var body = sectionsAsText(song);
+    var body = sectionsAsText(song).replace(/^\n+/, "");
     return ((song.title.trim() ? song.title.trim() + "\n\n" : "") + body).trim() + "\n";
   }
 
@@ -4282,7 +4288,7 @@
     var nl = w.text.indexOf("\n");
     var title = (nl === -1 ? w.text : w.text.slice(0, nl)).replace(/\s+/g, " ").trim();
     var body = nl === -1 ? "" : w.text.slice(nl + 1);
-    var parsed = stripParseFlags(parseSong(body, false, w.lines.slice(1).map(function (l) { return l.runs; })).sections);
+    var parsed = stripParseFlags(parseSong(body, false, w.lines.slice(1).map(function (l) { return l.runs; }), true).sections);
     song.sections = parsed.length ? parsed : [{ id: newSectionId(), type: "Verse", note: "", lines: [""] }];
     if (title !== song.title) {
       song.title = title;
@@ -4502,6 +4508,7 @@
       }));
       tools.appendChild(toolBtn("⧉", "Duplicate section", false, function () {
         var copySec = { id: newSectionId(), type: section.type, note: section.note || "", lines: section.lines.slice() };
+        if (section.bare) copySec.bare = true;
         if (section.fmt) copySec.fmt = JSON.parse(JSON.stringify(section.fmt));
         song.sections.splice(sIdx + 1, 0, copySec);
         markEdited(song); renderCanvas(song);
@@ -4755,7 +4762,7 @@
     var si = savedIndex(bare);
     if (si !== -1) return settings.savedHeaders[si];
     for (var i = 0; i < HEADER_WORDS.length; i++) {
-      var re = new RegExp("^" + escapeRe(HEADER_WORDS[i]) + "(\\s*(\\d+|[ivx]+))?(\\s*x\\s*\\d+)?$", "i");
+      var re = new RegExp("^" + escapeRe(HEADER_WORDS[i]) + "(\\s*(\\d+|[ivx]+))?(\\s*(x\\s*\\d+|\\d+\\s*x))?$", "i");
       if (re.test(bare)) return tidyName(bare);
     }
     return null;
@@ -4781,7 +4788,8 @@
       var rest = sq[2].trim();
       if (!rest) return { name: name, note: "", firstLine: null };
       var n = unwrapNote(rest);
-      return n !== null ? { name: name, note: n, firstLine: null } : { name: name, note: "", firstLine: rest };
+      // "(stripped back)" is kept as a note; anything else, like "2x", stays on the header line as typed
+      return n !== null ? { name: name, note: n, firstLine: null } : { name: name, note: rest, bare: true, firstLine: null };
     }
 
     // (Outro) or {Chorus} — only when the inside is a real section name,
@@ -4915,7 +4923,17 @@
     return { lines: out, fmt: of };
   }
 
-  function parseSong(text, useTitle, lineRuns) {
+  // Drop blank lines at the start and end only, keeping the ones in between as written
+  function trimBlankEnds(lines, fmt) {
+    var a = 0, b = lines.length;
+    while (a < b && !lines[a].trim()) a++;
+    while (b > a && !lines[b - 1].trim()) b--;
+    return { lines: lines.slice(a, b), fmt: lines.slice(a, b).map(function (l, i) { return (fmt && fmt[a + i]) || null; }) };
+  }
+
+  // keep: from the sheet's editor, so blank lines are kept exactly as typed (each section records how
+  // many come before its header, gap, and after it, pad); otherwise double blanks are tidied away
+  function parseSong(text, useTitle, lineRuns, keep) {
     var untrimmed = text.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").split("\n");
     var rawLines = untrimmed.map(function (l) { return l.trim(); });
     var rawRuns = untrimmed.map(function (l, i) {
@@ -4930,17 +4948,17 @@
     if (useTitle && titleIdx !== -1) { rawLines.splice(titleIdx, 1); rawRuns.splice(titleIdx, 1); }
 
     var sections = [];
-    var cur = null;
+    var cur = null, lead = 0;
     rawLines.forEach(function (line, li) {
       var h = detectHeader(line);
       if (h) {
-        cur = { type: h.name, note: h.note, explicit: true, lines: [], fmt: [] };
+        cur = { type: h.name, note: h.note, bare: !!h.bare, explicit: true, lines: [], fmt: [] };
         if (h.firstLine) { cur.lines.push(h.firstLine); cur.fmt.push(null); }
         sections.push(cur);
         return;
       }
       if (!line) {
-        if (!cur) return;
+        if (!cur) { lead++; return; }
         cur.lines.push(""); cur.fmt.push(null);           // keep stanza breaks as written
         return;
       }
@@ -4952,13 +4970,24 @@
       cur.fmt.push(rawRuns[li]);
     });
 
-    sections.forEach(function (s) { var t = tidyWithFmt(s.lines, s.fmt); s.lines = t.lines; s.fmt = t.fmt; });
+    if (keep) {
+      var trail = lead;
+      sections.forEach(function (s) {
+        var a = 0, b = s.lines.length;
+        while (a < b && !s.lines[a]) a++;
+        while (b > a && !s.lines[b - 1]) b--;
+        s.gap = trail; s.pad = a; trail = s.lines.length - b;
+        s.lines = s.lines.slice(a, b); s.fmt = s.fmt.slice(a, b);
+      });
+    } else sections.forEach(function (s) { var t = tidyWithFmt(s.lines, s.fmt); s.lines = t.lines; s.fmt = t.fmt; });
 
     var out = sections.filter(function (s) { return s.explicit || s.lines.length; }).map(function (s) {
       // text without a section name stays a plain body with no header (type ""): no Verse / Chorus is made up
       var type = s.explicit ? s.type : "";
       var sec = { id: newSectionId(), type: type, note: s.note, explicit: s.explicit, lines: s.lines.length ? s.lines : [""] };
       if (s.lines.length && s.fmt.some(function (f) { return f; })) sec.fmt = s.fmt;
+      if (s.bare && s.note) sec.bare = true;
+      if (keep) { sec.gap = s.gap; if (s.explicit) sec.pad = s.pad; }
       return sec;
     });
     return { title: title, sections: out };
@@ -4968,6 +4997,9 @@
     return sections.map(function (s) {
       var o = { id: s.id, type: s.type, note: s.note || "", lines: s.lines };
       if (s.fmt) o.fmt = s.fmt;
+      if (s.bare) o.bare = true;
+      if (s.gap != null) o.gap = s.gap;
+      if (s.pad != null) o.pad = s.pad;
       return o;
     });
   }
@@ -6056,6 +6088,10 @@
 
   // ---------- appearance ----------
   var systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  if (window.lyricDesktop) {   // the Mac app follows the Mac, not a phone
+    var sysBtn = document.querySelector('#theme-seg [data-theme-choice="system"]');
+    if (sysBtn) sysBtn.textContent = "Match Mac";
+  }
   function applyTheme() {
     var pref = settings.theme || "system";   // follows the phone / Mac until a theme is picked
     var resolved = pref === "system" ? (systemDark && systemDark.matches ? "dark" : "light") : pref;

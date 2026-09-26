@@ -27,6 +27,8 @@ function render() {
   $('recordBtn').classList.toggle('on', rec);
   $('recordText').textContent = rec ? 'Stop & Save' : 'Record';
   $('pauseBtn').hidden = !rec;
+  $('muteBtn').hidden = !rec;
+  $('muteBtn').textContent = state.muted ? 'Unmute' : 'Mute';
   $('pauseBtn').textContent = state.paused ? 'Resume' : 'Pause';
   $('settings').classList.toggle('locked', rec);
   $('sourceLabel').textContent = rec ? 'Recording' : 'Source';
@@ -131,6 +133,11 @@ $('recordBtn').onclick = async () => {
     showMessage(err.message);
   }
   $('recordBtn').disabled = false;
+  await refresh();
+};
+
+$('muteBtn').onclick = async () => {
+  await bg('toggleMute');
   await refresh();
 };
 

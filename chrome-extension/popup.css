@@ -37,6 +37,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border: 0; border-radius: 8px;
   background: var(--panel);
   font-weight: 600; font-size: 14px;
+  white-space: nowrap;
 }
 .record:hover { background: #2a2a34; }
 .record .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--red); }
@@ -45,7 +46,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .record:disabled { opacity: .5; cursor: default; }
 
 .secondary {
-  padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: transparent;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent;
+  white-space: nowrap;
 }
 .secondary:hover { background: var(--panel); }
 

@@ -79,8 +79,11 @@ async function start(streamId, settings) {
   const mix = ctx.createGain();
   const tabSource = ctx.createMediaStreamSource(tabStream);
   tabSource.connect(mix);
-  // Capturing a tab mutes it; route it back to the speakers unless asked not to.
-  if (settings.keepPlaying) tabSource.connect(ctx.destination);
+  // Capturing a tab mutes it; route it back to the speakers through a gain we
+  // can turn down to mute the tab mid-recording (the recording isn't affected).
+  const monitor = ctx.createGain();
+  monitor.gain.value = settings.keepPlaying ? 1 : 0;
+  tabSource.connect(monitor).connect(ctx.destination);
 
   let micStream = null;
   let warning = '';
@@ -114,7 +117,7 @@ async function start(streamId, settings) {
 
   const sec = (n) => Math.round(n * SAMPLE_RATE);
   session = {
-    ctx, tabStream, micStream, analyser, worklet, settings,
+    ctx, tabStream, micStream, analyser, worklet, monitor, settings,
     frames: 0,            // everything captured this session (excludes paused time)
     maxFrames: settings.autoStopMinutes > 0 ? sec(settings.autoStopMinutes * 60) : Infinity,
     track: null,          // the file currently being written
@@ -347,6 +350,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const run = {
     start: () => start(msg.streamId, msg.settings),
     stop,
+    setMuted: () => { session && (session.monitor.gain.value = msg.muted ? 0 : 1); return { ok: true }; },
     pause: () => { session && session.worklet.port.postMessage({ type: 'pause' }); return { ok: true }; },
     resume: () => { session && session.worklet.port.postMessage({ type: 'resume' }); return { ok: true }; },
     status,

@@ -90,6 +90,7 @@ async function startRecording(tabId) {
   await setState({
     recording: true,
     paused: false,
+    muted: !settings.keepPlaying,
     split: !!settings.splitOnSilence,
     tabId,
     title: tab.title || 'Recording',
@@ -109,6 +110,15 @@ async function stopRecording() {
   await setState({ recording: false });
   await closeOffscreenIfIdle();
   return res || { ok: true };
+}
+
+async function toggleMute() {
+  const state = await getState();
+  if (!state.recording) return { ok: false };
+  const muted = !state.muted;
+  await sendToOffscreen({ type: 'setMuted', muted });
+  await setState({ ...state, muted });
+  return { ok: true, muted };
 }
 
 async function togglePause() {
@@ -251,6 +261,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     start: () => startRecording(msg.tabId),
     stop: stopRecording,
     togglePause,
+    toggleMute,
     // From the offscreen page:
     save: () => saveFile(msg),
     trackStart: () => { noteTrackStart(msg.track); return { ok: true }; },

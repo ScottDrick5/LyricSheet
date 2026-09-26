@@ -65,7 +65,8 @@ Keyboard shortcut: **Alt+Shift+R** starts/stops recording the current tab
 | Save in Downloads/ | Subfolder name. Leave it blank to save straight into Downloads |
 | Ask where to save each file | Shows Chrome's Save As dialog instead of auto-saving |
 
-**Pause** skips the paused section, so it isn't in the file. Closing the tab you're recording
+**Mute** (while recording) silences the tab on your speakers without affecting the recording. Handy for
+watching something else while a playlist records. **Pause** skips the paused section, so it isn't in the file. Closing the tab you're recording
 stops and saves automatically. **Recent** lists your last 10 files; click one to show it in its folder.
 
 ## Good to know

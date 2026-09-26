@@ -40,6 +40,9 @@ Files go to your normal Downloads folder, named like `chatgpt-ember-2026-09-26_1
 - **If a Claude player doesn't work:** open the popup and look at **Read-aloud diagnostics**. It shows
   whether the read-aloud button was found and what Claude's request looked like, with no personal
   content. **Copy** it and send it along so the extension can be adjusted.
+- The extension can catch Claude's audio whether it arrives as a file, as a stream, over a live
+  connection or as raw samples. If Claude reads a reply with your browser's built-in speech instead,
+  there is no audio file to save, and the player says so.
 - **Audio played in this tab** in the popup also keeps a copy of anything Claude reads aloud.
 
 ## Settings

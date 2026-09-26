@@ -12,14 +12,14 @@
   const recent = new Map(); // "type:size" -> time, so one clip seen two ways is only kept once
   const post = (data) => window.postMessage({ __aiVoiceSaver: true, ...data }, location.origin);
 
-  // Active capture requested by claude.js: { token, voice, started, media: Set, decoded: [] }
+  // Active capture requested by claude.js: { token, voice, started, media: Set, ... }
   let capture = null;
 
   window.addEventListener('message', (e) => {
     if (e.source !== window || !e.data || !e.data.__aiVoiceSaverCmd) return;
     const d = e.data;
     if (d.__aiVoiceSaverCmd === 'capture-start') {
-      capture = { token: d.token, voice: d.voice, started: Date.now(), media: new Set(), decoded: [], requests: [] };
+      capture = { token: d.token, voice: d.voice, started: Date.now(), media: new Set(), requests: [] };
       post({ kind: 'capture-ready', token: d.token });
     } else if (d.__aiVoiceSaverCmd === 'capture-cancel' && capture && capture.token === d.token) {
       endCapture();
@@ -149,6 +149,8 @@
           res.clone().blob()
             .then((b) => emit(b.type ? b : new Blob([b], { type }), 'fetch'))
             .catch(() => {});
+        } else if (info) {
+          inspectResponse(res, res.url, type);
         }
       } catch {}
     }, () => {});
@@ -222,6 +224,7 @@
         capture.media.add(this);
         this.muted = true;
         const src = this.currentSrc || this.src;
+        if (!/^https?:/i.test(src)) noteEvent(`<audio> played from ${src ? src.split(':')[0] + ':' : this.srcObject ? 'a live stream' : 'nothing'}`);
         if (/^https?:/i.test(src)) {
           let url = src;
           const swappedUrl = capture.voice && swapVoiceInUrl(src, capture.voice);
@@ -247,27 +250,219 @@
     return origPlay.apply(this, arguments);
   };
 
-  // 5. Audio played in pieces through the Web Audio API: join the decoded pieces
-  //    once they stop arriving.
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (Ctx && Ctx.prototype.decodeAudioData) {
-    const origDecode = Ctx.prototype.decodeAudioData;
-    let idleTimer = null;
-    Ctx.prototype.decodeAudioData = function (data, ok, fail) {
-      const live = captureLive() ? capture : null;
-      const promise = origDecode.call(this, data, ok, fail);
-      if (live && promise && promise.then) {
-        promise.then((buf) => {
-          if (capture !== live || !buf) return;
-          live.decoded.push(buf);
-          clearTimeout(idleTimer);
-          idleTimer = setTimeout(() => {
-            if (capture === live && live.decoded.length) emit(buffersToWav(live.decoded), 'webaudio');
-          }, 2500);
-        }, () => {});
+  // A note for the diagnostics line about how the page produced sound during a capture.
+  const noteEvent = (text) => noteRequest({ method: 'EVENT', path: text, params: [], bodyKeys: [] }, {});
+
+  // Runs fn once no more pieces have arrived for `ms` (streamed audio has no clear end).
+  function whenIdle(live, name, ms, fn) {
+    live.timers = live.timers || {};
+    clearTimeout(live.timers[name]);
+    live.timers[name] = setTimeout(() => { if (capture === live) fn(); }, ms);
+  }
+
+  const concatBytes = (parts) => {
+    const total = parts.reduce((n, p) => n + p.byteLength, 0);
+    const out = new Uint8Array(total);
+    let o = 0;
+    for (const p of parts) { out.set(p instanceof Uint8Array ? p : new Uint8Array(p), o); o += p.byteLength; }
+    return out;
+  };
+
+  const sniffType = (u8) => {
+    const h = (i) => u8[i];
+    if (h(0) === 0x49 && h(1) === 0x44 && h(2) === 0x33) return 'audio/mpeg';
+    if (h(0) === 0xff && (h(1) & 0xf6) === 0xf0) return 'audio/aac';
+    if (h(0) === 0xff && (h(1) & 0xe0) === 0xe0) return 'audio/mpeg';
+    if (h(0) === 0x4f && h(1) === 0x67 && h(2) === 0x67 && h(3) === 0x53) return 'audio/ogg';
+    if (h(0) === 0x52 && h(1) === 0x49 && h(2) === 0x46 && h(3) === 0x46) return 'audio/wav';
+    if (h(0) === 0x66 && h(1) === 0x4c && h(2) === 0x61 && h(3) === 0x43) return 'audio/flac';
+    if (h(0) === 0x1a && h(1) === 0x45 && h(2) === 0xdf && h(3) === 0xa3) return 'audio/webm';
+    if (h(4) === 0x66 && h(5) === 0x74 && h(6) === 0x79 && h(7) === 0x70) return 'audio/mp4';
+    return '';
+  };
+
+  // Bytes that might be audio: keep them if the browser can play them.
+  async function tryAudioBytes(parts, source) {
+    const bytes = concatBytes(parts);
+    if (bytes.byteLength < MIN_BYTES) return false;
+    try {
+      await new OfflineAudioContext(1, 1, 44100).decodeAudioData(bytes.buffer.slice(0));
+    } catch {
+      noteEvent(`${source}: ${Math.round(bytes.byteLength / 1000)} KB that isn't a playable audio file (starts ${[...bytes.slice(0, 8)].map((x) => x.toString(16).padStart(2, '0')).join(' ')})`);
+      return false;
+    }
+    emit(new Blob([bytes], { type: sniffType(bytes) || 'audio/mpeg' }), source);
+    return true;
+  }
+
+  // Audio sent as base64 text inside JSON or server-sent events: pull out the long base64 values.
+  function base64Chunks(text) {
+    const chunks = [];
+    const visit = (v, key) => {
+      if (typeof v === 'string') {
+        if (v.length > 200 && /audio|chunk|data|bytes|content|delta|b64|base64/i.test(key || '') && /^[A-Za-z0-9+/=_-]+$/.test(v)) {
+          try {
+            const bin = atob(v.replace(/-/g, '+').replace(/_/g, '/'));
+            const u8 = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+            chunks.push(u8);
+          } catch {}
+        }
+      } else if (v && typeof v === 'object') {
+        for (const [k, x] of Object.entries(v)) visit(x, k);
       }
-      return promise;
     };
+    for (const line of String(text).split(/\n/)) {
+      const t = line.replace(/^data:\s*/, '').trim();
+      if (!t.startsWith('{') && !t.startsWith('[')) continue;
+      try { visit(JSON.parse(t), ''); } catch {}
+    }
+    return chunks;
+  }
+
+  // Responses during a capture that aren't labelled as audio but may carry it.
+  function inspectResponse(res, url, type) {
+    if (!captureLive()) return;
+    if (!(looksLikeSpeech(url) || /octet-stream|event-stream|ndjson/i.test(type))) return;
+    const textual = /json|event-stream|text/i.test(type);
+    const read = textual ? res.clone().text().then(base64Chunks) : res.clone().arrayBuffer().then((b) => [new Uint8Array(b)]);
+    read.then((parts) => { if (parts.length) tryAudioBytes(parts, textual ? 'base64 in response' : 'response bytes'); }).catch(() => {});
+  }
+
+  // 5. XMLHttpRequest
+  const origOpen = XMLHttpRequest.prototype.open;
+  const origSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    try {
+      this.__avs = { method, url: String(url) };
+      if (captureLive() && capture.voice && looksLikeSpeech(url)) {
+        const swapped = swapVoiceInUrl(url, capture.voice);
+        if (swapped) { arguments[1] = swapped; this.__avs.swapped = true; }
+      }
+    } catch {}
+    return origOpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function (body) {
+    try {
+      const x = this.__avs;
+      if (x && captureLive() && Date.now() - capture.started < 8000) {
+        let swappedBody = null;
+        if (capture.voice && looksLikeSpeech(x.url)) swappedBody = swapVoiceInBody(body, capture.voice);
+        const info = describe(x.method, x.url, body);
+        this.addEventListener('load', () => {
+          try {
+            const type = (this.getResponseHeader('content-type') || '').split(';')[0].trim();
+            noteRequest(info, { status: this.status, type: type + ' (XHR)', voiceSwapped: !!(x.swapped || swappedBody) });
+            const r = this.response;
+            if (isAudio(type) || looksLikeSpeech(x.url)) {
+              if (r instanceof Blob) r.arrayBuffer().then((b) => tryAudioBytes([new Uint8Array(b)], 'XHR'));
+              else if (r instanceof ArrayBuffer) tryAudioBytes([new Uint8Array(r)], 'XHR');
+              else if (typeof r === 'string' && r) { const parts = base64Chunks(r); if (parts.length) tryAudioBytes(parts, 'XHR base64'); }
+            }
+          } catch {}
+        });
+        if (swappedBody) return origSend.call(this, swappedBody);
+      }
+    } catch {}
+    return origSend.apply(this, arguments);
+  };
+
+  // 6. WebSocket: audio pushed from the server in pieces.
+  if (window.WebSocket) {
+    const OrigWS = window.WebSocket;
+    window.WebSocket = new Proxy(OrigWS, {
+      construct(target, args, newTarget) {
+        const ws = Reflect.construct(target, args, newTarget);
+        try {
+          if (captureLive()) noteEvent(`WebSocket opened: ${describe('WS', String(args[0])).path}`);
+          ws.addEventListener('message', (e) => {
+            const live = captureLive() ? capture : null;
+            if (!live) return;
+            live.ws = live.ws || { parts: [], messages: 0 };
+            live.ws.messages++;
+            const add = (u8) => {
+              live.ws.parts.push(u8);
+              whenIdle(live, 'ws', 3000, () => {
+                noteEvent(`WebSocket: ${live.ws.messages} messages`);
+                tryAudioBytes(live.ws.parts, 'WebSocket');
+              });
+            };
+            if (e.data instanceof ArrayBuffer) add(new Uint8Array(e.data));
+            else if (e.data instanceof Blob) e.data.arrayBuffer().then((b) => add(new Uint8Array(b)));
+            else if (typeof e.data === 'string') base64Chunks(e.data).forEach(add);
+          });
+        } catch {}
+        return ws;
+      }
+    });
+  }
+
+  // 7. Browser text-to-speech: sound made by the operating system, not by the page.
+  if (window.speechSynthesis && window.SpeechSynthesis) {
+    const origSpeak = SpeechSynthesis.prototype.speak;
+    SpeechSynthesis.prototype.speak = function (utterance) {
+      try {
+        if (captureLive()) {
+          const voice = utterance && utterance.voice ? utterance.voice.name : 'default';
+          noteEvent(`Browser speech (speechSynthesis), voice: ${voice}`);
+          post({ kind: 'speech', token: capture.token, voice });
+        }
+      } catch {}
+      return origSpeak.apply(this, arguments);
+    };
+  }
+
+  // 8. Web Audio: collect every buffer the page plays, join them once they stop arriving.
+  //    Also collect raw samples the page streams to an AudioWorklet.
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (Ctx && window.AudioBufferSourceNode) {
+    const origStart = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function () {
+      try {
+        const live = captureLive() ? capture : null;
+        if (live && this.buffer) {
+          if (!live.pcm) noteEvent('Web Audio buffers');
+          live.pcm = live.pcm || { rate: this.buffer.sampleRate, chunks: [] };
+          live.pcm.chunks.push(this.buffer.getChannelData(0).slice());
+          whenIdle(live, 'pcm', 3000, () => emit(pcmToWav(live.pcm.chunks, live.pcm.rate), 'webaudio'));
+        }
+      } catch {}
+      return origStart.apply(this, arguments);
+    };
+
+    if (window.AudioWorkletNode) {
+      const OrigNode = window.AudioWorkletNode;
+      window.AudioWorkletNode = new Proxy(OrigNode, {
+        construct(target, args, newTarget) {
+          const node = Reflect.construct(target, args, newTarget);
+          try { node.port.__avsRate = args[0].sampleRate; } catch {}
+          return node;
+        }
+      });
+      const origPost = MessagePort.prototype.postMessage;
+      MessagePort.prototype.postMessage = function (msg) {
+        try {
+          const live = this.__avsRate && captureLive() ? capture : null;
+          if (live) {
+            const found = [];
+            const visit = (v, depth) => {
+              if (v instanceof Float32Array) found.push(v.slice());
+              else if (v instanceof Int16Array) found.push(Float32Array.from(v, (x) => x / 32768));
+              else if (v && typeof v === 'object' && depth < 2 && !(v instanceof ArrayBuffer)) Object.values(v).forEach((x) => visit(x, depth + 1));
+            };
+            visit(msg, 0);
+            if (found.length) {
+              if (!live.worklet) noteEvent('AudioWorklet samples');
+              live.worklet = live.worklet || { rate: this.__avsRate, chunks: [] };
+              live.worklet.chunks.push(...found);
+              whenIdle(live, 'worklet', 3000, () => emit(pcmToWav(live.worklet.chunks, live.worklet.rate), 'worklet'));
+            }
+          }
+        } catch {}
+        return origPost.apply(this, arguments);
+      };
+    }
+
     // Mute Web Audio output during a capture so only our player is heard.
     const origConnect = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (dest) {
@@ -283,9 +478,8 @@
     };
   }
 
-  function buffersToWav(buffers) {
-    const rate = buffers[0].sampleRate;
-    const total = buffers.reduce((n, b) => n + b.length, 0);
+  function pcmToWav(chunks, rate) {
+    const total = chunks.reduce((n, c) => n + c.length, 0);
     const view = new DataView(new ArrayBuffer(44 + total * 2));
     const str = (o, t) => { for (let i = 0; i < t.length; i++) view.setUint8(o + i, t.charCodeAt(i)); };
     str(0, 'RIFF'); view.setUint32(4, 36 + total * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
@@ -293,8 +487,7 @@
     view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true);
     view.setUint16(34, 16, true); str(36, 'data'); view.setUint32(40, total * 2, true);
     let o = 44;
-    for (const b of buffers) {
-      const d = b.getChannelData(0);
+    for (const d of chunks) {
       for (let i = 0; i < d.length; i++, o += 2) {
         const v = Math.max(-1, Math.min(1, d[i]));
         view.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true);

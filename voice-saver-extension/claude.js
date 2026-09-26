@@ -78,12 +78,24 @@ async function avsClaudeCapture(block, voice) {
     window.postMessage({ __aiVoiceSaverCmd: 'capture-start', token, voice }, location.origin);
     await avsWaitForPage(token, 'capture-ready', 1000);
     btn.click();
-    const clip = await avsWaitForPage(token, 'clip', 90000);
-    if (!clip) {
+    const result = await Promise.race([
+      avsWaitForPage(token, 'clip', 45000),
+      avsWaitForPage(token, 'speech', 45000)
+    ]);
+    if (!result || result.kind === 'speech') {
       window.postMessage({ __aiVoiceSaverCmd: 'capture-cancel', token }, location.origin);
-      await avsSaveDiagnostics({ result: 'no audio caught', button: avsButtonLabel(btn), buttons: null, requests });
-      throw new Error("Claude's read-aloud audio couldn't be caught. Use \"Record this tab\" for now, and see the popup for details.");
+      const speech = result && result.kind === 'speech';
+      await avsSaveDiagnostics({
+        result: speech ? `Claude used the browser's built-in speech (voice: ${result.voice})` : 'no audio caught',
+        button: avsButtonLabel(btn),
+        buttons: null,
+        requests
+      });
+      throw new Error(speech
+        ? "Claude reads this reply with your browser's built-in speech, which doesn't make an audio file that can be saved."
+        : "Claude's read-aloud audio couldn't be caught. Open the extension popup, copy the Read-aloud diagnostics, and send them over.");
     }
+    const clip = result;
     await avsSaveDiagnostics({
       result: `caught ${clip.blob.type || 'audio'} via ${clip.source}, ${Math.round(clip.blob.size / 1000)} KB`,
       button: avsButtonLabel(btn),

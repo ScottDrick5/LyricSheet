@@ -116,6 +116,7 @@ function describeDiagnostics(d) {
   if (d.button) lines.push(`Read-aloud button: "${d.button}"`);
   if (d.buttons) lines.push(`Buttons on the reply: ${d.buttons.map((b) => `"${b}"`).join(', ') || 'none found'}`);
   for (const r of d.requests || []) {
+    if (r.method === 'EVENT') { lines.push('• ' + r.path); continue; }
     const bits = [r.method, r.path];
     if (r.params && r.params.length) bits.push(`params: ${r.params.join(', ')}`);
     if (r.bodyKeys && r.bodyKeys.length) bits.push(`body: ${r.bodyKeys.join(', ')}`);

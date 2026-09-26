@@ -2,8 +2,10 @@
 // the page's media session ("now playing" info) or, on Suno, from the song
 // link that matches the audio file being played.
 (() => {
-  if (window.__audioGrabberWatch) return;
-  window.__audioGrabberWatch = true;
+  // A watcher left over from an earlier recording (or an older version of the
+  // extension) is shut down so this one starts fresh.
+  if (typeof window.__audioGrabberWatch === 'function') window.__audioGrabberWatch();
+  const startedAt = performance.now();
 
   const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -83,10 +85,15 @@
     window.postMessage({ __audioGrabber: 'song', ...song, playlistIds }, '*');
   }, 100);
 
-  window.addEventListener('message', (e) => {
-    if (e.source === window && e.data && e.data.__audioGrabber === 'stop') {
-      clearInterval(timer);
-      window.__audioGrabberWatch = false;
-    }
-  });
+  const stop = () => {
+    clearInterval(timer);
+    window.removeEventListener('message', onStop);
+    if (window.__audioGrabberWatch === stop) window.__audioGrabberWatch = null;
+  };
+  const onStop = (e) => {
+    // Ignore a stop meant for the previous recording that arrives late.
+    if (e.source === window && e.data && e.data.__audioGrabber === 'stop' && e.data.at >= startedAt) stop();
+  };
+  window.addEventListener('message', onStop);
+  window.__audioGrabberWatch = stop;
 })();

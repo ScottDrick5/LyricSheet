@@ -235,7 +235,7 @@ function songChange(final) {
   if (s.cut) { s.cut.final = s.cut.final || final; return { ok: true }; }
   // No song in progress, or one so young it already belongs to the new song
   // (its audio beat the page's announcement).
-  if (!s.track || s.track.frames < s.minTrackFrames) {
+  if (!s.track || s.track.frames < SAMPLE_RATE * 1.5) {
     if (final) finishPlaylist(s, 'playlistEnd');
     return { ok: true };
   }
@@ -268,7 +268,10 @@ function performCut(s) {
   }
   const at = best + block / 2;
   writeTrack(s.track, L.subarray(0, at), R.subarray(0, at));
-  queueSave(s, s.track);
+  // A few seconds caught from the end of a song that was already playing when
+  // recording started isn't worth a file.
+  if (s.track.frames >= s.minTrackFrames) queueSave(s, s.track);
+  else s.trackCount--;
   s.track = null;
   if (final || (s.maxSongs && s.saved >= s.maxSongs)) {
     finishPlaylist(s, final ? 'playlistEnd' : 'songLimit');

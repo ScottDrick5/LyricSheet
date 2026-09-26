@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="20" height="20">
+    <h1>Audio Grabber</h1>
+  </header>
+
+  <section class="source">
+    <div class="label" id="sourceLabel">Source</div>
+    <div class="tab-title" id="tabTitle">—</div>
+  </section>
+
+  <section class="transport">
+    <button id="recordBtn" class="record" title="Start recording (Alt+Shift+R)">
+      <span class="dot"></span><span id="recordText">Record</span>
+    </button>
+    <button id="pauseBtn" class="secondary" hidden>Pause</button>
+  </section>
+
+  <section class="meter-row">
+    <div class="time" id="time">00:00</div>
+    <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+  </section>
+
+  <div class="message" id="message" hidden></div>
+
+  <section class="settings" id="settings">
+    <div class="row">
+      <span>Format</span>
+      <div class="seg" id="format">
+        <button data-v="mp3">MP3</button>
+        <button data-v="wav">WAV</button>
+        <button data-v="both">Both</button>
+      </div>
+    </div>
+    <div class="row" id="bitrateRow">
+      <span>MP3 quality</span>
+      <select id="bitrate">
+        <option value="128">128 kbps</option>
+        <option value="192">192 kbps</option>
+        <option value="256">256 kbps</option>
+        <option value="320">320 kbps</option>
+      </select>
+    </div>
+    <label class="row">
+      <span>Keep playing while recording</span>
+      <input type="checkbox" id="keepPlaying">
+    </label>
+    <label class="row">
+      <span>Mix in microphone <a href="#" id="micSetup">allow mic</a></span>
+      <input type="checkbox" id="includeMic">
+    </label>
+    <div class="row">
+      <span>Auto-stop after</span>
+      <select id="autoStopMinutes">
+        <option value="0">Never</option>
+        <option value="5">5 min</option>
+        <option value="15">15 min</option>
+        <option value="30">30 min</option>
+        <option value="60">1 hour</option>
+        <option value="120">2 hours</option>
+        <option value="180">3 hours</option>
+      </select>
+    </div>
+    <div class="row">
+      <span>Save in Downloads/</span>
+      <input type="text" id="folder" placeholder="(Downloads)" spellcheck="false">
+    </div>
+    <label class="row">
+      <span>Ask where to save each file</span>
+      <input type="checkbox" id="saveAs">
+    </label>
+  </section>
+
+  <section class="recent">
+    <div class="recent-head">
+      <span class="label">Recent</span>
+      <a href="#" id="openFolder">Open folder</a>
+    </div>
+    <ul id="recentList"><li class="empty">Nothing yet</li></ul>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

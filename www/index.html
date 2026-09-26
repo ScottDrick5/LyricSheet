@@ -5105,7 +5105,7 @@
   function closePasteModal() { modal.classList.remove("open"); }
 
   function currentPasteResult() {
-    return parseSong(pasteText.value, useTitleBox.checked);
+    return parseSong(pasteText.value, useTitleBox.checked, null, true);   // blank lines as pasted
   }
 
   function updatePastePreview() {
@@ -5140,7 +5140,7 @@
     if (useTitleBox.checked && result.title) song.title = result.title;
     if (parsed.length) {
       if (replace || isEmptySong(song)) song.sections = parsed;
-      else song.sections = song.sections.concat(parsed);
+      else { delete parsed[0].gap; song.sections = song.sections.concat(parsed); }   // the usual space after the song
     }
     markEdited(song);
     persistSongs();
@@ -7540,7 +7540,7 @@
       lines = collapseDoubledBlanks(lines) || lines;   // however Notes spaced its lines
       var song = newSong();
       song.title = title;
-      var parsed = stripParseFlags(parseSong(lines.join("\n"), false).sections);
+      var parsed = stripParseFlags(parseSong(lines.join("\n"), false, null, true).sections);   // blank lines as in the note
       if (parsed.length) song.sections = parsed;
       song.createdAt = note.created;
       song.lastEditedAt = Math.max(note.modified, note.created);
@@ -7588,7 +7588,8 @@
                 fresh.id = old.id;
                 if (old.folderSetAt) fresh.folderSetAt = old.folderSetAt;
                 fresh.versions = old.versions || [];
-                if (lyricKeyOf(fresh.sections) !== lyricKeyOf(old.sections) || fresh.title !== old.title) {
+                // (compared as text, so a song whose blank lines were tidied away gets the note's spacing back)
+                if (sectionsAsText(fresh) !== sectionsAsText(old) || fresh.title !== old.title) {
                   state.songs[state.songs.indexOf(old)] = fresh;
                   refreshed++;
                   return;

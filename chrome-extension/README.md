@@ -47,6 +47,12 @@ How it knows where one song ends and the next begins:
 - When nothing has played for **2 minutes** (changeable), it assumes the playlist is over,
   stops, and saves.
 
+**Done notification.** When the recording finishes on its own (playlist over, song limit, silence,
+auto-stop, or the tab closed), a desktop notification tells you why and how many songs were saved.
+Click it to open your Downloads folder. On a Mac, allow notifications for Google Chrome in
+**System Settings → Notifications → Google Chrome**, and pick **Alerts** if you want it to stay on
+screen until you dismiss it.
+
 **Cover art.** Each file gets the song's cover image embedded (shown in Finder, Apple Music and
 most players). It's taken from Suno's "now playing" info or the song's picture on the page.
 

@@ -158,7 +158,7 @@ async function start(streamId, settings) {
   };
 
   // Tab closed or navigated somewhere uncapturable: save what we have.
-  tabStream.getAudioTracks().forEach((t) => t.addEventListener('ended', finishAndNotify));
+  tabStream.getAudioTracks().forEach((t) => t.addEventListener('ended', () => finishAndNotify('tabClosed')));
 
   return { ok: true, warning };
 }
@@ -313,7 +313,7 @@ function onChunk(s, left, right) {
         if (s.preroll.length > 3) s.preroll.shift();
         s.idleFrames += l16.length;
         // Playlist is over: nothing has played for a long while after at least one song.
-        if (s.saved && s.endFrames && s.idleFrames >= s.endFrames) finishAndNotify();
+        if (s.saved && s.endFrames && s.idleFrames >= s.endFrames) finishAndNotify('silence');
       }
     } else if (loud) {
       // Only a quiet moment inside the song: keep it.
@@ -328,7 +328,7 @@ function onChunk(s, left, right) {
     }
   }
 
-  if (s.frames >= s.maxFrames) finishAndNotify();
+  if (s.frames >= s.maxFrames) finishAndNotify('autoStop');
 }
 
 function stop() {
@@ -368,8 +368,8 @@ function stop() {
 
 async function finishAndNotify(reason) {
   if (!session || session.stopping) return;
-  await stop();
-  chrome.runtime.sendMessage({ target: 'background', type: 'ended', reason: typeof reason === 'string' ? reason : '' });
+  const res = await stop();
+  chrome.runtime.sendMessage({ target: 'background', type: 'ended', reason, saved: (res && res.saved) || 0 });
 }
 
 function status() {

@@ -113,7 +113,8 @@ async function startRecording(tabId) {
   return { ok: true, warning: res.warning || '' };
 }
 
-async function stopRecording() {
+// fromPopup: the popup shows its own message, so skip the notification.
+async function stopRecording(fromPopup) {
   const state = await getState();
   if (!state.recording) return { ok: true };
   // The offscreen page sends back one 'save' message per file, then replies here.
@@ -121,8 +122,42 @@ async function stopRecording() {
   chrome.tabs.sendMessage(state.tabId, { type: 'songwatch-stop' }).catch(() => {});
   await setState({ recording: false });
   await closeOffscreenIfIdle();
+  if (!fromPopup) await notifyDone(state, 'stopped', (res && res.saved) || 0);
   return res || { ok: true };
 }
+
+// Desktop notification when a recording finishes, so you don't have to keep checking.
+async function notifyDone(state, reason, saved) {
+  const settings = await getSettings();
+  const what = state.split
+    ? `${saved} song${saved === 1 ? '' : 's'} saved`
+    : saved ? 'Recording saved' : 'Nothing was recorded';
+  const where = saved ? ` to ${settings.folder ? `Downloads/${settings.folder}` : 'Downloads'}.` : '.';
+  const why = {
+    playlistEnd: 'Your playlist finished.',
+    songLimit: `Reached your ${settings.maxSongs}-song limit.`,
+    silence: `Nothing played for ${settings.endAfterSilenceMinutes} min, so it stopped.`,
+    autoStop: 'Auto-stop time reached.',
+    tabClosed: 'The tab was closed.',
+    stopped: 'Recording stopped.'
+  }[reason] || 'Recording stopped.';
+  await chrome.notifications.create('audio-grabber-done', {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: saved ? 'Audio Grabber: done recording' : 'Audio Grabber stopped',
+    message: `${why} ${what}${where}`,
+    contextMessage: state.title || '',
+    requireInteraction: true,
+    priority: 2
+  }).catch(() => {});
+}
+
+// Clicking the notification opens the Downloads folder.
+chrome.notifications.onClicked.addListener((id) => {
+  if (id !== 'audio-grabber-done') return;
+  chrome.downloads.showDefaultFolder();
+  chrome.notifications.clear(id);
+});
 
 async function toggleMute() {
   const state = await getState();
@@ -292,7 +327,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return { ok: true };
     },
     start: () => startRecording(msg.tabId),
-    stop: stopRecording,
+    stop: () => stopRecording(true),
     togglePause,
     toggleMute,
     // From the offscreen page:
@@ -314,6 +349,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       if (state.recording) await setState({ recording: false, endReason: msg.reason || '' });
       await closeOffscreenIfIdle();
+      await notifyDone(state, msg.reason, msg.saved || 0);
       return { ok: true };
     }
   };

@@ -2,7 +2,8 @@
 // ChatGPT/Claude "read aloud" clips — and hands a copy to capture.js.
 // When claude.js asks for a capture (our player pressed Claude's read-aloud button), it also:
 //  - switches any voice setting in Claude's request to the voice picked in the extension,
-//  - mutes Claude's own playback so the audio plays in our player instead,
+//  - mutes Claude's own playback when it arrives as a whole file (it then plays in our player),
+//    or records it while it plays when Claude streams it,
 //  - notes what the request looked like, for the popup's diagnostics line.
 (() => {
   if (window.__aiVoiceSaverHooked) return;
@@ -23,10 +24,13 @@
       post({ kind: 'capture-ready', token: d.token });
     } else if (d.__aiVoiceSaverCmd === 'capture-cancel' && capture && capture.token === d.token) {
       endCapture();
+    } else if (d.__aiVoiceSaverCmd === 'capture-finish' && capture && capture.token === d.token) {
+      finishStream(capture) || endCapture();
     }
   });
 
-  const captureLive = () => capture && Date.now() - capture.started < 120000;
+  // Streamed read-aloud plays in real time, so a capture can last as long as the reply.
+  const captureLive = () => capture && Date.now() - capture.started < 30 * 60 * 1000;
 
   // Claude may start its own playback just after we've caught the audio; keep it quiet briefly.
   let quietUntil = 0;
@@ -41,7 +45,8 @@
     quietUntil = Date.now() + 4000;
   }
 
-  const emit = (blob, source) => {
+  // `heard`: the audio was audible while it was caught (streamed), so the player shouldn't replay it.
+  const emit = (blob, source, heard = false) => {
     try {
       if (!blob || blob.size < MIN_BYTES) return;
       const token = captureLive() ? capture.token : null;
@@ -49,7 +54,7 @@
       const now = Date.now();
       if (!token && now - (recent.get(key) || 0) < 30000) return;
       recent.set(key, now);
-      post({ kind: 'clip', blob, source, token });
+      post({ kind: 'clip', blob, source, token, heard });
       if (token) endCapture();
     } catch {}
   };
@@ -58,31 +63,45 @@
   const looksLikeSpeech = (url) => /tts|speech|speak|audio|voice|read[-_]?aloud|synthes/i.test(url || '');
   const VOICE_KEYS = ['voice', 'voice_id', 'voiceId', 'voice_name', 'voiceName', 'speaker'];
 
-  // Swap the voice in a URL's query string. Returns the new URL, or null if it has no voice setting.
+  // Only swap values that look like a voice name ("buttery"), never ids or settings we don't understand.
+  const nameLike = (v) => typeof v === 'string' && /^[a-z][a-z _-]{1,24}$/i.test(v);
+
+  // Swap the voice in a URL's query string.
+  // Returns { url, from } when swapped, { skipped: value } when left alone, or null if there's none.
   function swapVoiceInUrl(url, voice) {
     try {
       const u = new URL(url, location.href);
       const k = VOICE_KEYS.find((key) => u.searchParams.has(key));
       if (!k) return null;
+      const from = u.searchParams.get(k);
+      if (!nameLike(from)) return { skipped: from };
       u.searchParams.set(k, voice);
-      return u.toString();
+      return { url: u.toString(), from };
     } catch { return null; }
   }
 
-  // Swap the voice in a JSON body (top level or one level down). Returns the new body or null.
+  // Swap the voice in a JSON body (up to three levels down). Same return shape, with `body`.
   function swapVoiceInBody(body, voice) {
     if (typeof body !== 'string' || !body.trim().startsWith('{')) return null;
     try {
       const obj = JSON.parse(body);
-      let hit = false;
-      const visit = (o) => {
-        for (const k of VOICE_KEYS) if (typeof o[k] === 'string') { o[k] = voice; hit = true; }
+      let from = null;
+      let skipped = null;
+      const visit = (o, depth) => {
+        for (const [k, v] of Object.entries(o)) {
+          if (VOICE_KEYS.includes(k) && typeof v === 'string') {
+            if (nameLike(v)) { from = v; o[k] = voice; } else skipped = v;
+          } else if (v && typeof v === 'object' && depth < 3) visit(v, depth + 1);
+        }
       };
-      visit(obj);
-      for (const v of Object.values(obj)) if (v && typeof v === 'object' && !Array.isArray(v)) visit(v);
-      return hit ? JSON.stringify(obj) : null;
+      visit(obj, 0);
+      if (from !== null) return { body: JSON.stringify(obj), from };
+      return skipped !== null ? { skipped } : null;
     } catch { return null; }
   }
+
+  // For the diagnostics line: what happened to the voice setting.
+  const voiceNote = (r) => (!r ? {} : r.skipped !== undefined ? { voiceLeft: String(r.skipped).slice(0, 40) } : { voiceSwapped: true, voiceFrom: r.from });
 
   // What a request looked like (ids blanked out, values dropped), for the diagnostics line.
   function describe(method, url, body) {
@@ -115,7 +134,7 @@
   // without the extension. We only look at the response on the side.
   window.fetch = function (input, init) {
     let args = arguments;
-    let swapped = false;
+    let swapped = {};
     let info = null;
     try {
       if (captureLive()) {
@@ -125,26 +144,28 @@
         if (Date.now() - capture.started < 8000 && !/\/(sentry|statsig|events|analytics|log)/i.test(url)) {
           info = describe(method, url, body);
           if (capture.voice && looksLikeSpeech(url)) {
-            const newUrl = swapVoiceInUrl(url, capture.voice);
-            const newBody = swapVoiceInBody(body, capture.voice);
+            const u = swapVoiceInUrl(url, capture.voice);
+            const b = swapVoiceInBody(body, capture.voice);
+            const newUrl = u && u.url;
+            const newBody = b && b.body;
+            swapped = voiceNote((u && u.url ? u : null) || (b && b.body ? b : null) || u || b);
             if (newUrl || newBody) {
               let nextInput = input;
               if (newUrl) nextInput = input instanceof Request ? new Request(newUrl, input) : newUrl;
               args = [nextInput, newBody ? { ...init, body: newBody } : init];
-              swapped = true;
             }
           }
         }
       }
     } catch {
       args = arguments;
-      swapped = false;
+      swapped = {};
     }
     const promise = origFetch.apply(this, args);
     promise.then((res) => {
       try {
         const type = (res.headers.get('content-type') || '').split(';')[0].trim();
-        if (info) noteRequest(info, { status: res.status, type, voiceSwapped: swapped });
+        if (info) noteRequest(info, { status: res.status, type, ...swapped });
         if (isAudio(type)) {
           res.clone().blob()
             .then((b) => emit(b.type ? b : new Blob([b], { type }), 'fetch'))
@@ -227,9 +248,9 @@
         if (!/^https?:/i.test(src)) noteEvent(`<audio> played from ${src ? src.split(':')[0] + ':' : this.srcObject ? 'a live stream' : 'nothing'}`);
         if (/^https?:/i.test(src)) {
           let url = src;
-          const swappedUrl = capture.voice && swapVoiceInUrl(src, capture.voice);
-          if (swappedUrl) { url = swappedUrl; this.src = swappedUrl; }
-          noteRequest(describe('GET', src), { type: 'media element', voiceSwapped: !!swappedUrl });
+          const sw = capture.voice ? swapVoiceInUrl(src, capture.voice) : null;
+          if (sw && sw.url) { url = sw.url; this.src = sw.url; }
+          noteRequest(describe('GET', src), { type: 'media element', ...voiceNote(sw) });
           origFetch(url, { credentials: 'include' })
             .then((r) => r.blob())
             .then((b) => emit(b, 'media'))
@@ -336,8 +357,9 @@
     try {
       this.__avs = { method, url: String(url) };
       if (captureLive() && capture.voice && looksLikeSpeech(url)) {
-        const swapped = swapVoiceInUrl(url, capture.voice);
-        if (swapped) { arguments[1] = swapped; this.__avs.swapped = true; }
+        const sw = swapVoiceInUrl(url, capture.voice);
+        if (sw && sw.url) arguments[1] = sw.url;
+        this.__avs.voice = sw;
       }
     } catch {}
     return origOpen.apply(this, arguments);
@@ -346,13 +368,15 @@
     try {
       const x = this.__avs;
       if (x && captureLive() && Date.now() - capture.started < 8000) {
-        let swappedBody = null;
-        if (capture.voice && looksLikeSpeech(x.url)) swappedBody = swapVoiceInBody(body, capture.voice);
+        let bodySwap = null;
+        if (capture.voice && looksLikeSpeech(x.url)) bodySwap = swapVoiceInBody(body, capture.voice);
+        const swappedBody = bodySwap && bodySwap.body;
         const info = describe(x.method, x.url, body);
         this.addEventListener('load', () => {
           try {
             const type = (this.getResponseHeader('content-type') || '').split(';')[0].trim();
-            noteRequest(info, { status: this.status, type: type + ' (XHR)', voiceSwapped: !!(x.swapped || swappedBody) });
+            const vs = (x.voice && x.voice.url ? x.voice : null) || (swappedBody ? bodySwap : null) || x.voice || bodySwap;
+            noteRequest(info, { status: this.status, type: type + ' (XHR)', ...voiceNote(vs) });
             const r = this.response;
             if (isAudio(type) || looksLikeSpeech(x.url)) {
               if (r instanceof Blob) r.arrayBuffer().then((b) => tryAudioBytes([new Uint8Array(b)], 'XHR'));
@@ -367,34 +391,91 @@
     return origSend.apply(this, arguments);
   };
 
-  // 6. WebSocket: audio pushed from the server in pieces.
+  // 6. WebSocket: Claude streams read-aloud over one (/api/ws/text_to_speech/…). Switch the voice
+  //    in its address or in the settings message the page sends, and keep what the server pushes.
   if (window.WebSocket) {
     const OrigWS = window.WebSocket;
     window.WebSocket = new Proxy(OrigWS, {
       construct(target, args, newTarget) {
+        let voice = null;
+        try {
+          if (captureLive() && looksLikeSpeech(String(args[0]))) {
+            if (capture.voice) {
+              voice = swapVoiceInUrl(String(args[0]), capture.voice);
+              if (voice && voice.url) args = [voice.url.replace(/^http/, 'ws'), ...args.slice(1)];
+            }
+          }
+        } catch {}
         const ws = Reflect.construct(target, args, newTarget);
         try {
-          if (captureLive()) noteEvent(`WebSocket opened: ${describe('WS', String(args[0])).path}`);
+          ws.__avsSpeech = looksLikeSpeech(String(args[0]));
+          ws.__avsSent = 0;
+          if (captureLive()) {
+            const d = describe('WS', String(args[0]));
+            noteEvent(`WebSocket opened: ${d.path}${d.params.length ? ' (params: ' + d.params.join(', ') + ')' : ''}${voice ? ' ' + JSON.stringify(voiceNote(voice)) : ''}`);
+          }
           ws.addEventListener('message', (e) => {
             const live = captureLive() ? capture : null;
-            if (!live) return;
-            live.ws = live.ws || { parts: [], messages: 0 };
+            if (!live || !ws.__avsSpeech) return;
+            live.ws = live.ws || { parts: [], messages: 0, text: 0 };
             live.ws.messages++;
             const add = (u8) => {
               live.ws.parts.push(u8);
-              whenIdle(live, 'ws', 3000, () => {
-                noteEvent(`WebSocket: ${live.ws.messages} messages`);
-                tryAudioBytes(live.ws.parts, 'WebSocket');
-              });
+              // Only needed when the page doesn't play it through Web Audio (that's caught below).
+              whenIdle(live, 'ws', 4000, () => { if (!live.pcm) tryAudioBytes(live.ws.parts, 'WebSocket'); });
             };
             if (e.data instanceof ArrayBuffer) add(new Uint8Array(e.data));
             else if (e.data instanceof Blob) e.data.arrayBuffer().then((b) => add(new Uint8Array(b)));
-            else if (typeof e.data === 'string') base64Chunks(e.data).forEach(add);
+            else if (typeof e.data === 'string') {
+              live.ws.text++;
+              if (live.ws.text <= 2) noteEvent(`WebSocket received: ${summarize(e.data)}`);
+              base64Chunks(e.data).forEach(add);
+            }
           });
         } catch {}
         return ws;
       }
     });
+
+    const origWsSend = OrigWS.prototype.send;
+    OrigWS.prototype.send = function (data) {
+      try {
+        if (this.__avsSpeech && captureLive()) {
+          this.__avsSent++;
+          if (typeof data === 'string') {
+            const sw = capture.voice ? swapVoiceInBody(data, capture.voice) : null;
+            if (this.__avsSent <= 3) noteEvent(`WebSocket sent: ${summarize(data)}${sw ? ' ' + JSON.stringify(voiceNote(sw)) : ''}`);
+            if (sw && sw.body) return origWsSend.call(this, sw.body);
+          } else if (this.__avsSent <= 3) {
+            const n = data && (data.byteLength || data.size || 0);
+            noteEvent(`WebSocket sent: ${n} bytes of binary data`);
+          }
+        }
+      } catch {}
+      return origWsSend.apply(this, arguments);
+    };
+  }
+
+  // A JSON message's shape for the diagnostics: its keys, plus the value of any voice setting.
+  // No text content is included.
+  function summarize(text) {
+    try {
+      const obj = JSON.parse(text);
+      const keys = [];
+      const voices = [];
+      const visit = (o, prefix, depth) => {
+        for (const [k, v] of Object.entries(o)) {
+          keys.push(prefix + k);
+          if (VOICE_KEYS.includes(k) && typeof v === 'string') voices.push(`${k}=${v.slice(0, 40)}`);
+          if (/voice|speaker/i.test(k) && v && typeof v === 'object') voices.push(`${k}=${JSON.stringify(v).slice(0, 80)}`);
+          if (v && typeof v === 'object' && !Array.isArray(v) && depth < 2) visit(v, prefix + k + '.', depth + 1);
+        }
+      };
+      if (obj && typeof obj === 'object') visit(obj, '', 0);
+      return `{${keys.slice(0, 15).join(', ')}}${voices.length ? ' voice: ' + voices.join(', ') : ''}`;
+    } catch {
+      return `${text.length} characters of non-JSON text`;
+    }
   }
 
   // 7. Browser text-to-speech: sound made by the operating system, not by the page.
@@ -412,8 +493,25 @@
     };
   }
 
-  // 8. Web Audio: collect every buffer the page plays, join them once they stop arriving.
+  // 8. Web Audio: collect every buffer the page plays while it plays (audible, in real time).
+  //    Finished once every started piece has ended and nothing new has started for a moment.
   //    Also collect raw samples the page streams to an AudioWorklet.
+  function finishStream(live) {
+    if (!live || capture !== live) return false;
+    const src = live.pcm && live.pcm.chunks.length ? live.pcm : live.worklet && live.worklet.chunks.length ? live.worklet : null;
+    if (!src) return false;
+    emit(pcmToWav(src.chunks, src.rate), src === live.pcm ? 'webaudio' : 'worklet', true);
+    return true;
+  }
+
+  function streamProgress(live, src) {
+    const secs = Math.floor(src.chunks.reduce((n, c) => n + c.length, 0) / src.rate);
+    if (secs !== src.lastSecs) {
+      src.lastSecs = secs;
+      post({ kind: 'progress', token: live.token, seconds: secs });
+    }
+  }
+
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (Ctx && window.AudioBufferSourceNode) {
     const origStart = AudioBufferSourceNode.prototype.start;
@@ -421,10 +519,25 @@
       try {
         const live = captureLive() ? capture : null;
         if (live && this.buffer) {
-          if (!live.pcm) noteEvent('Web Audio buffers');
-          live.pcm = live.pcm || { rate: this.buffer.sampleRate, chunks: [] };
-          live.pcm.chunks.push(this.buffer.getChannelData(0).slice());
-          whenIdle(live, 'pcm', 3000, () => emit(pcmToWav(live.pcm.chunks, live.pcm.rate), 'webaudio'));
+          if (!live.pcm) {
+            noteEvent(`Web Audio buffers (${this.buffer.sampleRate} Hz, ${this.buffer.numberOfChannels} channel)`);
+            live.pcm = { rate: this.buffer.sampleRate, chunks: [], playing: new Set(), lastStart: 0 };
+            const timer = setInterval(() => {
+              if (capture !== live) return clearInterval(timer);
+              const pcm = live.pcm;
+              const closed = this.context && this.context.state === 'closed';
+              if ((pcm.playing.size === 0 && Date.now() - pcm.lastStart > 2500) || closed) {
+                clearInterval(timer);
+                finishStream(live);
+              }
+            }, 500);
+          }
+          const pcm = live.pcm;
+          pcm.chunks.push(this.buffer.getChannelData(0).slice());
+          pcm.lastStart = Date.now();
+          pcm.playing.add(this);
+          this.addEventListener('ended', () => pcm.playing.delete(this));
+          streamProgress(live, pcm);
         }
       } catch {}
       return origStart.apply(this, arguments);
@@ -455,27 +568,17 @@
               if (!live.worklet) noteEvent('AudioWorklet samples');
               live.worklet = live.worklet || { rate: this.__avsRate, chunks: [] };
               live.worklet.chunks.push(...found);
-              whenIdle(live, 'worklet', 3000, () => emit(pcmToWav(live.worklet.chunks, live.worklet.rate), 'worklet'));
+              streamProgress(live, live.worklet);
+              // Samples usually arrive faster than they play; the worklet may still be playing.
+              const secs = live.worklet.chunks.reduce((n, c) => n + c.length, 0) / live.worklet.rate;
+              const playedFor = (Date.now() - live.started) / 1000;
+              whenIdle(live, 'worklet', 3000 + Math.max(0, secs - playedFor) * 1000, () => finishStream(live));
             }
           }
         } catch {}
         return origPost.apply(this, arguments);
       };
     }
-
-    // Mute Web Audio output during a capture so only our player is heard.
-    const origConnect = AudioNode.prototype.connect;
-    AudioNode.prototype.connect = function (dest) {
-      try {
-        if (captureLive() && dest instanceof AudioDestinationNode) {
-          const gain = this.context.createGain();
-          gain.gain.value = 0;
-          origConnect.call(gain, dest);
-          return origConnect.call(this, gain);
-        }
-      } catch {}
-      return origConnect.apply(this, arguments);
-    };
   }
 
   function pcmToWav(chunks, rate) {

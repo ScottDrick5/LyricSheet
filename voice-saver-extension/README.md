@@ -31,9 +31,12 @@ Files go to your normal Downloads folder, named like `chatgpt-ember-2026-09-26_1
 ## Claude
 - Every finished Claude reply gets the same **player bar** as ChatGPT: play/pause, scrub bar, voice
   picker and download.
-- Pressing play presses Claude's own **read aloud** button for that reply behind the scenes. The
-  extension catches the audio Claude sends back, mutes Claude's own playback, and plays it in the bar
-  instead, so you can scrub and download it.
+- Pressing play presses Claude's own **read aloud** button for that reply behind the scenes. Claude
+  streams the audio as it speaks, so the first time you hear Claude read it live while the bar shows
+  **● Recording 0:12**. When Claude finishes, the recording is in the bar, ready to replay, scrub and
+  download (saved as .wav).
+- Press the play button while it's recording to finish early. Claude stops reading and the bar keeps
+  what was recorded so far.
 - **Voice:** if Claude's read-aloud request includes a voice setting, the extension switches it to the
   voice picked in the extension. If it doesn't, Claude reads in the voice from its own settings. In that
   case pick the same voice in the extension so your files are named after it.

@@ -121,7 +121,7 @@ function avsCreatePlayer(opts) {
     if (p.loading && p.loading.key === key) return p.loading.promise;
     const gen = p.gen;
     const promise = (async () => {
-      const clip = await opts.fetch(choice);
+      const clip = await opts.fetch(choice, { status: (text) => { p.time.textContent = text; } });
       const url = await avsPlayableUrl(clip.blob);
       if (p.gen !== gen) { URL.revokeObjectURL(url); return clip; } // voice changed while loading
       if (p.url) URL.revokeObjectURL(p.url);
@@ -139,6 +139,7 @@ function avsCreatePlayer(opts) {
       if (p.loading && p.loading.promise === promise) {
         p.loading = null;
         el.classList.remove('avs-loading');
+        if (!p.clip) p.time.textContent = '0:00'; // clear "Recording…" after a failure
       }
     }
   };
@@ -163,8 +164,14 @@ function avsCreatePlayer(opts) {
   p.playBtn.addEventListener('click', async () => {
     if (p.clip && !p.audio.paused) return p.audio.pause();
     if (!avsExtensionAlive()) return avsToast(AVS_RELOAD_MSG, true);
+    // Pressed again while Claude is still being recorded: finish with what we have.
+    if (p.loading && opts.finish) return opts.finish();
     try {
-      await p.load();
+      const fresh = !p.clip;
+      const clip = await p.load();
+      if (fresh && clip.heard) {
+        return avsToast('Recorded. Press play to hear it again, scrub, or download.');
+      }
       await p.audio.play();
     } catch (err) {
       if (err && err.name === 'NotAllowedError') avsToast('Ready — press play again.');
@@ -173,7 +180,7 @@ function avsCreatePlayer(opts) {
   });
 
   p.dlBtn.addEventListener('click', async () => {
-    if (el.classList.contains('avs-loading')) return;
+    if (el.classList.contains('avs-loading')) return avsToast('Still recording. Press the play button to finish early.');
     if (!avsExtensionAlive()) return avsToast(AVS_RELOAD_MSG, true);
     try {
       const { blob, voice, ext } = await p.load();

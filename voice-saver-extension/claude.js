@@ -1,6 +1,7 @@
 // Claude: adds the player bar under each reply. Pressing play presses Claude's own read-aloud
-// button, catches the audio Claude sends back (in the extension's voice if Claude's request has a
-// voice setting) and plays it in our bar, where it can be scrubbed and downloaded.
+// button and records the audio Claude plays (in the extension's voice if Claude's request has a
+// voice setting). Claude streams it, so you hear it live the first time; after that it's in our
+// bar, where it can be replayed, scrubbed and downloaded. Pressing the button mid-read finishes early.
 
 const AVS_RESPONSE_SEL = '.font-claude-response, .font-claude-message, [data-testid="assistant-message"]';
 const AVS_READ_ALOUD = /read.?aloud|read out|listen|speak|text.to.speech|\btts\b|play audio|audio/i;
@@ -62,26 +63,61 @@ function avsWaitForPage(token, kind, ms) {
   });
 }
 
-async function avsClaudeCapture(block, voice) {
+// Waits for the capture to end: a clip, browser speech, or nothing happening for too long.
+// While Claude streams, `onProgress` gets the seconds recorded so far.
+function avsWaitForCapture(token, onProgress) {
+  return new Promise((resolve) => {
+    let timer = null;
+    const arm = (ms) => { clearTimeout(timer); timer = setTimeout(() => done(null), ms); };
+    const done = (value) => { clearTimeout(timer); avsPageListeners.delete(listen); resolve(value); };
+    const listen = (d) => {
+      if (d.token !== token) return;
+      if (d.kind === 'clip' || d.kind === 'speech') done(d);
+      else if (d.kind === 'progress') { onProgress(d.seconds); arm(60000); }
+      else if (d.kind === 'request') arm(45000);
+    };
+    avsPageListeners.add(listen);
+    arm(30000); // nothing at all within 30 seconds
+  });
+}
+
+let avsActiveCapture = null; // token of the capture in progress
+let avsActiveButton = null; // Claude's read-aloud button for it
+
+// Ends the capture in progress early, keeping what has been recorded so far, and stops Claude reading.
+function avsFinishCapture() {
+  if (!avsActiveCapture) return;
+  window.postMessage({ __aiVoiceSaverCmd: 'capture-finish', token: avsActiveCapture }, location.origin);
+  const btn = avsActiveButton;
+  if (btn && btn.isConnected && /pause|stop/i.test(avsButtonLabel(btn))) btn.click();
+}
+
+async function avsClaudeCapture(block, voice, status) {
   const btn = avsFindReadAloud(block);
   if (!btn) {
     const labels = avsReplyButtons(block).map(avsButtonLabel).filter(Boolean).slice(0, 12);
     await avsSaveDiagnostics({ result: 'read-aloud button not found', button: null, buttons: labels, requests: [] });
     throw new Error("Couldn't find Claude's read-aloud button on this reply. Open the extension popup for details.");
   }
+  if (avsActiveCapture) avsFinishCapture();
 
   const token = String(Date.now()) + Math.random().toString(36).slice(2);
   const requests = [];
   const noteRequests = (d) => { if (d.token === token && d.kind === 'request') requests.push(d.request); };
   avsPageListeners.add(noteRequests);
+  avsActiveCapture = token;
+  avsActiveButton = btn;
   try {
     window.postMessage({ __aiVoiceSaverCmd: 'capture-start', token, voice }, location.origin);
     await avsWaitForPage(token, 'capture-ready', 1000);
+    status('Starting…');
+    // Claude is already reading (its button says Pause/Stop): stop it first, then start fresh.
+    if (/pause|stop/i.test(avsButtonLabel(btn))) {
+      btn.click();
+      await new Promise((r) => setTimeout(r, 400));
+    }
     btn.click();
-    const result = await Promise.race([
-      avsWaitForPage(token, 'clip', 45000),
-      avsWaitForPage(token, 'speech', 45000)
-    ]);
+    const result = await avsWaitForCapture(token, (secs) => status(`● Recording ${avsFmtTime(secs)}`));
     if (!result || result.kind === 'speech') {
       window.postMessage({ __aiVoiceSaverCmd: 'capture-cancel', token }, location.origin);
       const speech = result && result.kind === 'speech';
@@ -95,16 +131,16 @@ async function avsClaudeCapture(block, voice) {
         ? "Claude reads this reply with your browser's built-in speech, which doesn't make an audio file that can be saved."
         : "Claude's read-aloud audio couldn't be caught. Open the extension popup, copy the Read-aloud diagnostics, and send them over.");
     }
-    const clip = result;
     await avsSaveDiagnostics({
-      result: `caught ${clip.blob.type || 'audio'} via ${clip.source}, ${Math.round(clip.blob.size / 1000)} KB`,
+      result: `caught ${result.blob.type || 'audio'} via ${result.source}, ${Math.round(result.blob.size / 1000)} KB`,
       button: avsButtonLabel(btn),
       buttons: null,
       requests
     });
-    return clip.blob;
+    return result;
   } finally {
     avsPageListeners.delete(noteRequests);
+    if (avsActiveCapture === token) avsActiveCapture = avsActiveButton = null;
   }
 }
 
@@ -121,10 +157,12 @@ function avsInjectClaudePlayers() {
           const voice = await avsVoice('claude');
           return { voice, key: voice };
         },
-        fetch: async ({ voice }) => {
-          const blob = await avsClaudeCapture(block, voice);
-          return { blob, voice, ext: avsExtForType(blob.type) };
+        fetch: async ({ voice }, { status }) => {
+          const { blob, heard } = await avsClaudeCapture(block, voice, status);
+          // Streamed audio was heard live while it was recorded, so don't play it again right away.
+          return { blob, voice, ext: avsExtForType(blob.type), heard };
         },
+        finish: avsFinishCapture,
         fillVoices: (select) => avsFillVoiceOptions(select, 'claude', VOICES.claude)
       });
       avsClaudePlayers.set(block, p);

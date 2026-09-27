@@ -1345,6 +1345,7 @@
   #size-bar .fmt-sep { width: 6px; border-left: 1px solid var(--shell-border); }
   #size-bar .fmt-sep + button { border-left: 1px solid var(--shell-border); }
   #size-pick { min-width: 52px; font-variant-numeric: tabular-nums; }
+  #size-bar #size-pick { display: none; }   /* sizes step with A− / A+ (the number list was more than needed) */
   #size-pick .caret, #hl-pick .caret, #swap-pick .caret { font-size: 0.7em; margin-left: 3px; color: var(--shell-text-dim); }
   #size-bar button[aria-expanded="true"] { background: var(--tint-2); }
   /* selection inside a section header: the toolbar just offers Swap */
@@ -2240,8 +2241,9 @@
   @media (max-width: 640px) {
     #size-bar button { min-width: 32px; padding: 0 5px; }
     #size-pick { min-width: 44px; }
-    /* no room for A− / A+ next to the pin button: the size menu has every size */
-    #size-bar [data-size] { display: none; }
+    /* phones: no word sizes in this bar (it starts at Bold) */
+    #size-bar [data-size], #size-bar > .fmt-sep:first-of-type { display: none; }
+    #size-bar [data-fmt="b"] { border-left: none; }
     #size-bar .fmt-sep { width: 3px; }
     #rhyme-pick { padding: 0 8px; font-size: 0.78rem; }
   }

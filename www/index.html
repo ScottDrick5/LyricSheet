@@ -521,7 +521,10 @@
   .metro-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tint-2); }
   .metro-dot.beat { background: var(--accent); }
   .metro-dot.beat.one { background: var(--danger); }
-  #tap-tempo { font-size: 0.72rem; letter-spacing: 0.04em; }
+  #tap-tempo, #tap-syl { font-size: 0.72rem; letter-spacing: 0.04em; }
+  #tap-panel .tap-undo { display: none; }
+  #tap-modal.syl #tap-panel .tap-undo { display: block; }
+  #tap-modal.syl #tap-use { display: none; }
   /* Tap BPM window: one big pad, nothing else nearby to hit by mistake */
   #tap-modal {
     position: fixed; inset: 0; z-index: 60; display: none;
@@ -2089,19 +2092,27 @@
   .status-tag[data-status="recorded"] { color: var(--st-recorded); background: var(--st-recorded-bg); }
   .status-tag[data-status="released"] { color: var(--st-released); background: var(--st-released-bg); }
   /* lines pinned in place: marked, and locked until unpinned */
+  /* in the left margin, just outside the rhyme letters (A, B…) when they're showing */
   .read-editor > div.rl-pinned { position: relative; }
   .read-editor > div.rl-pinned::before {
-    content: ""; position: absolute; left: -16px; top: 50%; width: 13px; height: 13px; margin-top: -7px;
-    background: var(--accent); pointer-events: none;
+    content: ""; position: absolute; left: -17px; top: 50%; width: 12px; height: 12px; margin-top: -6px;
+    background: var(--accent); pointer-events: none; opacity: 0.9;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
   }
   .read-editor.pv-sheet > div.rl-pinned::before { display: none; }
+  .read-sheet:has(.rhyme-gutter) .read-editor > div.rl-pinned::before { left: -32px; }
+  /* phones: make room for the pin beside the letters */
+  @media (max-width: 640px) { .read-sheet.has-pins:has(.rhyme-gutter) { margin-left: 18px; } }
   .read-editor > div.rl-pinned.pin-shake { animation: pin-shake 0.32s ease; }
   @keyframes pin-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .line-row.pinned .line-input { color: var(--ink); cursor: default; }
   .line-row.pinned { position: relative; }
-  .line-row.pinned::before { content: "\1F4CC"; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); font-size: 10px; }
+  .line-row .pin-mark {
+    position: absolute; left: -16px; top: 50%; margin-top: -6px; width: 12px; height: 12px; background: var(--accent); opacity: 0.9;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
   #pin-toast {
     position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
     z-index: 70; background: var(--bg-raised); color: var(--shell-text); border: 1px solid var(--shell-border);
@@ -2544,6 +2555,10 @@
             <button id="tap-tempo" title="Tap along with the beat to set the BPM">TAP BPM</button>
           </div>
         </div>
+        <div class="meta-field" data-hud="tapsyl">
+          <label>Syllables</label>
+          <button id="tap-syl" title="Tap once for each syllable to count them">TAP SYLLABLES</button>
+        </div>
         <div class="meta-field" data-hud="timesig">
           <label for="timesig-input">Time sig</label>
           <select id="timesig-input" class="small-input" aria-label="Time signature"></select>
@@ -2816,11 +2831,12 @@
     <h2 id="tap-title">Tap BPM</h2>
     <div id="tap-pad" role="button" tabindex="0" aria-label="Tap along with the beat">
       <span id="tap-bpm">&mdash;</span>
-      <span class="tap-unit">BPM</span>
+      <span class="tap-unit" id="tap-unit">BPM</span>
       <span id="tap-count">Tap along with the beat</span>
     </div>
     <div class="tap-actions">
       <button id="tap-cancel">Cancel</button>
+      <button id="tap-undo" class="tap-undo">Undo tap</button>
       <button id="tap-reset">Start over</button>
       <button id="tap-use" class="primary" disabled>Use BPM</button>
     </div>
@@ -4541,6 +4557,7 @@
     });
 
     sheet.appendChild(ed);
+    sheet.classList.toggle("has-pins", pinList(song).length > 0);
     if (hint) ed.addEventListener("input", function () {
       if (hint.parentNode && ed.textContent.trim()) hint.parentNode.removeChild(hint);
     });
@@ -4775,6 +4792,12 @@
     rhyme.setAttribute("aria-hidden", "true");
     row.appendChild(rhyme);
     row.appendChild(input);
+    if (row.classList.contains("pinned")) {
+      var pm = document.createElement("span");
+      pm.className = "pin-mark";
+      pm.title = "Pinned in place";
+      row.appendChild(pm);
+    }
     row.appendChild(badge);
     row.appendChild(delBtn);
     return row;
@@ -5428,7 +5451,7 @@
   // layout, which "Save as Default" replaces (new songs start with it).
   var HUD_TOOLS = [
     { id: "title", name: "Title" }, { id: "bpm", name: "BPM" }, { id: "key", name: "Key" },
-    { id: "metronome", name: "Metronome & Tap Tempo" }, { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "align", name: "Alignment" }, { id: "wordcount", name: "Word Count" },
+    { id: "metronome", name: "Metronome & Tap Tempo" }, { id: "tapsyl", name: "Tap Syllables" }, { id: "timesig", name: "Time Signature" }, { id: "textsize", name: "Page Size" }, { id: "align", name: "Alignment" }, { id: "wordcount", name: "Word Count" },
     { id: "undo", name: "Undo & Redo" }, { id: "view", name: "Write / Build" }, { id: "import", name: "Paste Lyrics" },
     { id: "history", name: "Version History" }, { id: "details", name: "Details" }, { id: "rhymes", name: "Rhymes" }
   ];
@@ -6115,24 +6138,46 @@
   // The BPM is the average of the last few taps; "Use" puts it on the song.
   var tapModal = document.getElementById("tap-modal"), tapPad = document.getElementById("tap-pad");
   var taps = [], tapBpm = 0;
+  // Tap Syllables uses the same window: each tap is one syllable, for working out how long the next line should be
+  var tapMode = "bpm", sylTaps = 0;
   function showTap() {
-    document.getElementById("tap-bpm").textContent = tapBpm || "\u2014";
     var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    var syl = tapMode === "syl";
+    tapModal.classList.toggle("syl", syl);
+    document.getElementById("tap-title").textContent = syl ? "Tap Syllables" : "Tap BPM";
+    document.getElementById("tap-unit").textContent = syl ? (sylTaps === 1 ? "SYLLABLE" : "SYLLABLES") : "BPM";
+    document.getElementById("tap-cancel").textContent = syl ? "Done" : "Cancel";
+    tapPad.setAttribute("aria-label", syl ? "Tap once for each syllable" : "Tap along with the beat");
+    if (syl) {
+      document.getElementById("tap-bpm").textContent = sylTaps;
+      document.getElementById("tap-count").textContent = sylTaps ? "Keep tapping, one tap per syllable"
+        : (touch ? "Tap once for each syllable" : "Click or press Space once for each syllable");
+      document.getElementById("tap-undo").disabled = !sylTaps;
+      return;
+    }
+    document.getElementById("tap-bpm").textContent = tapBpm || "\u2014";
     document.getElementById("tap-count").textContent = !taps.length ? (touch ? "Tap along with the beat" : "Click or press Space along with the beat")
       : taps.length === 1 ? "Keep tapping\u2026" : taps.length + " taps";
     var use = document.getElementById("tap-use");
     use.disabled = !tapBpm;
     use.textContent = tapBpm ? "Use " + tapBpm + " BPM" : "Use BPM";
   }
-  function openTap() {
+  function openTap(mode) {
     if (moreModal.classList.contains("open")) closeMorePanel();
-    taps = []; tapBpm = 0;
+    tapMode = mode === "syl" ? "syl" : "bpm";
+    taps = []; tapBpm = 0; sylTaps = 0;
     showTap();
     tapModal.classList.add("open");
     tapPad.focus();
   }
   function closeTap() { tapModal.classList.remove("open"); }
   function tapOnce() {
+    if (tapMode === "syl") {
+      sylTaps++;
+      tapPad.classList.remove("hit"); void tapPad.offsetWidth; tapPad.classList.add("hit");
+      showTap();
+      return;
+    }
     var now = performance.now();
     if (taps.length && now - taps[taps.length - 1] > 2000) { taps = []; tapBpm = 0; }   // a pause starts over
     taps.push(now);
@@ -6151,9 +6196,11 @@
     if (e.key === "Escape") closeTap();
     else if (e.key === " " || e.key === "Enter" || e.key === "t" || e.key === "T") { e.preventDefault(); if (!e.repeat) tapOnce(); }
   });
-  document.getElementById("tap-tempo").addEventListener("click", openTap);
+  document.getElementById("tap-tempo").addEventListener("click", function () { openTap("bpm"); });
+  document.getElementById("tap-syl").addEventListener("click", function () { openTap("syl"); });
+  document.getElementById("tap-undo").addEventListener("click", function () { if (sylTaps) sylTaps--; showTap(); });
   document.getElementById("tap-cancel").addEventListener("click", closeTap);
-  document.getElementById("tap-reset").addEventListener("click", function () { taps = []; tapBpm = 0; showTap(); });
+  document.getElementById("tap-reset").addEventListener("click", function () { taps = []; tapBpm = 0; sylTaps = 0; showTap(); });
   document.getElementById("tap-use").addEventListener("click", function () {
     var song = getActiveSong();
     if (song && tapBpm) {
@@ -6590,7 +6637,7 @@
 
     var patch = {}, patchCount = 0, bundles = [];
     for (var bi = 0; bi < BUNDLES; bi++) bundles.push([]);
-    var next = [], localChanged = false, activeChanged = false, activeGone = false;
+    var next = [], localChanged = false, activeChanged = false, activeGone = false, activeExtras = false;
 
     Object.keys(ids).forEach(function (id) {
       var L = localMap[id], R = remote[id];
@@ -6612,11 +6659,13 @@
       if (L) {
         if (JSON.stringify(L) !== out) {
           var lyricChange = !lyricsEqual(L, merged) || L.title !== merged.title || L.bpm !== merged.bpm || L.key !== merged.key;
+          var extrasChange = JSON.stringify([L.pins, L.status, (L.cuts || []).length]) !== JSON.stringify([merged.pins, merged.status, (merged.cuts || []).length]);
           // update in place so an open editor keeps working on the same song object
           Object.keys(L).forEach(function (k) { delete L[k]; });
           Object.keys(merged).forEach(function (k) { L[k] = merged[k]; });
           localChanged = true;
           if (id === state.activeId && lyricChange) activeChanged = true;
+          else if (id === state.activeId && extrasChange) activeExtras = true;
         }
         next.push(L);
       } else {
@@ -6675,6 +6724,7 @@
       }
       persistSongs(true);
       if (activeChanged) renderAll(); else { renderSidebar(); if (historyOpen && getActiveSong()) renderVersions(getActiveSong()); }
+      if (!activeChanged && activeExtras) refreshSongExtras();
     }
     return patchCount ? patch : null;
   }
@@ -7266,6 +7316,8 @@
     });
   }
   function markPinnedLines(ed, song) {
+    var sheet = ed.closest(".read-sheet");
+    if (sheet) sheet.classList.toggle("has-pins", pinList(song).length > 0);
     Array.prototype.forEach.call(ed.children, function (d, i) {
       d.classList.toggle("rl-pinned", i > 0 && isPinnedText(song, d.textContent));
     });
@@ -7283,6 +7335,19 @@
   function selectionHasPin(info) {
     var song = getActiveSong();
     return !!info && selectedLineTexts(info).some(function (t) { return isPinnedText(song, t); });
+  }
+  // pins, status or unused lines of the open song changed (e.g. by sync): show them without redrawing the sheet
+  function refreshSongExtras() {
+    var song = getActiveSong();
+    if (!song) return;
+    activePinSong = song;
+    var ed = document.querySelector("#canvas .read-editor");
+    if (ed) markPinnedLines(ed, song);
+    else {
+      var ae = document.activeElement;
+      if (!(ae && ae.classList && ae.classList.contains("line-input"))) renderCanvas(song);   // Build: not while typing in it
+    }
+    if (moreModal.classList.contains("open")) { renderMoreStatus(); renderMoreUnused(); }
   }
   function togglePinSelection() {
     var song = getActiveSong(), info = selectionInfo(true);

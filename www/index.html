@@ -2092,18 +2092,24 @@
   .status-tag[data-status="recorded"] { color: var(--st-recorded); background: var(--st-recorded-bg); }
   .status-tag[data-status="released"] { color: var(--st-released); background: var(--st-released-bg); }
   /* lines pinned in place: marked, and locked until unpinned */
-  .read-editor > div.rl-pinned::after {
-    content: ""; display: inline-block; width: 0.72em; height: 0.72em; margin-left: 0.45em; vertical-align: -0.02em;
-    background: var(--accent); pointer-events: none; opacity: 0.85;
+  /* in the left margin, just outside the rhyme letters (A, B…) when they're showing */
+  .read-editor > div.rl-pinned { position: relative; }
+  .read-editor > div.rl-pinned::before {
+    content: ""; position: absolute; left: -17px; top: 50%; width: 12px; height: 12px; margin-top: -6px;
+    background: var(--accent); pointer-events: none; opacity: 0.9;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
   }
-  .read-editor.pv-sheet > div.rl-pinned::after { display: none; }
+  .read-editor.pv-sheet > div.rl-pinned::before { display: none; }
+  .read-sheet:has(.rhyme-gutter) .read-editor > div.rl-pinned::before { left: -32px; }
+  /* phones: make room for the pin beside the letters */
+  @media (max-width: 640px) { .read-sheet.has-pins:has(.rhyme-gutter) { margin-left: 18px; } }
   .read-editor > div.rl-pinned.pin-shake { animation: pin-shake 0.32s ease; }
   @keyframes pin-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .line-row.pinned .line-input { color: var(--ink); cursor: default; }
+  .line-row.pinned { position: relative; }
   .line-row .pin-mark {
-    flex-shrink: 0; width: 12px; height: 12px; margin: 0 4px; align-self: center; background: var(--accent); opacity: 0.85;
+    position: absolute; left: -16px; top: 50%; margin-top: -6px; width: 12px; height: 12px; background: var(--accent); opacity: 0.9;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
   }
@@ -4551,6 +4557,7 @@
     });
 
     sheet.appendChild(ed);
+    sheet.classList.toggle("has-pins", pinList(song).length > 0);
     if (hint) ed.addEventListener("input", function () {
       if (hint.parentNode && ed.textContent.trim()) hint.parentNode.removeChild(hint);
     });
@@ -7309,6 +7316,8 @@
     });
   }
   function markPinnedLines(ed, song) {
+    var sheet = ed.closest(".read-sheet");
+    if (sheet) sheet.classList.toggle("has-pins", pinList(song).length > 0);
     Array.prototype.forEach.call(ed.children, function (d, i) {
       d.classList.toggle("rl-pinned", i > 0 && isPinnedText(song, d.textContent));
     });

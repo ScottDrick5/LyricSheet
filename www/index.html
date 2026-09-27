@@ -2064,6 +2064,84 @@
     padding: 18px 20px; color: var(--shell-text);
   }
   #more-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 14px; }
+  #more-status { margin-bottom: 14px; }
+  #more-status[hidden] { display: none; }
+  #more-status button[aria-pressed="true"][data-status="unfinished"] { background: var(--st-unfinished-bg); color: var(--st-unfinished); }
+  #more-status button[aria-pressed="true"][data-status="recorded"] { background: var(--st-recorded-bg); color: var(--st-recorded); }
+  #more-status button[aria-pressed="true"][data-status="released"] { background: var(--st-released-bg); color: var(--st-released); }
+  /* song status: Unfinished / Recorded / Released */
+  :root {
+    --st-unfinished: #E3B35C; --st-unfinished-bg: rgba(214,158,46,0.18);
+    --st-recorded: #82B6EC; --st-recorded-bg: rgba(66,133,210,0.2);
+    --st-released: #6FC690; --st-released-bg: rgba(56,161,105,0.2);
+  }
+  :root[data-theme="light"] {
+    --st-unfinished: #A86E12; --st-unfinished-bg: rgba(214,158,46,0.16);
+    --st-recorded: #2F6FB3; --st-recorded-bg: rgba(66,133,210,0.14);
+    --st-released: #2A8049; --st-released-bg: rgba(56,161,105,0.15);
+  }
+  .status-tag {
+    display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 9px; vertical-align: 1px;
+    font-family: var(--font-ui); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.02em; line-height: 1.5;
+  }
+  .status-tag[data-status="unfinished"] { color: var(--st-unfinished); background: var(--st-unfinished-bg); }
+  .status-tag[data-status="recorded"] { color: var(--st-recorded); background: var(--st-recorded-bg); }
+  .status-tag[data-status="released"] { color: var(--st-released); background: var(--st-released-bg); }
+  /* pinned lines: stay in view at the top of the sheet while you rewrite */
+  .pin-strip {
+    position: sticky; top: -22px; z-index: 4; margin: 0 auto 14px; max-width: 760px;
+    display: flex; gap: 8px; overflow-x: auto; padding: 6px 0; background: var(--paper);
+    scrollbar-width: none;
+  }
+  .pin-strip::-webkit-scrollbar { display: none; }
+  /* (sticky "top" counts from inside the sheet's top padding, which already leaves room for the top bar) */
+  #editor.hud-pinned .pin-strip { top: 0; }
+  @media (max-width: 640px) { .pin-strip { top: -10px; } #editor.hud-pinned .pin-strip { top: 0; } }
+  .pin-chip {
+    flex: 0 0 auto; max-width: 78%; display: flex; align-items: flex-start; gap: 6px;
+    background: var(--tint-2); border: 1px solid var(--accent-dim); border-radius: 10px;
+    padding: 7px 6px 7px 10px; color: var(--shell-text); font-family: var(--font-lyric); font-size: 0.95rem;
+    cursor: pointer; text-align: left;
+  }
+  .pin-chip .pin-text { white-space: pre-line; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .pin-chip .pin-icon { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+  .pin-chip .pin-x {
+    flex-shrink: 0; width: 22px; height: 22px; border: none; background: none; color: var(--shell-text-dim);
+    border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .pin-chip .pin-x:hover { background: var(--shell-hover); color: var(--shell-text); }
+  .pin-chip.copied { border-color: var(--accent); }
+  /* Unused Lyrics drawer */
+  #unused-modal {
+    position: fixed; inset: 0; z-index: 57; background: var(--overlay);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #unused-modal.open { display: flex; }
+  #unused-panel {
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: var(--radius-md);
+    width: 100%; max-width: 440px; max-height: 100%; overflow-y: auto; padding: 18px 20px; color: var(--shell-text);
+  }
+  #unused-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 4px; }
+  #unused-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 14px; }
+  .unused-empty { color: var(--shell-text-dim); font-size: 0.88rem; padding: 8px 0; }
+  .unused-item { border: 1px solid var(--shell-border); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .unused-item .u-text { font-family: var(--font-lyric); font-size: 1rem; white-space: pre-line; }
+  .unused-item .u-when { font-size: 0.72rem; color: var(--shell-text-dim); margin-top: 4px; }
+  .unused-item .u-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .unused-item .u-actions button {
+    height: var(--ctl); padding: 0 12px; border-radius: 18px; border: 1px solid var(--shell-border); background: none;
+    color: var(--shell-text); font-family: var(--font-ui); font-size: 0.82rem; cursor: pointer;
+  }
+  .unused-item .u-actions .u-back { color: var(--accent); border-color: var(--accent-dim); }
+  .unused-item .u-actions .u-del { color: var(--danger); margin-left: auto; }
+  #unused-done {
+    width: 100%; background: var(--accent); border: none; color: var(--on-accent);
+    font-weight: 600; font-family: var(--font-ui); font-size: 0.9rem; padding: 11px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  @media (max-width: 640px) {
+    #unused-modal { align-items: flex-end; padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+    #unused-panel { max-width: none; max-height: 85%; }
+  }
   #more-tools { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
   #more-tools .meta-field { gap: 6px; }
   #more-tools > button, .more-row {
@@ -2165,6 +2243,8 @@
   @media (max-width: 640px) {
     #size-bar button { min-width: 32px; padding: 0 5px; }
     #size-pick { min-width: 44px; }
+    /* no room for A− / A+ next to the pin button: the size menu has every size */
+    #size-bar [data-size] { display: none; }
     #size-bar .fmt-sep { width: 3px; }
     #rhyme-pick { padding: 0 8px; font-size: 0.78rem; }
   }
@@ -2751,10 +2831,21 @@
 <div id="more-modal" role="dialog" aria-modal="true" aria-labelledby="more-title">
   <div id="more-panel">
     <h2 id="more-title">Song tools</h2>
+    <div id="more-status" class="seg" role="group" aria-label="Status"></div>
+    <button id="more-unused" class="more-row">Unused Lyrics</button>
     <div id="more-tools"></div>
     <button id="more-customize" class="more-row">Customize Top Bar…</button>
     <button id="more-delete" class="more-row more-danger">Delete Song</button>
     <button id="more-done">Done</button>
+  </div>
+</div>
+
+<div id="unused-modal" role="dialog" aria-modal="true" aria-labelledby="unused-title">
+  <div id="unused-panel">
+    <h2 id="unused-title">Unused Lyrics</h2>
+    <p class="setting-help">Lines you've cut from this song. Put one back, copy it, or delete it for good.</p>
+    <div id="unused-list"></div>
+    <button id="unused-done">Done</button>
   </div>
 </div>
 
@@ -2778,6 +2869,8 @@
   <button data-fmt="s" aria-label="Strikethrough" aria-pressed="false" title="Strikethrough">S</button>
   <span class="fmt-sep"></span>
   <button id="hl-pick" aria-haspopup="true" aria-expanded="false" aria-label="Highlight color" title="Highlight"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M15.2 3.6l5.2 5.2-8.9 8.9H6.3v-5.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M6.3 17.7l-2.6 2.6h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span id="hl-bar"></span></button>
+  <span class="fmt-sep"></span>
+  <button id="keep-pick" aria-haspopup="true" aria-expanded="false" aria-label="Pin or set aside" title="Pin, or move to Unused Lyrics"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7.5 2.8h5M8.3 2.8v4.6L5.6 10.6h8.8l-2.7-3.2V2.8M10 10.6v6.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <span class="fmt-sep" data-rhyme-ui></span>
   <button id="rhyme-pick" data-rhyme-ui aria-label="Find rhymes" title="Find rhymes for this word">Rhyme</button>
 </div>
@@ -3369,6 +3462,7 @@
     showSheet(title, [
       { label: "Details", fn: function () { openDetails(song); } },
       note ? null : { label: "Move to folder\u2026", fn: function () { moveMenu(song); } },
+      note ? null : { label: "Status" + (song.status ? ": " + statusName(song.status) : "") + "\u2026", fn: function () { statusMenu(song); } },
       { label: "Share\u2026", fn: function () { shareSong(song, null); } },
       { label: note ? "Copy note" : "Copy lyrics", fn: function () { if (song.id === state.activeId) flushReadSync(); copyText(songAsText(song), null); } },
       { label: "Duplicate", fn: function () { duplicateSong(song); closeSidebar(); } },
@@ -3612,6 +3706,8 @@
       var name = document.createElement("div");
       name.className = "g-name";
       name.textContent = song.title || untitled(song);
+      var gtag = statusTag(song);
+      if (gtag) name.appendChild(gtag);
       var date = document.createElement("div");
       date.className = "g-date";
       var bits = [fmtShort(song.lastEditedAt)];
@@ -3717,6 +3813,8 @@
       var name = document.createElement("span");
       name.className = "name";
       name.textContent = song.title || untitled(song);
+      var tag = statusTag(song);
+      if (tag) name.appendChild(tag);
       // date, then key/BPM (not on phones), then the first words, like "Yesterday  How long will it take…"
       var sub = document.createElement("span");
       sub.className = "sub";
@@ -4373,6 +4471,8 @@
     bar.appendChild(shareBtn);
     if (hint) bar.appendChild(hint);
     canvas.appendChild(bar);
+    var pins = pinStrip(song);
+    if (pins) canvas.appendChild(pins);
 
     var sheet = document.createElement("div");
     sheet.className = "read-sheet";
@@ -4409,6 +4509,7 @@
       }
     });
     ed.addEventListener("blur", function () {
+      rememberCaret(song, ed);
       flushReadSync();
       fillReadEditor(ed, editorLines(song), song); // tidy + recolor
       hideSizeBar();
@@ -4459,6 +4560,8 @@
     topBar.className = "read-toolbar sections-toolbar";
     topBar.appendChild(rhymeToggles(true));   // Build: letters only (its line boxes can't show colored words)
     canvas.appendChild(topBar);
+    var pinsB = pinStrip(song);
+    if (pinsB) canvas.appendChild(pinsB);
     var titleWrap = document.createElement("div");
     titleWrap.className = "build-title";
     titleWrap.style.fontSize = settings.fontSize + "px";
@@ -5358,6 +5461,8 @@
     var layout = songLayout(song), box = document.getElementById("more-tools");
     document.getElementById("more-delete").textContent = isNote(song) ? "Delete Note" : "Delete Song";
     document.getElementById("more-title").textContent = isNote(song) ? "Note" : "Song tools";
+    renderMoreStatus();
+    renderMoreUnused();
     hudToolsAvailable().forEach(function (t) {
       if (layout.indexOf(t.id) !== -1) return;
       var el = document.querySelector('#meta-bar [data-hud="' + t.id + '"]');
@@ -6396,6 +6501,17 @@
     if (wd) { m.writtenOn = wd.writtenOn; m.writtenOnSetAt = wd.writtenOnSetAt; }
     // a folder change made without editing the song (re-filed by an import) still wins
     if ((loser.folderSetAt || 0) > (winner.folderSetAt || 0)) { m.folderId = loser.folderId; m.folderSetAt = loser.folderSetAt; }
+    // and the status, and the pinned / unused lines
+    if ((loser.statusSetAt || 0) > (winner.statusSetAt || 0)) {
+      if (loser.status) m.status = loser.status; else delete m.status;
+      m.statusSetAt = loser.statusSetAt;
+    }
+    if ((loser.linesSetAt || 0) > (winner.linesSetAt || 0)) {
+      delete m.pins; delete m.cuts;
+      if (loser.pins) m.pins = loser.pins.slice();
+      if (loser.cuts) m.cuts = JSON.parse(JSON.stringify(loser.cuts));
+      m.linesSetAt = loser.linesSetAt;
+    }
     // likewise the top bar layout: the latest change (or reset) on either device wins
     if ((loser.hudSetAt || 0) > (winner.hudSetAt || 0)) {
       delete m.hud; delete m.hudV;
@@ -6951,8 +7067,8 @@
       openRhymePanel(info ? lastWordOf(info.w.text.slice(info.a, info.b)) : null);
       return;
     }
-    if (b.id === "size-pick" || b.id === "hl-pick" || b.id === "swap-pick") {
-      toggleFmtMenu(b.id === "size-pick" ? "size" : b.id === "hl-pick" ? "hl" : "swap");
+    if (b.id === "size-pick" || b.id === "hl-pick" || b.id === "swap-pick" || b.id === "keep-pick") {
+      toggleFmtMenu(b.id === "size-pick" ? "size" : b.id === "hl-pick" ? "hl" : b.id === "keep-pick" ? "keep" : "swap");
       return;
     }
     closeFmtMenu();
@@ -6969,6 +7085,7 @@
     document.getElementById("size-pick").setAttribute("aria-expanded", "false");
     document.getElementById("hl-pick").setAttribute("aria-expanded", "false");
     document.getElementById("swap-pick").setAttribute("aria-expanded", "false");
+    document.getElementById("keep-pick").setAttribute("aria-expanded", "false");
     fmtMenu.classList.remove("swap-menu");
     closeSwapStrip();
   }
@@ -6995,7 +7112,7 @@
     closeFmtMenu();
     fmtMenuKind = kind;
     fmtMenu.innerHTML = "";
-    var anchor = document.getElementById(kind === "size" ? "size-pick" : kind === "hl" ? "hl-pick" : "swap-pick");
+    var anchor = document.getElementById(kind === "size" ? "size-pick" : kind === "hl" ? "hl-pick" : kind === "keep" ? "keep-pick" : "swap-pick");
     if (kind === "swap" && swapStripWanted()) { openSwapStrip(); return; }
     if (kind === "swap") {
       var info = selectionInfo(true);
@@ -7005,6 +7122,10 @@
       SWAP_NAMES.concat(settings.savedHeaders || []).forEach(function (n) {
         if (n.toLowerCase() !== current) menuBtn(n, { "data-swap": n, "aria-checked": "false" });
       });
+    } else if (kind === "keep") {
+      fmtMenu.setAttribute("aria-label", "Pin or set aside");
+      menuBtn("Pin to Top", { "data-keep": "pin", "class": "wide", "aria-checked": "false" });
+      menuBtn("Move to Unused Lyrics", { "data-keep": "cut", "class": "wide", "aria-checked": "false" });
     } else if (kind === "size") {
       fmtMenu.setAttribute("aria-label", "Font size");
       ptSizes().forEach(function (pt) {
@@ -7026,6 +7147,12 @@
     placeFmtMenu(anchor);
   }
   onPress(fmtMenu, function (b) {
+    if (b.hasAttribute("data-keep")) {
+      var k = b.getAttribute("data-keep");
+      closeFmtMenu();
+      if (k === "pin") pinSelection(); else cutSelectionToUnused();
+      return;
+    }
     if (b.hasAttribute("data-swap")) swapHeader(b.getAttribute("data-swap"));
     else if (b.hasAttribute("data-pt")) setSelectionPt(parseInt(b.getAttribute("data-pt"), 10), true);
     else setHighlight(b.getAttribute("data-hl"), true);
@@ -7033,6 +7160,252 @@
     clearTimeout(fmtCloseTimer);
     fmtCloseTimer = setTimeout(closeFmtMenu, 300);
   });
+
+  // ---------- song status, pinned lines, unused lyrics ----------
+  // status: "" (none), "unfinished", "recorded" or "released". pins: lines kept in view at the top of the
+  // sheet while rewriting. cuts: lines taken out of the song ({ t: text, at: time }), kept in its
+  // Unused Lyrics drawer. Changes to these aren't edits to the lyrics, so they carry their own time
+  // (statusSetAt, linesSetAt) and sync keeps the latest from either device.
+  var STATUSES = [{ id: "unfinished", name: "Unfinished" }, { id: "recorded", name: "Recorded" }, { id: "released", name: "Released" }];
+  function statusName(id) { var st = STATUSES.filter(function (x) { return x.id === id; })[0]; return st ? st.name : ""; }
+  function statusTag(song) {
+    if (!song.status || !statusName(song.status)) return null;
+    var t = document.createElement("span");
+    t.className = "status-tag";
+    t.setAttribute("data-status", song.status);
+    t.textContent = statusName(song.status);
+    return t;
+  }
+  function setSongStatus(song, id) {
+    if (id) song.status = id; else delete song.status;
+    song.statusSetAt = Date.now();
+    persistSongs();
+    renderSidebar();
+    renderMoreStatus();
+  }
+  function statusMenu(song) {
+    showSheet("Status", [{ label: "No status", checked: !song.status, fn: function () { setSongStatus(song, ""); } }]
+      .concat(STATUSES.map(function (st) {
+        return { label: st.name, checked: song.status === st.id, fn: function () { setSongStatus(song, st.id); } };
+      })));
+  }
+  function renderMoreStatus() {
+    var box = document.getElementById("more-status"), song = getActiveSong();
+    if (!song || isNote(song)) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = "";
+    STATUSES.forEach(function (st) {
+      var b = document.createElement("button");
+      b.textContent = st.name;
+      b.setAttribute("data-status", st.id);
+      b.setAttribute("aria-pressed", String(song.status === st.id));
+      b.title = song.status === st.id ? "Tap again to clear" : "Mark as " + st.name.toLowerCase();
+      b.addEventListener("click", function () { setSongStatus(song, song.status === st.id ? "" : st.id); });
+      box.appendChild(b);
+    });
+  }
+  function linesChanged(song) {
+    song.linesSetAt = Date.now();
+    persistSongs();
+  }
+
+  // Pinned lines, shown in a strip that stays at the top of the sheet as you scroll
+  function pinStrip(song) {
+    if (!song.pins || !song.pins.length) return null;
+    var strip = document.createElement("div");
+    strip.className = "pin-strip";
+    strip.setAttribute("aria-label", "Pinned lines");
+    song.pins.forEach(function (text, i) {
+      var chip = document.createElement("div");
+      chip.className = "pin-chip";
+      chip.setAttribute("role", "button");
+      chip.tabIndex = 0;
+      chip.title = "Tap to copy";
+      chip.innerHTML = '<svg class="pin-icon" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M7.5 2.8h5M8.3 2.8v4.6L5.6 10.6h8.8l-2.7-3.2V2.8M10 10.6v6.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      var t = document.createElement("span");
+      t.className = "pin-text";
+      t.textContent = text;
+      chip.appendChild(t);
+      var x = document.createElement("button");
+      x.className = "pin-x";
+      x.setAttribute("aria-label", "Unpin");
+      x.title = "Unpin";
+      x.innerHTML = '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+      x.addEventListener("click", function (e) {
+        e.stopPropagation();
+        song.pins.splice(i, 1);
+        if (!song.pins.length) delete song.pins;
+        linesChanged(song);
+        refreshPinStrip(song);
+      });
+      chip.appendChild(x);
+      function copy() {
+        copyText(text, null);
+        chip.classList.add("copied");
+        chip.title = "Copied";
+        setTimeout(function () { chip.classList.remove("copied"); chip.title = "Tap to copy"; }, 1200);
+      }
+      chip.addEventListener("click", copy);
+      chip.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); copy(); } });
+      strip.appendChild(chip);
+    });
+    return strip;
+  }
+  // redraw just the strip, so the editor (and its cursor) is left alone
+  function refreshPinStrip(song) {
+    var canvas = document.getElementById("canvas"), old = canvas.querySelector(".pin-strip"), fresh = pinStrip(song);
+    if (old && fresh) canvas.replaceChild(fresh, old);
+    else if (old) canvas.removeChild(old);
+    else if (fresh) {
+      var bar = canvas.querySelector(".read-toolbar");
+      canvas.insertBefore(fresh, bar ? bar.nextSibling : canvas.firstChild);
+    }
+  }
+  function pinSelection() {
+    var song = getActiveSong(), info = selectionInfo(true);
+    if (!song || !info) return;
+    var text = info.w.text.slice(info.a, info.b).split("\n").map(function (l) { return l.trim(); })
+      .filter(Boolean).join("\n");
+    if (!text) return;
+    song.pins = (song.pins || []).filter(function (p) { return p !== text; });
+    song.pins.push(text);
+    linesChanged(song);
+    refreshPinStrip(song);
+  }
+
+  // Take the selected lines (whole lines) out of the song and keep them in its Unused Lyrics drawer
+  function cutSelectionToUnused() {
+    var song = getActiveSong(), info = selectionInfo(true);
+    if (!song || !info) return;
+    var T = info.w.text, a = info.a, b = info.b;
+    if (b > a && T.charAt(b - 1) === "\n") b--;            // a selection ending at the start of the next line
+    var start = T.lastIndexOf("\n", a - 1) + 1;
+    var titleEnd = T.indexOf("\n");
+    if (titleEnd === -1) return;                            // only the title: nothing to set aside
+    if (start <= titleEnd) start = titleEnd + 1;            // the title stays
+    var end = T.indexOf("\n", Math.max(b, start));
+    if (end === -1) end = T.length;
+    if (end <= start) return;
+    var text = T.slice(start, end).replace(/^\s*\n/, "").replace(/\n\s*$/, "");
+    if (!text.trim()) return;
+    // remove the lines and the line break that went with them
+    var from = start, to = end;
+    if (to < T.length) to++; else from = Math.max(titleEnd, from - 1);
+    var ed = info.ed, sel = window.getSelection(), r = document.createRange();
+    var p1 = editorPointAt(ed, from), p2 = editorPointAt(ed, to);
+    r.setStart(p1.node, p1.offset); r.setEnd(p2.node, p2.offset);
+    sel.removeAllRanges(); sel.addRange(r);
+    insertIntoEditor(song, ed, "");
+    savedSel = null;
+    hideSizeBar();
+    song.cuts = song.cuts || [];
+    song.cuts.unshift({ t: text, at: Date.now() });
+    linesChanged(song);
+    renderMoreUnused();
+  }
+
+  // The caret's place in the Write sheet when it was last left, for putting lines back there
+  var lastCaret = null;
+  function rememberCaret(song, ed) {
+    var sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    var r = sel.getRangeAt(0);
+    if (!ed.contains(r.endContainer)) return;
+    var pts = [{ node: r.endContainer, offset: r.endOffset }];
+    walkEditor(ed, pts);
+    if (pts[0].index != null) lastCaret = { id: song.id, index: pts[0].index };
+  }
+
+  var unusedModal = document.getElementById("unused-modal");
+  function renderMoreUnused() {
+    var song = getActiveSong(), n = song && song.cuts ? song.cuts.length : 0;
+    document.getElementById("more-unused").textContent = "Unused Lyrics" + (n ? " (" + n + ")" : "");
+  }
+  function openUnused() {
+    var song = getActiveSong();
+    if (!song) return;
+    renderUnused(song);
+    unusedModal.classList.add("open");
+  }
+  function closeUnused() { unusedModal.classList.remove("open"); }
+  function renderUnused(song) {
+    var list = document.getElementById("unused-list");
+    list.innerHTML = "";
+    var cuts = song.cuts || [];
+    if (!cuts.length) {
+      var e = document.createElement("p");
+      e.className = "unused-empty";
+      e.textContent = "Nothing here yet. Select lines on the sheet and choose \u201CMove to Unused Lyrics\u201D from the pin button.";
+      list.appendChild(e);
+      return;
+    }
+    cuts.forEach(function (c, i) {
+      var item = document.createElement("div");
+      item.className = "unused-item";
+      var t = document.createElement("div");
+      t.className = "u-text";
+      t.textContent = c.t;
+      var when = document.createElement("div");
+      when.className = "u-when";
+      when.textContent = "Cut " + fmtShort(c.at);
+      var acts = document.createElement("div");
+      acts.className = "u-actions";
+      function btn(label, cls, fn) {
+        var b = document.createElement("button");
+        b.textContent = label; b.className = cls;
+        b.addEventListener("click", fn);
+        acts.appendChild(b);
+        return b;
+      }
+      btn("Put Back", "u-back", function () { putBack(song, i); });
+      var cb = btn("Copy", "u-copy", function () { copyText(c.t, cb); });
+      btn("Delete", "u-del", function () {
+        song.cuts.splice(i, 1);
+        if (!song.cuts.length) delete song.cuts;
+        linesChanged(song);
+        renderUnused(song);
+        renderMoreUnused();
+      });
+      item.appendChild(t); item.appendChild(when); item.appendChild(acts);
+      list.appendChild(item);
+    });
+  }
+  // Put cut lines back into the song: after the line the cursor was on, else at the end
+  function putBack(song, i) {
+    var c = song.cuts[i];
+    if (!c) return;
+    flushReadSync();
+    var lines = c.t.split("\n");
+    var ed = document.querySelector("#canvas .read-editor");
+    if (ed && song.id === state.activeId) {
+      var T = walkEditor(ed).text;
+      var at = lastCaret && lastCaret.id === song.id ? Math.min(lastCaret.index, T.length) : T.length;
+      var eol = T.indexOf("\n", at);
+      if (eol === -1) eol = T.length;
+      var p = editorPointAt(ed, eol), sel = window.getSelection(), r = document.createRange();
+      r.setStart(p.node, p.offset); r.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r);
+      insertIntoEditor(song, ed, "\n" + c.t);
+      flushReadSync();
+      lastCaret = { id: song.id, index: eol + 1 + c.t.length };
+      ed.blur();
+    } else {
+      var last = song.sections[song.sections.length - 1];
+      if (last.lines.length && last.lines[last.lines.length - 1].trim()) spliceLines(last, last.lines.length, 0, [""]);
+      spliceLines(last, last.lines.length, 0, lines);
+      markEdited(song);
+      renderCanvas(song);
+    }
+    song.cuts.splice(i, 1);
+    if (!song.cuts.length) delete song.cuts;
+    linesChanged(song);
+    closeUnused();
+    renderMoreUnused();
+  }
+  document.getElementById("more-unused").addEventListener("click", function () { closeMorePanel(); openUnused(); });
+  document.getElementById("unused-done").addEventListener("click", closeUnused);
+  unusedModal.addEventListener("click", function (e) { if (e.target === unusedModal) closeUnused(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && unusedModal.classList.contains("open")) closeUnused(); });
 
   // ---------- commands (Mac menu bar, right-click menu, keyboard) ----------
   function runCommand(cmd) {
@@ -7618,6 +7991,10 @@
                 fresh.id = old.id;
                 if (old.folderSetAt) fresh.folderSetAt = old.folderSetAt;
                 fresh.versions = old.versions || [];
+                // what isn't in the note: status, pinned and unused lines, the song's own top bar
+                ["status", "statusSetAt", "pins", "cuts", "linesSetAt", "hud", "hudV", "hudSetAt"].forEach(function (k) {
+                  if (old[k] !== undefined) fresh[k] = old[k];
+                });
                 // (compared as text, so a song whose blank lines were tidied away gets the note's spacing back)
                 if (sectionsAsText(fresh) !== sectionsAsText(old) || fresh.title !== old.title) {
                   state.songs[state.songs.indexOf(old)] = fresh;

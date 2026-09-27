@@ -2087,30 +2087,27 @@
   .status-tag[data-status="unfinished"] { color: var(--st-unfinished); background: var(--st-unfinished-bg); }
   .status-tag[data-status="recorded"] { color: var(--st-recorded); background: var(--st-recorded-bg); }
   .status-tag[data-status="released"] { color: var(--st-released); background: var(--st-released-bg); }
-  /* pinned lines: stay in view at the top of the sheet while you rewrite */
-  .pin-strip {
-    position: sticky; top: -22px; z-index: 4; margin: 0 auto 14px; max-width: 760px;
-    display: flex; gap: 8px; overflow-x: auto; padding: 6px 0; background: var(--paper);
-    scrollbar-width: none;
+  /* lines pinned in place: marked, and locked until unpinned */
+  .read-editor > div.rl-pinned { position: relative; }
+  .read-editor > div.rl-pinned::before {
+    content: ""; position: absolute; left: -16px; top: 50%; width: 13px; height: 13px; margin-top: -7px;
+    background: var(--accent); pointer-events: none;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v1.6h-1.2v4.3l3 3.4v1.4h-4v5.5L10 19l-.8-.8v-5.5h-4v-1.4l3-3.4V3.6H7z'/%3E%3C/svg%3E") center / contain no-repeat;
   }
-  .pin-strip::-webkit-scrollbar { display: none; }
-  /* (sticky "top" counts from inside the sheet's top padding, which already leaves room for the top bar) */
-  #editor.hud-pinned .pin-strip { top: 0; }
-  @media (max-width: 640px) { .pin-strip { top: -10px; } #editor.hud-pinned .pin-strip { top: 0; } }
-  .pin-chip {
-    flex: 0 0 auto; max-width: 78%; display: flex; align-items: flex-start; gap: 6px;
-    background: var(--tint-2); border: 1px solid var(--accent-dim); border-radius: 10px;
-    padding: 7px 6px 7px 10px; color: var(--shell-text); font-family: var(--font-lyric); font-size: 0.95rem;
-    cursor: pointer; text-align: left;
+  .read-editor.pv-sheet > div.rl-pinned::before { display: none; }
+  .read-editor > div.rl-pinned.pin-shake { animation: pin-shake 0.32s ease; }
+  @keyframes pin-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .line-row.pinned .line-input { color: var(--ink); cursor: default; }
+  .line-row.pinned { position: relative; }
+  .line-row.pinned::before { content: "\1F4CC"; position: absolute; left: -18px; top: 50%; transform: translateY(-50%); font-size: 10px; }
+  #pin-toast {
+    position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    z-index: 70; background: var(--bg-raised); color: var(--shell-text); border: 1px solid var(--shell-border);
+    border-radius: 18px; padding: 8px 14px; font-family: var(--font-ui); font-size: 0.82rem;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18); pointer-events: none; max-width: calc(100vw - 32px); text-align: center;
   }
-  .pin-chip .pin-text { white-space: pre-line; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-  .pin-chip .pin-icon { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
-  .pin-chip .pin-x {
-    flex-shrink: 0; width: 22px; height: 22px; border: none; background: none; color: var(--shell-text-dim);
-    border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
-  }
-  .pin-chip .pin-x:hover { background: var(--shell-hover); color: var(--shell-text); }
-  .pin-chip.copied { border-color: var(--accent); }
+  #pin-toast[hidden] { display: none; }
   /* Unused Lyrics drawer */
   #unused-modal {
     position: fixed; inset: 0; z-index: 57; background: var(--overlay);
@@ -4172,6 +4169,7 @@
   function readLineEl(line, runs) {
     var d = document.createElement("div");
     if (!line.trim()) { d.appendChild(document.createElement("br")); return d; }
+    if (activePinSong && isPinnedText(activePinSong, line)) d.className = "rl-pinned";
     var h = detectHeader(line);
     if (h) {
       var t = line.trim();
@@ -4242,6 +4240,7 @@
       return;
     }
     var S = w.text.slice(0, a) + text + w.text.slice(b);
+    if (breaksPins(song, w.text, S)) { pinBlocked(ed); return; }
     var keys = w.keys.slice(0, a).concat(text.split("").map(function () { return PLAIN; }), w.keys.slice(b));
     var lines = [], start = 0;
     S.split("\n").forEach(function (t) {
@@ -4471,8 +4470,6 @@
     bar.appendChild(shareBtn);
     if (hint) bar.appendChild(hint);
     canvas.appendChild(bar);
-    var pins = pinStrip(song);
-    if (pins) canvas.appendChild(pins);
 
     var sheet = document.createElement("div");
     sheet.className = "read-sheet";
@@ -4489,8 +4486,34 @@
     ed.setAttribute("aria-label", "Title and lyrics");
     ed.spellcheck = true;
 
+    activePinSong = song;
     fillReadEditor(ed, editorLines(song), song);
 
+    // pinned lines can't be typed over or deleted: undo any edit that would change one
+    var pinGuard = null;
+    ed.addEventListener("beforeinput", function () {
+      pinGuard = null;
+      if (!pinList(song).length) return;
+      var sel = window.getSelection(), pts = [];
+      if (sel.rangeCount) pts = [{ node: sel.getRangeAt(0).startContainer, offset: sel.getRangeAt(0).startOffset }];
+      pinGuard = { w: walkEditor(ed, pts), at: pts.length ? pts[0].index : null };
+    }, true);
+    ed.addEventListener("input", function (e) {
+      if (!pinGuard) return;
+      var g = pinGuard;
+      pinGuard = null;
+      if (!breaksPins(song, g.w.text, walkEditor(ed).text)) return;
+      e.stopImmediatePropagation();
+      ed.innerHTML = "";
+      g.w.lines.forEach(function (l, i) { ed.appendChild(i === 0 ? readTitleEl(l.text, song) : readLineEl(l.text, l.runs)); });
+      markEditorPlaceholders(ed, song);
+      if (g.at != null) {
+        var p = editorPointAt(ed, g.at), r = document.createRange(), sel = window.getSelection();
+        r.setStart(p.node, p.offset); r.collapse(true);
+        sel.removeAllRanges(); sel.addRange(r);
+      }
+      pinBlocked(ed);
+    });
     ed.addEventListener("input", function () { readEdited(song, ed); });
     ed.addEventListener("paste", function (e) {
       var cd = e.clipboardData || window.clipboardData;
@@ -4560,8 +4583,6 @@
     topBar.className = "read-toolbar sections-toolbar";
     topBar.appendChild(rhymeToggles(true));   // Build: letters only (its line boxes can't show colored words)
     canvas.appendChild(topBar);
-    var pinsB = pinStrip(song);
-    if (pinsB) canvas.appendChild(pinsB);
     var titleWrap = document.createElement("div");
     titleWrap.className = "build-title";
     titleWrap.style.fontSize = settings.fontSize + "px";
@@ -4690,6 +4711,11 @@
     input.placeholder = section.lines.length === 1 ? "Write a line…" : "";
     input.value = section.lines[lIdx];
     input.id = "line_" + section.id + "_" + lIdx;
+    if (isPinnedText(song, section.lines[lIdx])) {
+      input.readOnly = true;
+      row.classList.add("pinned");
+      input.title = "Pinned in place. Unpin it in Write to change it.";
+    }
 
     var badge = document.createElement("span");
     badge.className = "syl-badge";
@@ -7124,7 +7150,7 @@
       });
     } else if (kind === "keep") {
       fmtMenu.setAttribute("aria-label", "Pin or set aside");
-      menuBtn("Pin to Top", { "data-keep": "pin", "class": "wide", "aria-checked": "false" });
+      menuBtn(selectionHasPin(selectionInfo(true)) ? "Unpin" : "Pin in Place", { "data-keep": "pin", "class": "wide", "aria-checked": "false" });
       menuBtn("Move to Unused Lyrics", { "data-keep": "cut", "class": "wide", "aria-checked": "false" });
     } else if (kind === "size") {
       fmtMenu.setAttribute("aria-label", "Font size");
@@ -7150,7 +7176,7 @@
     if (b.hasAttribute("data-keep")) {
       var k = b.getAttribute("data-keep");
       closeFmtMenu();
-      if (k === "pin") pinSelection(); else cutSelectionToUnused();
+      if (k === "pin") togglePinSelection(); else cutSelectionToUnused();
       return;
     }
     if (b.hasAttribute("data-swap")) swapHeader(b.getAttribute("data-swap"));
@@ -7209,68 +7235,63 @@
     persistSongs();
   }
 
-  // Pinned lines, shown in a strip that stays at the top of the sheet as you scroll
-  function pinStrip(song) {
-    if (!song.pins || !song.pins.length) return null;
-    var strip = document.createElement("div");
-    strip.className = "pin-strip";
-    strip.setAttribute("aria-label", "Pinned lines");
-    song.pins.forEach(function (text, i) {
-      var chip = document.createElement("div");
-      chip.className = "pin-chip";
-      chip.setAttribute("role", "button");
-      chip.tabIndex = 0;
-      chip.title = "Tap to copy";
-      chip.innerHTML = '<svg class="pin-icon" viewBox="0 0 20 20" width="13" height="13" aria-hidden="true"><path d="M7.5 2.8h5M8.3 2.8v4.6L5.6 10.6h8.8l-2.7-3.2V2.8M10 10.6v6.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      var t = document.createElement("span");
-      t.className = "pin-text";
-      t.textContent = text;
-      chip.appendChild(t);
-      var x = document.createElement("button");
-      x.className = "pin-x";
-      x.setAttribute("aria-label", "Unpin");
-      x.title = "Unpin";
-      x.innerHTML = '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-      x.addEventListener("click", function (e) {
-        e.stopPropagation();
-        song.pins.splice(i, 1);
-        if (!song.pins.length) delete song.pins;
-        linesChanged(song);
-        refreshPinStrip(song);
-      });
-      chip.appendChild(x);
-      function copy() {
-        copyText(text, null);
-        chip.classList.add("copied");
-        chip.title = "Copied";
-        setTimeout(function () { chip.classList.remove("copied"); chip.title = "Tap to copy"; }, 1200);
-      }
-      chip.addEventListener("click", copy);
-      chip.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); copy(); } });
-      strip.appendChild(chip);
+  // Lines pinned in place: a pinned line keeps its spot and its words until it's unpinned. Pins are the
+  // lines' text, so a pinned line is recognized wherever it is, on any device.
+  function pinList(song) { return (song && song.pins) || []; }
+  function isPinnedText(song, t) { t = t.trim(); return !!t && pinList(song).indexOf(t) !== -1; }
+  var activePinSong = null;   // readLineEl marks lines pinned in this song
+  function pinCounts(song, text) {
+    var c = {};
+    text.split("\n").slice(1).forEach(function (l) { var t = l.trim(); if (isPinnedText(song, t)) c[t] = (c[t] || 0) + 1; });
+    return c;
+  }
+  // would going from one text of the sheet to another change or remove a pinned line?
+  function breaksPins(song, before, after) {
+    if (!pinList(song).length) return false;
+    var a = pinCounts(song, before), b = pinCounts(song, after);
+    return Object.keys(a).some(function (t) { return (b[t] || 0) < a[t]; });
+  }
+  var pinToastTimer = null;
+  function pinBlocked(ed) {
+    var box = document.getElementById("pin-toast");
+    if (!box) { box = document.createElement("div"); box.id = "pin-toast"; box.setAttribute("role", "status"); document.body.appendChild(box); }
+    box.textContent = "That line is pinned. Select it and choose Unpin to change it.";
+    box.hidden = false;
+    clearTimeout(pinToastTimer);
+    pinToastTimer = setTimeout(function () { box.hidden = true; }, 2600);
+    if (ed) Array.prototype.forEach.call(ed.querySelectorAll(".rl-pinned"), function (d) {
+      d.classList.remove("pin-shake"); void d.offsetWidth; d.classList.add("pin-shake");
     });
-    return strip;
   }
-  // redraw just the strip, so the editor (and its cursor) is left alone
-  function refreshPinStrip(song) {
-    var canvas = document.getElementById("canvas"), old = canvas.querySelector(".pin-strip"), fresh = pinStrip(song);
-    if (old && fresh) canvas.replaceChild(fresh, old);
-    else if (old) canvas.removeChild(old);
-    else if (fresh) {
-      var bar = canvas.querySelector(".read-toolbar");
-      canvas.insertBefore(fresh, bar ? bar.nextSibling : canvas.firstChild);
-    }
+  function markPinnedLines(ed, song) {
+    Array.prototype.forEach.call(ed.children, function (d, i) {
+      d.classList.toggle("rl-pinned", i > 0 && isPinnedText(song, d.textContent));
+    });
   }
-  function pinSelection() {
+  // the lines the selection touches (not the title, headers or blank lines)
+  function selectedLineTexts(info) {
+    var out = [], start = 0;
+    info.w.text.split("\n").forEach(function (t, i) {
+      var end = start + t.length;
+      if (i > 0 && end >= info.a && start <= info.b && t.trim() && !detectHeader(t)) out.push(t.trim());
+      start = end + 1;
+    });
+    return out;
+  }
+  function selectionHasPin(info) {
+    var song = getActiveSong();
+    return !!info && selectedLineTexts(info).some(function (t) { return isPinnedText(song, t); });
+  }
+  function togglePinSelection() {
     var song = getActiveSong(), info = selectionInfo(true);
     if (!song || !info) return;
-    var text = info.w.text.slice(info.a, info.b).split("\n").map(function (l) { return l.trim(); })
-      .filter(Boolean).join("\n");
-    if (!text) return;
-    song.pins = (song.pins || []).filter(function (p) { return p !== text; });
-    song.pins.push(text);
+    var lines = selectedLineTexts(info);
+    if (!lines.length) return;
+    if (selectionHasPin(info)) song.pins = pinList(song).filter(function (p) { return lines.indexOf(p) === -1; });
+    else song.pins = pinList(song).concat(lines.filter(function (t) { return pinList(song).indexOf(t) === -1; }));
+    if (!song.pins.length) delete song.pins;
     linesChanged(song);
-    refreshPinStrip(song);
+    markPinnedLines(info.ed, song);
   }
 
   // Take the selected lines (whole lines) out of the song and keep them in its Unused Lyrics drawer
@@ -7291,6 +7312,7 @@
     // remove the lines and the line break that went with them
     var from = start, to = end;
     if (to < T.length) to++; else from = Math.max(titleEnd, from - 1);
+    if (breaksPins(song, T, T.slice(0, from) + T.slice(to))) { pinBlocked(info.ed); return; }
     var ed = info.ed, sel = window.getSelection(), r = document.createRange();
     var p1 = editorPointAt(ed, from), p2 = editorPointAt(ed, to);
     r.setStart(p1.node, p1.offset); r.setEnd(p2.node, p2.offset);

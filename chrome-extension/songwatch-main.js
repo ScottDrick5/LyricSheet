@@ -70,6 +70,7 @@
     if (!title && id) title = linkTitle(id);
     return {
       id,
+      playing: !!el && !el.paused,
       title: title.trim(),
       artist: ((md && md.artist) || '').trim(),
       art: artFor(md, id),
@@ -88,11 +89,14 @@
   }
 
   let last = '';
+  let lastPlaying = false;
   let playlistIds = null;
   const timer = setInterval(() => {
     const song = read();
-    if (song.key === '|' || song.key === last) return;
+    // Report a new song, and also the moment playback starts.
+    if (song.key === '|' || (song.key === last && song.playing === lastPlaying)) return;
     last = song.key;
+    lastPlaying = song.playing;
     // Snapshot the playlist when playback starts, before the page can change.
     if (!playlistIds) playlistIds = pageSongIds();
     window.postMessage({ __audioGrabber: 'song', ...song, playlistIds }, '*');

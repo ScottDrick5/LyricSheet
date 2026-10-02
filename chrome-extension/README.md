@@ -49,6 +49,14 @@ How it knows where one song ends and the next begins:
 - When nothing has played for **2 minutes** (changeable), it assumes the playlist is over,
   stops, and saves.
 
+**Stems.** Stems (vocals only, drums only…) have long silent stretches, which normally count as
+the end of a song. Turn on **Keep silences (for stems)**: each file then runs from the moment the
+track starts playing until the next track starts. Silences, including a silent intro, stay in, so every
+stem file is the full length of the song. Stems recorded this way line up to within about a tenth of a
+second; nudge them in your editor if you need them sample-exact. **Stop after silence of** still
+ends the recording, so set it longer than the longest silence in your stems (or to **Never**), and rely
+on **Stop when my playlist ends** or **Stop after N songs** instead.
+
 **Done notification.** When the recording finishes on its own (playlist over, song limit, silence,
 auto-stop, or the tab closed), a desktop notification tells you why and how many songs were saved.
 Click it to open your Downloads folder. On a Mac, allow notifications for Google Chrome in
@@ -76,6 +84,7 @@ Keyboard shortcut: **Alt+Shift+R** starts/stops recording the current tab
 | Keep playing while recording | On: you still hear the tab. Off: the tab is silenced but still recorded |
 | Mix in microphone | Records your mic along with the tab. Click **allow mic** once first to give Chrome permission |
 | Split into separate songs | One file per song, named after it (see above) |
+| Keep silences (for stems) | Never split on silence or trim it; one full-length file per track |
 | Silent gap that splits | How long a silence has to last to end a song |
 | Silence level | How quiet counts as silence |
 | Stop when my playlist ends | Stops as soon as a song that isn't in the playlist starts |

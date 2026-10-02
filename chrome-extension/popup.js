@@ -80,6 +80,8 @@ function applySettings(settings) {
   $('silenceDb').value = String(settings.silenceDb);
   $('endAfterSilenceMinutes').value = String(settings.endAfterSilenceMinutes);
   $('stopAtPlaylistEnd').checked = settings.stopAtPlaylistEnd;
+  $('keepSilence').checked = settings.keepSilence;
+  $('gapRow').hidden = settings.keepSilence;
   $('maxSongs').value = settings.maxSongs > 0 ? String(settings.maxSongs) : '';
   $('folder').value = settings.folder;
   $('saveAs').checked = settings.saveAs;
@@ -164,6 +166,7 @@ $('includeMic').onchange = (e) => save({ includeMic: e.target.checked });
 $('splitOnSilence').onchange = (e) => save({ splitOnSilence: e.target.checked });
 $('silenceSeconds').onchange = (e) => save({ silenceSeconds: Number(e.target.value) });
 $('silenceDb').onchange = (e) => save({ silenceDb: Number(e.target.value) });
+$('keepSilence').onchange = (e) => save({ keepSilence: e.target.checked });
 $('stopAtPlaylistEnd').onchange = (e) => save({ stopAtPlaylistEnd: e.target.checked });
 $('maxSongs').onchange = (e) => save({ maxSongs: Math.max(0, parseInt(e.target.value, 10) || 0) });
 $('endAfterSilenceMinutes').onchange = (e) => save({ endAfterSilenceMinutes: Number(e.target.value) });

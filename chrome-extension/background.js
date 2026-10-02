@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = {
   silenceDb: -50,        // anything quieter than this counts as silence
   endAfterSilenceMinutes: 2, // stop the whole recording when nothing plays this long (0 = never)
   stopAtPlaylistEnd: true, // stop when the page plays a song that isn't in the playlist
+  keepSilence: false,      // stems: keep silences, split only when the song changes
   maxSongs: 0              // stop after this many songs (0 = no limit)
 };
 
@@ -253,6 +254,8 @@ async function onSong(msg, sender) {
   // songs), make that cut the end of the recording.
   const final = !!(state.stopAtPlaylistEnd && playlistCheck === 'ok' && msg.id && !playlistIds.includes(msg.id));
   if (changed && state.split) await sendToOffscreen({ type: 'songChange', final }).catch(() => {});
+  // Stems: start the file the moment playback starts, keeping any silent intro.
+  if (msg.playing && state.split && !final) await sendToOffscreen({ type: 'songStart' }).catch(() => {});
   return { keep: true };
 }
 

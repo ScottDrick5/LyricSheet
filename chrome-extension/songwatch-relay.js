@@ -16,9 +16,9 @@
   const onMessage = (e) => {
     if (e.source !== window || !e.data || e.data.__audioGrabber !== 'song') return;
     if (!alive()) return stop(false);
-    const { id, title, artist, art, key, playlistIds } = e.data;
+    const { id, playing, title, artist, art, key, playlistIds } = e.data;
     try {
-      chrome.runtime.sendMessage({ target: 'background', type: 'song', id, title, artist, art, key, playlistIds })
+      chrome.runtime.sendMessage({ target: 'background', type: 'song', id, playing, title, artist, art, key, playlistIds })
         .then((res) => { if (res && res.keep === false) stop(); })
         .catch(() => stop());
     } catch (err) {

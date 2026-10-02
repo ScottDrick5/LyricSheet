@@ -144,7 +144,9 @@ async function start(streamId, settings) {
     endFrames: settings.endAfterSilenceMinutes > 0 ? sec(settings.endAfterSilenceMinutes * 60) : 0,
     minTrackFrames: sec(5), // shorter blips (clicks, notification sounds) are thrown away
     maxSongs: settings.maxSongs > 0 ? settings.maxSongs : 0,
-    playlistSize: 0,      // how many songs the page's playlist has (from the song watcher)
+    playlistSize: 0,
+    // Stems: never split on silence or trim it; files run from song start to song change.
+    keepSilence: !!settings.keepSilence,      // how many songs the page's playlist has (from the song watcher)
     done: false,          // playlist finished: ignore any audio that follows
     pending: [],          // quiet chunks held back until we know if it's a gap or just a quiet moment
     quietFrames: 0,
@@ -246,6 +248,19 @@ function songChange(final) {
   return { ok: true };
 }
 
+// Stems: the page started playing. Start the file now, not at the first
+// sound, so leading silence is kept and stems of the same song line up.
+function songStart() {
+  const s = session;
+  if (!s || !s.split || !s.keepSilence || s.track || s.cut || s.done || s.stopping) return { ok: true };
+  // No lead-in: the page reports playback a moment before the audio reaches us.
+  s.track = newTrack(s);
+  s.preroll = [];
+  s.idleFrames = 0;
+  chrome.runtime.sendMessage({ target: 'background', type: 'trackStart', track: s.track.number }).catch(() => {});
+  return { ok: true };
+}
+
 function joinChunks(chunks, ch) {
   const out = new Int16Array(chunks.reduce((n, c) => n + c[ch].length, 0));
   let o = 0;
@@ -327,7 +342,18 @@ function onChunk(s, left, right) {
     } else {
       s.pending.push([l16, r16]);
       s.quietFrames += l16.length;
-      if (s.quietFrames >= s.gapFrames) endTrack(s);
+      if (!s.keepSilence) {
+        if (s.quietFrames >= s.gapFrames) endTrack(s);
+      } else if (s.endFrames && s.quietFrames >= s.endFrames) {
+        // Silent for so long the playlist must be over: save without that silence.
+        endTrack(s);
+        if (!s.done) finishAndNotify('silence');
+      } else if (!s.endFrames) {
+        // Silence inside a stem is part of it. (With "Stop after silence" on, it
+        // is held back until sound returns, in case it turns out to be the end.)
+        for (const [l, r] of s.pending) writeTrack(s.track, l, r);
+        s.pending = [];
+      }
     }
   }
 
@@ -405,6 +431,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     resume: () => { session && session.worklet.port.postMessage({ type: 'resume' }); return { ok: true }; },
     status,
     songChange: () => songChange(!!msg.final),
+    songStart,
     playlistInfo: () => { if (session) session.playlistSize = msg.size; return { ok: true }; }
   }[msg.type];
   if (!run) return false;

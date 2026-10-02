@@ -63,7 +63,11 @@
       <input type="checkbox" id="splitOnSilence">
     </label>
     <div class="sub" id="splitOptions">
-      <div class="row">
+      <label class="row" title="For stems: keep silent stretches and start each file when the song starts. Files are only cut when the song changes.">
+        <span>Keep silences (for stems)</span>
+        <input type="checkbox" id="keepSilence">
+      </label>
+      <div class="row" id="gapRow">
         <span>Silent gap that splits</span>
         <select id="silenceSeconds">
           <option value="1">1 sec</option>

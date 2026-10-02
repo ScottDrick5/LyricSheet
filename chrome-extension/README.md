@@ -52,10 +52,20 @@ How it knows where one song ends and the next begins:
 **Stems.** Stems (vocals only, drums only…) have long silent stretches, which normally count as
 the end of a song. Turn on **Keep silences (for stems)**: each file then runs from the moment the
 track starts playing until the next track starts. Silences, including a silent intro, stay in, so every
-stem file is the full length of the song. Stems recorded this way line up to within about a tenth of a
-second; nudge them in your editor if you need them sample-exact. **Stop after silence of** still
+stem file is the full length of the song. **Stop after silence of** still
 ends the recording, so set it longer than the longest silence in your stems (or to **Never**), and rely
 on **Stop when my playlist ends** or **Stop after N songs** instead.
+
+How stems stay in sync: the extension reads the player's exact playback position to find the moment
+each stem's first sample played, and cuts the file at exactly that sample (the last few seconds are
+held back so the cut can land precisely). At the start of a stems recording it also plays three very
+short, quiet chirps at 17-19 kHz (above most people's hearing) in the tab to measure how long Chrome
+takes to hand tab audio to the recorder, and corrects every cut by that delay. In testing, stems
+recorded one after another lined up to within a fraction of a millisecond. Tips:
+- Press **Record** before pressing play, so the chirps can be measured while the tab is quiet.
+- Use **WAV** for stems. MP3 encoding adds a short silent padding at the start of every file
+  (the same for each stem, but some editors don't remove it).
+- The popup's song counter runs a few seconds behind in stems mode, because of the held-back audio.
 
 **Done notification.** When the recording finishes on its own (playlist over, song limit, silence,
 auto-stop, or the tab closed), a desktop notification tells you why and how many songs were saved.

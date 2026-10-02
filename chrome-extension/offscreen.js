@@ -146,7 +146,15 @@ async function start(streamId, settings) {
     maxSongs: settings.maxSongs > 0 ? settings.maxSongs : 0,
     playlistSize: 0,
     // Stems: never split on silence or trim it; files run from song start to song change.
-    keepSilence: !!settings.keepSilence,      // how many songs the page's playlist has (from the song watcher)
+    keepSilence: !!settings.keepSilence,
+    hold: [],             // stems: the last few seconds, not yet written, so cuts can land exactly
+    cuts: [],             // stems: exact cut points (audio-clock frames) waiting to be applied
+    tentative: null,      // stems: a rough cut, used only if the exact timing never arrives
+    started: false,
+    lastFrame: 0,
+    clock: [],            // recent readings of (wall clock - audio clock), for converting times
+    latency: settings.captureLatency || 0, // frames between the page playing audio and it arriving here
+    calibs: null,         // expected frames of the calibration chirps, while measuring      // how many songs the page's playlist has (from the song watcher)
     done: false,          // playlist finished: ignore any audio that follows
     pending: [],          // quiet chunks held back until we know if it's a gap or just a quiet moment
     quietFrames: 0,
@@ -156,7 +164,7 @@ async function start(streamId, settings) {
   if (!session.split) session.track = newTrack(session);
 
   worklet.port.onmessage = (e) => {
-    if (e.data.type === 'data' && session && !session.stopping) onChunk(session, e.data.left, e.data.right);
+    if (e.data.type === 'data' && session && !session.stopping) onChunk(session, e.data.left, e.data.right, e.data.frame);
   };
 
   // Tab closed or navigated somewhere uncapturable: save what we have.
@@ -297,13 +305,16 @@ function performCut(s) {
   chrome.runtime.sendMessage({ target: 'background', type: 'trackStart', track: s.track.number }).catch(() => {});
 }
 
-function onChunk(s, left, right) {
+function onChunk(s, left, right, frame) {
   if (s.done) return;
   const l16 = floatTo16(left);
   const r16 = floatTo16(right);
   s.frames += l16.length;
 
-  if (!s.split) {
+  if (s.split && s.keepSilence) {
+    noteClock(s);
+    stemChunk(s, frame, l16, r16, peakOf(left, right) >= s.threshold);
+  } else if (!s.split) {
     writeTrack(s.track, l16, r16);
   } else if (s.cut) {
     s.cut.chunks.push([l16, r16]);
@@ -360,6 +371,249 @@ function onChunk(s, left, right) {
   if (s.frames >= s.maxFrames) finishAndNotify('autoStop');
 }
 
+// ---- Stems: sample-accurate cuts -------------------------------------------
+//
+// The page reports the wall-clock time at which each song's position 0 played.
+// That is converted to a frame on this recorder's audio clock and the file is
+// cut exactly there. Chrome's capture delay is the same for every song, so it
+// shifts all files equally and stems still line up with each other. Audio is
+// held back a few seconds before being written, because the timing report
+// arrives about a second after the song starts.
+
+const HOLD_FRAMES = 5 * SAMPLE_RATE;
+const TENTATIVE_WAIT = 3 * SAMPLE_RATE;
+
+function peakOf(left, right) {
+  let peak = 0;
+  for (let i = 0; i < left.length; i++) {
+    const v = Math.max(Math.abs(left[i]), Math.abs(right[i]));
+    if (v > peak) peak = v;
+  }
+  return peak;
+}
+
+// Wall-clock milliseconds at audio-clock time 0, from the audio output's own timestamps.
+function noteClock(s) {
+  const ts = s.ctx.getOutputTimestamp ? s.ctx.getOutputTimestamp() : null;
+  const offset = ts && ts.performanceTime > 0
+    ? performance.timeOrigin + ts.performanceTime - ts.contextTime * 1000
+    : performance.timeOrigin + performance.now() - s.ctx.currentTime * 1000;
+  s.clock.push(offset);
+  if (s.clock.length > 64) s.clock.shift();
+}
+
+function frameOf(s, wallMs) {
+  if (!s.clock.length) noteClock(s);
+  const sorted = [...s.clock].sort((a, b) => a - b);
+  const offset = sorted[sorted.length >> 1];
+  return Math.round(((wallMs - offset) / 1000) * SAMPLE_RATE);
+}
+
+function stemChunk(s, frame, l16, r16, loud) {
+  s.hold.push({ frame, l: l16, r: r16, loud });
+  s.lastFrame = frame + l16.length;
+  if (s.calibs && s.lastFrame > Math.max(...s.calibs) + 0.4 * SAMPLE_RATE) measureLatency(s);
+  // A rough cut whose exact timing never came: use it as is.
+  if (s.tentative && s.lastFrame - s.tentative.frame >= TENTATIVE_WAIT) {
+    addCut(s, s.tentative);
+    s.tentative = null;
+  }
+  drainHold(s, false);
+}
+
+function addCut(s, cut) {
+  s.cuts.push(cut);
+  s.cuts.sort((a, b) => cutFrame(s, a) - cutFrame(s, b));
+}
+
+// Exact cuts come from the page's clock, so add the capture delay; rough
+// cuts are already in recorded frames.
+function cutFrame(s, cut) {
+  return cut.exact ? cut.frame + s.latency : cut.frame;
+}
+
+// Write out held audio that is old enough, applying any cuts on the way.
+function drainHold(s, all) {
+  while (s.hold.length && !s.done) {
+    const c = s.hold[0];
+    const end = c.frame + c.l.length;
+    const cut = s.cuts[0];
+    const cutAt = cut && cutFrame(s, cut);
+    if (cut && cutAt < end) {
+      const at = Math.max(0, cutAt - c.frame);
+      if (at > 0) {
+        stemRelease(s, c.l.subarray(0, at), c.r.subarray(0, at), c.loud);
+        c.l = c.l.subarray(at);
+        c.r = c.r.subarray(at);
+        c.frame += at;
+      }
+      s.cuts.shift();
+      stemCut(s, cut.final);
+      continue;
+    }
+    if (!all && (s.lastFrame - c.frame <= HOLD_FRAMES || (s.tentative && end > s.tentative.frame))) break;
+    s.hold.shift();
+    stemRelease(s, c.l, c.r, c.loud);
+  }
+}
+
+// One song ends and the next begins at exactly this point.
+function stemCut(s, final) {
+  const old = s.track;
+  if (old) {
+    for (const [l, r] of s.pending) writeTrack(old, l, r);
+    s.pending = [];
+    s.quietFrames = 0;
+    if (old.frames >= SAMPLE_RATE) queueSave(s, old);
+    else s.trackCount--;
+    s.track = null;
+  }
+  if (final || (old && s.maxSongs && s.saved >= s.maxSongs)) {
+    s.hold = [];
+    s.cuts = [];
+    s.tentative = null;
+    finishPlaylist(s, final ? 'playlistEnd' : 'songLimit');
+    return;
+  }
+  s.started = true;
+  s.track = newTrack(s);
+  s.idleFrames = 0;
+  chrome.runtime.sendMessage({ target: 'background', type: 'trackStart', track: s.track.number }).catch(() => {});
+}
+
+// Audio leaving the hold: into the current file, keeping silences (but
+// holding a long final silence back in case the playlist is over).
+function stemRelease(s, l16, r16, loud) {
+  if (!l16.length) return;
+  if (!s.track) {
+    s.idleFrames += l16.length;
+    if (s.saved && s.endFrames && s.idleFrames >= s.endFrames) finishAndNotify('silence');
+    return;
+  }
+  if (loud) {
+    for (const [l, r] of s.pending) writeTrack(s.track, l, r);
+    s.pending = [];
+    s.quietFrames = 0;
+    writeTrack(s.track, l16, r16);
+    return;
+  }
+  s.pending.push([l16, r16]);
+  s.quietFrames += l16.length;
+  if (s.endFrames && s.quietFrames >= s.endFrames) {
+    endTrack(s);
+    if (!s.done) finishAndNotify('silence');
+  } else if (!s.endFrames) {
+    for (const [l, r] of s.pending) writeTrack(s.track, l, r);
+    s.pending = [];
+  }
+}
+
+// ---- Stems: measuring the capture delay -------------------------------------
+
+const CHIRP = (() => {
+  // The same 40 ms 17-19 kHz chirp the page plays, as in-phase and quadrature
+  // templates so the match doesn't depend on its phase.
+  const n = Math.round(0.04 * SAMPLE_RATE);
+  const i = new Float32Array(n);
+  const q = new Float32Array(n);
+  for (let k = 0; k < n; k++) {
+    const t = k / SAMPLE_RATE;
+    const env = Math.min(1, t / 0.005, (0.04 - t) / 0.005);
+    const ph = 2 * Math.PI * (17000 * t + 25000 * t * t);
+    i[k] = env * Math.cos(ph);
+    q[k] = env * Math.sin(ph);
+  }
+  return { i, q, n };
+})();
+
+// Mono samples for a span of recorded frames, from the hold buffer.
+function holdSlice(s, from, to) {
+  const out = new Float32Array(Math.max(0, to - from));
+  for (const c of s.hold) {
+    for (let k = Math.max(from, c.frame); k < Math.min(to, c.frame + c.l.length); k++) {
+      out[k - from] = (c.l[k - c.frame] + c.r[k - c.frame]) / 65536;
+    }
+  }
+  return out;
+}
+
+function measureLatency(s) {
+  const found = [];
+  for (const expected of s.calibs) {
+    const from = expected - Math.round(0.03 * SAMPLE_RATE);
+    const x = holdSlice(s, from, expected + Math.round(0.3 * SAMPLE_RATE) + CHIRP.n);
+    let best = 0;
+    let bestAt = -1;
+    let energy = 0;
+    for (let k = 0; k < CHIRP.n && k < x.length; k++) energy += x[k] * x[k];
+    for (let off = 0; off + CHIRP.n <= x.length; off++) {
+      let a = 0;
+      let b = 0;
+      for (let k = 0; k < CHIRP.n; k += 1) {
+        a += x[off + k] * CHIRP.i[k];
+        b += x[off + k] * CHIRP.q[k];
+      }
+      const m = a * a + b * b;
+      // Normalized match, so loud music elsewhere can't fake a chirp.
+      const score = m / Math.max(1e-12, energy * (CHIRP.n / 2));
+      if (score > best) { best = score; bestAt = off; }
+      if (off + CHIRP.n < x.length) energy += x[off + CHIRP.n] ** 2 - x[off] ** 2;
+    }
+    if (best > 0.5) found.push(from + bestAt - expected);
+  }
+  s.calibs = null;
+  if (found.length < 2) return;
+  found.sort((a, b) => a - b);
+  // Use it only if the chirps agree with each other (within 3 ms).
+  if (found[found.length - 1] - found[0] > 0.003 * SAMPLE_RATE) return;
+  s.latency = found[found.length >> 1];
+  chrome.runtime.sendMessage({ target: 'background', type: 'saveLatency', frames: s.latency }).catch(() => {});
+}
+
+function stemCalib(walls) {
+  const s = session;
+  if (!s || !s.keepSilence || s.done || !walls || !walls.length) return { ok: true };
+  s.calibs = walls.map((w) => frameOf(s, w));
+  return { ok: true };
+}
+
+// The exact moment this song's position 0 played, measured by the page.
+function stemTiming(zero, final) {
+  const s = session;
+  if (!s || !s.split || !s.keepSilence || s.done || s.stopping) return { ok: true };
+  s.tentative = null;
+  const frame = frameOf(s, zero);
+  // Replace a rough cut already made for this song change.
+  const near = s.cuts.find((c) => !c.exact && Math.abs(c.frame - (frame + s.latency)) < SAMPLE_RATE);
+  if (near) {
+    s.cuts.splice(s.cuts.indexOf(near), 1);
+    final = final || near.final;
+  }
+  addCut(s, { frame, final, exact: true });
+  drainHold(s, false);
+  return { ok: true };
+}
+
+// Rough fallbacks from the page's song reports, used only if no exact timing follows.
+function stemSongStart() {
+  const s = session;
+  if (!s || s.done || s.stopping || s.started || s.tentative || s.cuts.length) return { ok: true };
+  s.tentative = { frame: s.lastFrame, final: false };
+  return { ok: true };
+}
+
+function stemSongChange(final) {
+  const s = session;
+  if (!s || s.done || s.stopping) return { ok: true };
+  if (!s.started && !s.cuts.length && !s.tentative) {
+    if (final) finishPlaylist(s, 'playlistEnd');
+    return { ok: true };
+  }
+  if (s.tentative) s.tentative.final = s.tentative.final || final;
+  else s.tentative = { frame: s.lastFrame, final };
+  return { ok: true };
+}
+
 function stop() {
   if (!session) return Promise.resolve({ ok: true });
   if (session.stopping) return session.stopping;
@@ -368,13 +622,17 @@ function stop() {
     // Pull the last partial batch out of the worklet before finishing.
     await new Promise((resolve) => {
       s.worklet.port.onmessage = (e) => {
-        if (e.data.type === 'data') onChunk(s, e.data.left, e.data.right);
+        if (e.data.type === 'data') onChunk(s, e.data.left, e.data.right, e.data.frame);
         if (e.data.type === 'flushed') resolve();
       };
       s.worklet.port.postMessage({ type: 'flush' });
       setTimeout(resolve, 1000);
     });
     s.worklet.port.onmessage = null;
+    if (s.split && s.keepSilence && !s.done) {
+      if (s.tentative) { addCut(s, s.tentative); s.tentative = null; }
+      drainHold(s, true);
+    }
     s.tabStream.getTracks().forEach((t) => t.stop());
     if (s.micStream) s.micStream.getTracks().forEach((t) => t.stop());
     await s.ctx.close();
@@ -430,8 +688,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     pause: () => { session && session.worklet.port.postMessage({ type: 'pause' }); return { ok: true }; },
     resume: () => { session && session.worklet.port.postMessage({ type: 'resume' }); return { ok: true }; },
     status,
-    songChange: () => songChange(!!msg.final),
-    songStart,
+    songChange: () => (session && session.keepSilence ? stemSongChange(!!msg.final) : songChange(!!msg.final)),
+    songStart: () => (session && session.keepSilence ? stemSongStart() : songStart()),
+    songTiming: () => stemTiming(msg.zero, !!msg.final),
+    calib: () => stemCalib(msg.walls),
     playlistInfo: () => { if (session) session.playlistSize = msg.size; return { ok: true }; }
   }[msg.type];
   if (!run) return false;

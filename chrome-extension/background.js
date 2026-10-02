@@ -96,7 +96,9 @@ async function startRecording(tabId) {
   const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
 
   await ensureOffscreen();
-  const res = await sendToOffscreen({ type: 'start', streamId, settings });
+  // The capture delay measured on an earlier stems recording, until this one measures it again.
+  const { captureLatency = 0 } = await chrome.storage.local.get('captureLatency');
+  const res = await sendToOffscreen({ type: 'start', streamId, settings: { ...settings, captureLatency } });
   if (!res || !res.ok) throw new Error((res && res.error) || 'Could not start recording.');
 
   await setState({
@@ -104,13 +106,14 @@ async function startRecording(tabId) {
     paused: false,
     muted: !settings.keepPlaying,
     split: !!settings.splitOnSilence,
+    keepSilence: !!settings.keepSilence,
     stopAtPlaylistEnd: !!settings.stopAtPlaylistEnd,
     tabId,
     title: tab.title || 'Recording',
     startedAt: Date.now(),
     warning: res.warning || ''
   });
-  await startSongWatch(tabId);
+  await startSongWatch(tabId, !!(settings.splitOnSilence && settings.keepSilence));
   return { ok: true, warning: res.warning || '' };
 }
 
@@ -253,16 +256,35 @@ async function onSong(msg, sender) {
   // If the new song isn't in the playlist (Suno moving on to other people's
   // songs), make that cut the end of the recording.
   const final = !!(state.stopAtPlaylistEnd && playlistCheck === 'ok' && msg.id && !playlistIds.includes(msg.id));
+  await chrome.storage.session.set({ songFinal: { key: msg.key, final } });
   if (changed && state.split) await sendToOffscreen({ type: 'songChange', final }).catch(() => {});
   // Stems: start the file the moment playback starts, keeping any silent intro.
   if (msg.playing && state.split && !final) await sendToOffscreen({ type: 'songStart' }).catch(() => {});
   return { keep: true };
 }
 
-async function startSongWatch(tabId) {
-  await chrome.storage.session.set({ nowPlaying: null, lastTrack: null, songsSeen: 0, trackTitles: {}, playlistIds: [], playlistCheck: '' });
+// Stems: the page measured exactly when this song's position 0 played. The
+// recorder cuts at that sample, so stems recorded one after another line up.
+async function onSongTiming(msg, sender) {
+  const state = await getState();
+  if (!state.recording || !state.split || !state.keepSilence || !sender.tab || sender.tab.id !== state.tabId) return { ok: true };
+  const { songFinal } = await chrome.storage.session.get('songFinal');
+  const final = !!(songFinal && songFinal.key === msg.key && songFinal.final);
+  await sendToOffscreen({ type: 'songTiming', zero: msg.zero, final }).catch(() => {});
+  return { ok: true };
+}
+
+async function startSongWatch(tabId, calibrate) {
+  await chrome.storage.session.set({ nowPlaying: null, lastTrack: null, songsSeen: 0, trackTitles: {}, playlistIds: [], playlistCheck: '', songFinal: null });
   try {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['songwatch-relay.js'] });
+    if (calibrate) {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: () => { window.__audioGrabberCalibrate = true; }
+      });
+    }
     await chrome.scripting.executeScript({ target: { tabId }, files: ['songwatch-main.js'], world: 'MAIN' });
   } catch (err) {
     console.warn('Audio Grabber: song names unavailable on this page:', err.message);
@@ -332,6 +354,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     trackStart: () => { noteTrackStart(msg.track); return { ok: true }; },
     // From the song watcher in the recorded tab:
     song: () => onSong(msg, sender),
+    songTiming: () => onSongTiming(msg, sender),
+    calib: async () => {
+      const state = await getState();
+      if (state.recording && state.keepSilence && sender.tab && sender.tab.id === state.tabId) {
+        await sendToOffscreen({ type: 'calib', walls: msg.walls }).catch(() => {});
+      }
+      return { ok: true };
+    },
+    // The recorder measured this computer's capture delay: remember it for next time.
+    saveLatency: async () => {
+      await chrome.storage.local.set({ captureLatency: msg.frames });
+      return { ok: true };
+    },
     ended: async () => {
       // Tab closed / auto-stop hit: offscreen already saved the files.
       const state = await getState();

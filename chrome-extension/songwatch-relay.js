@@ -14,7 +14,27 @@
   };
 
   const onMessage = (e) => {
-    if (e.source !== window || !e.data || e.data.__audioGrabber !== 'song') return;
+    if (e.source !== window || !e.data) return;
+    if (e.data.__audioGrabber === 'calib') {
+      if (!alive()) return stop(false);
+      try {
+        chrome.runtime.sendMessage({ target: 'background', type: 'calib', walls: e.data.walls }).catch(() => {});
+      } catch (err) {
+        stop(false);
+      }
+      return;
+    }
+    if (e.data.__audioGrabber === 'timing') {
+      if (!alive()) return stop(false);
+      const { key, zero } = e.data;
+      try {
+        chrome.runtime.sendMessage({ target: 'background', type: 'songTiming', key, zero }).catch(() => {});
+      } catch (err) {
+        stop(false);
+      }
+      return;
+    }
+    if (e.data.__audioGrabber !== 'song') return;
     if (!alive()) return stop(false);
     const { id, playing, title, artist, art, key, playlistIds } = e.data;
     try {

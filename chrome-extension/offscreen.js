@@ -114,18 +114,20 @@ function wavRate(b) {
   return new DataView(b.buffer, b.byteOffset).getUint32(24, true);
 }
 
+// Short, private-part-free description of an address, for messages.
+function describeUrl(url) {
+  if (url.startsWith('data:')) return 'page copy';
+  const u = new URL(url);
+  const ext = (u.pathname.match(/\.\w+$/) || [''])[0];
+  return `${u.host}${ext ? ` …${ext}` : ''}${u.search ? ' (signed)' : ''}`;
+}
+
 async function loadOriginal(s, meta) {
   const urls = [];
   if (meta.key && s.originals.has(meta.key)) urls.push(s.originals.get(meta.key));
   if (meta.src) urls.push(meta.src);
   // meta.errors, when given, collects why each address failed (shown to the user).
-  const where = (url) => {
-    if (url.startsWith('data:')) return 'page copy';
-    const u = new URL(url);
-    const ext = (u.pathname.match(/\.\w+$/) || [''])[0];
-    return `${u.host}${ext ? ` …${ext}` : ''}${u.search ? ' (signed)' : ''}`;
-  };
-  const note = (url, why) => meta.errors && meta.errors.push(`${where(url)}: ${why}`);
+  const note = (url, why) => meta.errors && meta.errors.push(`${describeUrl(url)}: ${why}`);
   for (const url of urls) {
     try {
       const res = await fetch(url, { credentials: 'include' });
@@ -142,9 +144,22 @@ async function loadOriginal(s, meta) {
 }
 
 async function decodeOriginal(orig) {
-  const rate = (orig.kind === 'mp3' && mp3Rate(orig.bytes)) || (orig.kind === 'wav' && wavRate(orig.bytes)) || SAMPLE_RATE;
+  let mp4Error = null;
+  let rate = (orig.kind === 'mp3' && mp3Rate(orig.bytes)) || (orig.kind === 'wav' && wavRate(orig.bytes)) || 0;
+  if (orig.kind === 'm4a') {
+    // MP4/M4A (incl. the fragmented kind streaming players use): demux + WebCodecs.
+    try {
+      return await MP4.decode(orig.bytes);
+    } catch (err) {
+      mp4Error = err;
+      try { rate = MP4.parse(orig.bytes).sampleRate; } catch (e) {}
+    }
+  }
+  rate = rate || SAMPLE_RATE;
   const ctx = new OfflineAudioContext(1, 1, rate);
-  return ctx.decodeAudioData(orig.bytes.slice().buffer);
+  return ctx.decodeAudioData(orig.bytes.slice().buffer).catch((err) => {
+    throw mp4Error || err;
+  });
 }
 
 // Decoded samples back to 16-bit; the exact inverse of how 16-bit audio is
@@ -217,6 +232,7 @@ async function grab(songs, settings) {
   const exts = settings.format === 'both' ? ['mp3', 'wav'] : [settings.format];
   const failed = [];
   let detail = '';
+  let notes = '';
   let saved = 0;
   for (let i = 0; i < songs.length; i++) {
     const song = songs[i];
@@ -227,13 +243,26 @@ async function grab(songs, settings) {
       if (!orig) continue;
       const art = await fetchArt([song.img, ...SUNO_COVER(song.id)].filter(Boolean));
       const tag = art ? coverArtTag(art) : null;
+      let convertError = '';
       for (const ext of exts) {
-        const blob = await originalAs(ext, orig, tag, settings.bitrate).catch(() => null);
-        if (!blob) continue;
+        let blob = null;
+        try {
+          blob = await originalAs(ext, orig, tag, settings.bitrate);
+        } catch (err) {
+          convertError = err.message || String(err);
+          continue;
+        }
         await chrome.runtime.sendMessage({ target: 'background', type: 'save', url: URL.createObjectURL(blob), ext, name: song.title }).catch(() => {});
         ok = true;
       }
-      if (ok) break;
+      if (!ok) {
+        // Couldn't convert it: save Suno's file exactly as it is instead.
+        const ext = { m4a: 'm4a', ogg: 'ogg', flac: 'flac', mp3: 'mp3', wav: 'wav' }[orig.kind] || 'm4a';
+        await chrome.runtime.sendMessage({ target: 'background', type: 'save', url: URL.createObjectURL(new Blob([orig.bytes])), ext, name: song.title }).catch(() => {});
+        ok = true;
+        if (!notes) notes = `${song.title} saved as the original .${ext}, because it couldn't be converted (${convertError})`;
+      }
+      break;
     }
     if (ok) saved++;
     else {
@@ -243,7 +272,7 @@ async function grab(songs, settings) {
     chrome.runtime.sendMessage({ target: 'background', type: 'grabProgress', done: i + 1, total: songs.length, failed: failed.length }).catch(() => {});
   }
   chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, total: songs.length,
-    detail: detail && `${detail} | Suno's player loaded: ${(settings.audioLog || []).slice(0, 3).join(', ') || 'no audio seen yet (play a song on the page first)'}` }).catch(() => {});
+    detail: [notes, detail && `${detail} | Suno's player loaded: ${(settings.audioLog || []).slice(0, 3).join(', ') || 'no audio seen yet (play a song on the page first)'}`].filter(Boolean).join(' | ') }).catch(() => {});
 }
 
 async function start(streamId, settings) {

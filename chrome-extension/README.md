@@ -22,8 +22,11 @@ Open a Suno page that lists the songs you want (a playlist, your library, or a s
 click the Audio Grabber icon. The popup lists every song on the page; untick any you don't want and
 press **Save exact copies**. Each song's original file is downloaded straight from Suno, named after
 the song, with its cover art: exact, original quality, done in seconds, nothing to play or record.
-Stems saved this way line up perfectly. **MP3** keeps Suno's file untouched; **WAV** converts it at its
-own sample rate. Songs Suno won't serve (e.g. deleted ones) are listed as "couldn't be fetched", with the reason.
+Stems saved this way line up perfectly. Suno's player streams songs as M4A (AAC) files; the
+extension reads those directly (including the "fragmented" streaming kind Chrome normally can't open)
+and converts them to **MP3** or **WAV** at their own sample rate, removing the encoder's start/end padding
+the way a music app does. If a file ever can't be converted, it's saved as Suno's original `.m4a`
+instead (still an exact copy), and the status line says so. Songs Suno won't serve (e.g. deleted ones) are listed as "couldn't be fetched", with the reason.
 
 Suno often refuses plain download addresses (HTTP 403) and only lets its own player's signed
 addresses through. So if songs fail, **play each of them on that page for a few seconds** (just
@@ -148,5 +151,6 @@ stops and saves automatically. **Recent** lists your last 10 files; click one to
 - `popup.*`: the toolbar popup
 - `songwatch-*.js`: injected into the recorded tab to read the playing song's name, cover and playlist
 - `id3.js`: embeds the cover art into the saved files
+- `mp4.js`: reads the audio out of MP4/M4A files (incl. fragmented ones) and decodes it with WebCodecs
 - `mic.*`: one-time microphone permission page
 - `lib/lame.min.js`: [lamejs](https://github.com/zhuker/lamejs) MP3 encoder (LGPL)

@@ -17,27 +17,23 @@ so the file is ready the moment you press Stop. No converting afterwards, no acc
 3. Click the icon again → **Stop & Save**. The file lands in your **Downloads** folder,
    named after the song (or the tab title).
 
+## Modes: Normal and Stems
+At the top of the settings, **Mode** switches between two presets. Each one remembers its own
+settings, so you can tune both and flip between them:
+- **Normal**: regular recording. Out of the box it splits a playlist into songs, trims the silence
+  between them, saves MP3, and stops after 2 minutes of silence.
+- **Stems**: for stems. Out of the box: split into songs with **Keep silences**, WAV, and no
+  stop-on-silence. Set **Stop after N songs** to your number of stems.
+
+Changing a setting changes it only for the mode you're in. (Switching is disabled while recording.)
+
 ## Save exact copies of songs listed on a page
-
-> **Suno note:** Suno encrypts (copy-protects) the audio files its player streams, so on Suno this
-> usually can't save anything; the extension detects that, saves nothing, and tells you. For exact,
-> synced Suno stems, use Suno's own download (Download → stems / WAV on paid plans). The extension
-> does not, and will not, try to get around that protection.
-Open a Suno page that lists the songs you want (a playlist, your library, or a song's stems) and
-click the Audio Grabber icon. The popup lists every song on the page; untick any you don't want and
-press **Save exact copies**. Each song's original file is downloaded straight from Suno, named after
-the song, with its cover art: exact, original quality, done in seconds, nothing to play or record.
-Stems saved this way line up perfectly. Suno's player streams songs as M4A (AAC) files; the
-extension reads those directly (including the "fragmented" streaming kind Chrome normally can't open)
-and converts them to **MP3** or **WAV** at their own sample rate, removing the encoder's start/end padding
-the way a music app does. If a file ever can't be converted, it's saved as Suno's original `.m4a`
-instead (still an exact copy), and the status line says so. Songs Suno won't serve (e.g. deleted ones) are listed as "couldn't be fetched", with the reason.
-
-Suno often refuses plain download addresses (HTTP 403) and only lets its own player's signed
-addresses through. So if songs fail, **play each of them on that page for a few seconds** (just
-click play, then move to the next), then press **Save exact copies** again: the extension picks up
-the exact address Suno's player used for each song and downloads that. If something still fails, the
-status line explains why and shows what Suno's player loaded (private parts of addresses are hidden).
+On pages that serve plain audio files, the popup lists the songs linked on the page; press
+**Save exact copies** to download each one's original file, named after the song, with its cover
+art. **Suno encrypts (copy-protects) the files its player streams**, so on Suno this can't save
+anything: the extension detects that, saves nothing, and says so. It does not, and will not, try to
+get around that protection. For Suno, record instead (Stems mode lines stems up exactly), or use
+Suno's own download (stems / WAV on paid plans).
 
 ## Record a whole playlist, one file per song (great for Suno)
 1. Open the playlist in a tab (e.g. a Suno playlist) and don't press play yet.
@@ -79,8 +75,9 @@ ends the recording, so set it longer than the longest silence in your stems (or 
 on **Stop when my playlist ends** or **Stop after N songs** instead.
 
 **Save original files (exact)** (on by default). While the playlist plays, the extension saves the
-audio file the page itself is playing, instead of a recording of it, whenever it can reach that file
-(from the player's address, or the copy the page loaded into memory). That's an exact copy at original
+audio file the page itself is playing, instead of a recording of it, whenever it can reach a plain
+(unprotected) file (from the player's address, or the copy the page loaded into memory). On Suno the
+files are encrypted, so recordings are saved instead. That's an exact copy at original
 quality, so stems line up perfectly with no adjusting. If you chose the same format as the original
 (e.g. MP3 and Suno serves MP3), the file is saved untouched apart from the cover art; otherwise it's
 converted at its own sample rate. When the original can't be reached, that song falls back to the
@@ -91,7 +88,7 @@ How recorded stems stay in sync (when an original isn't available): the extensio
 moment each stem's first sample played, either from the page's player position or, for players that
 play music through Web Audio (like Suno's), from the moment the page starts that audio. Silent
 "keep-alive" players (e.g. Suno's `sil-100.mp3`) are ignored, and rough guesses from the page
-announcing the next song early are discarded once the exact time is known. It then cuts the file at that sample, and cuts the file at exactly that sample (the last few seconds are
+announcing the next song early are discarded once the exact time is known. It then cuts the file at exactly that sample (the last few seconds are
 held back so the cut can land precisely). At the start of a stems recording it also plays three very
 short, quiet chirps at 17-19 kHz (above most people's hearing) in the tab to measure how long Chrome
 takes to hand tab audio to the recorder, and corrects every cut by that delay. In testing, stems

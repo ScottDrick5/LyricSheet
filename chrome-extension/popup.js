@@ -71,6 +71,7 @@ async function poll() {
 }
 
 function applySettings(settings) {
+  document.querySelectorAll('#mode button').forEach((b) => b.classList.toggle('sel', b.dataset.v === settings.mode));
   document.querySelectorAll('#format button').forEach((b) => b.classList.toggle('sel', b.dataset.v === settings.format));
   $('bitrateRow').hidden = settings.format === 'wav';
   $('bitrate').value = String(settings.bitrate);
@@ -169,6 +170,16 @@ $('pauseBtn').onclick = async () => {
   await bg('togglePause');
   await refresh();
 };
+
+document.querySelectorAll('#mode button').forEach((b) => {
+  b.onclick = async () => {
+    const res = await bg('setMode', { mode: b.dataset.v });
+    if (res && res.ok === false) showMessage(res.error);
+    else showMessage('');
+    const { settings } = await bg('getState');
+    applySettings(settings);
+  };
+});
 
 document.querySelectorAll('#format button').forEach((b) => {
   b.onclick = () => save({ format: b.dataset.v });

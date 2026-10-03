@@ -35,7 +35,41 @@ const pendingDownloads = new Set();
 
 async function getSettings() {
   const { settings } = await chrome.storage.local.get('settings');
-  return { ...DEFAULT_SETTINGS, ...(settings || {}) };
+  const merged = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+  // Older versions had no modes: pick the one that matches the current setup.
+  if (!merged.mode) merged.mode = merged.splitOnSilence && merged.keepSilence ? 'stems' : 'normal';
+  return merged;
+}
+
+// ---- Modes: "Normal" and "Stems" presets -----------------------------------
+//
+// Each mode remembers its own recording settings; switching saves the current
+// ones under the mode being left and brings back the other mode's.
+const MODE_KEYS = ['format', 'bitrate', 'keepPlaying', 'includeMic', 'splitOnSilence', 'useOriginal', 'keepSilence',
+  'silenceSeconds', 'silenceDb', 'stopAtPlaylistEnd', 'maxSongs', 'endAfterSilenceMinutes', 'autoStopMinutes'];
+const MODE_DEFAULTS = {
+  normal: { format: 'mp3', bitrate: 192, splitOnSilence: true, keepSilence: false, silenceSeconds: 2, silenceDb: -50,
+    stopAtPlaylistEnd: true, maxSongs: 0, endAfterSilenceMinutes: 2 },
+  stems: { format: 'wav', splitOnSilence: true, keepSilence: true, useOriginal: true, silenceDb: -50,
+    stopAtPlaylistEnd: true, endAfterSilenceMinutes: 0 }
+};
+const pickModeSettings = (s) => Object.fromEntries(MODE_KEYS.filter((k) => k in s).map((k) => [k, s[k]]));
+
+async function saveSettings(patch) {
+  const settings = { ...(await getSettings()), ...patch };
+  settings.modeSettings = { ...(settings.modeSettings || {}), [settings.mode]: pickModeSettings(settings) };
+  await chrome.storage.local.set({ settings });
+  return settings;
+}
+
+async function setMode(mode) {
+  if (!MODE_DEFAULTS[mode]) throw new Error('Unknown mode.');
+  if ((await getState()).recording) throw new Error('Stop the recording before switching modes.');
+  const current = await saveSettings({}); // remember the mode being left
+  if (current.mode === mode) return { ok: true };
+  const saved = (current.modeSettings || {})[mode];
+  await saveSettings({ ...MODE_DEFAULTS[mode], ...(saved || {}), mode });
+  return { ok: true };
 }
 
 async function getState() {
@@ -491,9 +525,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handlers = {
     getState: async () => ({ state: await getState(), settings: await getSettings() }),
     saveSettings: async () => {
-      await chrome.storage.local.set({ settings: { ...(await getSettings()), ...msg.settings } });
+      await saveSettings(msg.settings);
       return { ok: true };
     },
+    setMode: () => setMode(msg.mode),
     start: () => startRecording(msg.tabId),
     stop: () => stopRecording(true),
     togglePause,

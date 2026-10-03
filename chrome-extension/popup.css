@@ -109,6 +109,10 @@ a:hover { text-decoration: underline; }
 .grab-btn:disabled { opacity: .5; cursor: default; }
 .grab-note { margin-top: 6px; color: var(--muted); font-size: 11px; }
 
+.mode-row { padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.mode-row span { font-weight: 600; }
+.mode-row .seg button { padding: 5px 16px; }
+
 .sub { margin: 0 0 4px 10px; padding-left: 10px; border-left: 2px solid var(--line); }
 .sub[hidden] { display: none; }
 .track-status { margin-top: 8px; color: var(--muted); font-size: 12px; }

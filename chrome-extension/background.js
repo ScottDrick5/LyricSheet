@@ -69,14 +69,17 @@ async function ensureOffscreen() {
   if (await hasOffscreen()) return;
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
-    reasons: ['USER_MEDIA'],
+    reasons: ['USER_MEDIA', 'BLOBS'],
     justification: 'Capture tab audio and encode it to MP3 / WAV'
   });
 }
 
+// True while "Save exact copies" is fetching songs.
+let grabbing = false;
+
 async function closeOffscreenIfIdle() {
   const state = await getState();
-  if (state.recording || pendingDownloads.size) return;
+  if (state.recording || grabbing || pendingDownloads.size) return;
   if (await hasOffscreen()) await chrome.offscreen.closeDocument();
 }
 
@@ -131,6 +134,75 @@ async function stopRecording(fromPopup) {
   return res || { ok: true };
 }
 
+// ---- Save exact copies of the songs listed on a Suno page -------------------
+//
+// Suno serves every song as an MP3 at cdn1.suno.ai/<song id>.mp3, and its pages
+// link each song as /song/<id>. So the originals can be downloaded directly:
+// exact, original quality, nothing played or recorded.
+
+// Runs in the page: every song linked there, with its title and cover image.
+function scanSongsInPage() {
+  const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const idOf = (a) => ((a.getAttribute('href') || '').match(UUID) || [])[0];
+  const unwrap = (src) => {
+    try {
+      const u = new URL(src, location.href);
+      if (u.pathname.includes('/_next/image') && u.searchParams.get('url')) return new URL(u.searchParams.get('url'), location.href).href;
+    } catch (err) {}
+    return src;
+  };
+  const songs = new Map();
+  for (const a of document.querySelectorAll('a[href*="/song/"]')) {
+    const raw = idOf(a);
+    if (!raw) continue;
+    const id = raw.toLowerCase();
+    const title = (a.getAttribute('title') || a.textContent || '').trim().replace(/\s+/g, ' ');
+    // The cover: the nearest image around the link, without straying into another song's row.
+    let img = '';
+    for (let el = a, depth = 0; el && depth < 6 && !img; el = el.parentElement, depth++) {
+      if ([...el.querySelectorAll('a[href*="/song/"]')].some((o) => (idOf(o) || '').toLowerCase() !== id)) break;
+      const im = el.querySelector('img');
+      if (im && (im.currentSrc || im.src)) img = unwrap(im.currentSrc || im.src);
+    }
+    const prev = songs.get(id);
+    if (!prev) songs.set(id, { id, title: title.length < 150 ? title : '', img });
+    else {
+      if (!prev.title && title.length < 150) prev.title = title;
+      if (!prev.img) prev.img = img;
+    }
+  }
+  return [...songs.values()].map((s) => ({ ...s, title: s.title || 'Untitled' }));
+}
+
+async function scanTab(tabId) {
+  const [res] = await chrome.scripting.executeScript({ target: { tabId }, func: scanSongsInPage });
+  return (res && res.result) || [];
+}
+
+async function grabSongs(songs) {
+  if (grabbing) throw new Error('Already saving songs.');
+  if (!songs || !songs.length) throw new Error('No songs selected.');
+  grabbing = true;
+  await chrome.storage.session.set({ grab: { active: true, done: 0, total: songs.length, failed: 0 } });
+  await ensureOffscreen();
+  await sendToOffscreen({ type: 'grab', songs, settings: await getSettings() });
+  return { ok: true };
+}
+
+async function grabDone(msg) {
+  grabbing = false;
+  await chrome.storage.session.set({ grab: { active: false, done: msg.total, total: msg.total, failed: msg.failed.length, saved: msg.saved } });
+  const settings = await getSettings();
+  const where = settings.folder ? `Downloads/${settings.folder}` : 'Downloads';
+  await notify(
+    msg.saved ? 'Audio Grabber: songs saved' : 'Audio Grabber: nothing saved',
+    `${msg.saved} exact cop${msg.saved === 1 ? 'y' : 'ies'} saved to ${where}.` +
+      (msg.failed.length ? ` Couldn't get: ${msg.failed.slice(0, 3).join(', ')}${msg.failed.length > 3 ? '…' : ''}` : '')
+  );
+  await closeOffscreenIfIdle();
+  return { ok: true };
+}
+
 // Desktop notification when a recording finishes, so you don't have to keep checking.
 async function notifyDone(state, reason, saved, exact = 0) {
   const settings = await getSettings();
@@ -147,20 +219,31 @@ async function notifyDone(state, reason, saved, exact = 0) {
     tabClosed: 'The tab was closed.',
     stopped: 'Recording stopped.'
   }[reason] || 'Recording stopped.';
-  await chrome.notifications.create('audio-grabber-done', {
-    type: 'basic',
-    iconUrl: 'icons/icon128.png',
-    title: saved ? 'Audio Grabber: done recording' : 'Audio Grabber stopped',
-    message: `${why} ${what}${where}`,
-    contextMessage: state.title || '',
-    requireInteraction: true,
-    priority: 2
-  }).catch(() => {});
+  await notify(saved ? 'Audio Grabber: done recording' : 'Audio Grabber stopped', `${why} ${what}${where}`, state.title || '');
 }
 
-// Clicking the notification opens the Downloads folder.
+// A plain notification. (Not "stay on screen until dismissed": on a Mac those go
+// through a separate "Google Chrome Helper (Alerts)" app, and if that isn't
+// allowed in System Settings they silently never appear.) Any error is kept so
+// the popup can say why nothing showed up.
+async function notify(title, message, contextMessage = '') {
+  try {
+    await chrome.notifications.create(`audio-grabber-${Date.now()}`, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title,
+      message,
+      contextMessage
+    });
+    await chrome.storage.local.set({ notifyError: '' });
+  } catch (err) {
+    await chrome.storage.local.set({ notifyError: err.message || String(err) });
+  }
+}
+
+// Clicking a notification opens the Downloads folder.
 chrome.notifications.onClicked.addListener((id) => {
-  if (id !== 'audio-grabber-done') return;
+  if (!id.startsWith('audio-grabber-')) return;
   chrome.downloads.showDefaultFolder();
   chrome.notifications.clear(id);
 });
@@ -305,14 +388,13 @@ async function trackInfo(track) {
   return { title: cleanTitle(info.title), art: info.art || [], key: info.key || '', src: info.src || '' };
 }
 
-async function saveFile({ url, ext, track }) {
+async function saveFile({ url, ext, track, name }) {
   const settings = await getSettings();
-  const state = await getState();
   const folder = settings.folder ? sanitize(settings.folder) : '';
   // Just the song name (in single-file mode: the song if exactly one played,
   // else the tab title). Chrome adds " (1)" if a file by that name exists.
-  const info = await trackInfo(track);
-  const base = `${sanitize(info.title || (track ? 'Track' : 'Recording'))}.${ext}`;
+  const title = name || (await trackInfo(track)).title;
+  const base = `${sanitize(title || (track ? 'Track' : 'Recording'))}.${ext}`;
   const filename = folder ? `${folder}/${base}` : base;
 
   const downloadId = await chrome.downloads.download({
@@ -352,6 +434,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     toggleMute,
     // From the offscreen page:
     save: () => saveFile(msg),
+    scan: () => scanTab(msg.tabId).then((songs) => ({ songs })),
+    grab: () => grabSongs(msg.songs),
+    grabProgress: async () => {
+      await chrome.storage.session.set({ grab: { active: true, done: msg.done, total: msg.total, failed: msg.failed } });
+      return { ok: true };
+    },
+    grabDone: () => grabDone(msg),
+    testNotify: async () => {
+      await notify('Audio Grabber: test', 'Notifications are working. You will get one like this when a recording finishes.');
+      const { notifyError } = await chrome.storage.local.get('notifyError');
+      return { ok: !notifyError, error: notifyError };
+    },
     trackMeta: () => trackInfo(msg.track),
     trackStart: () => { noteTrackStart(msg.track); return { ok: true }; },
     // From the song watcher in the recorded tab:
@@ -388,7 +482,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           func: () => document.querySelectorAll('audio, video').forEach((el) => el.pause())
         }).catch(() => {});
       }
-      if (state.recording) await setState({ recording: false, endReason: msg.reason || '' });
+      if (state.recording) {
+        await setState({ recording: false, endReason: msg.reason || '', saved: msg.saved || 0, exact: msg.exact || 0, split: state.split });
+      }
       await closeOffscreenIfIdle();
       await notifyDone(state, msg.reason, msg.saved || 0, msg.exact || 0);
       return { ok: true };

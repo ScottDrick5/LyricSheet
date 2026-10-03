@@ -32,6 +32,16 @@
 
   <div class="message" id="message" hidden></div>
 
+  <section class="grab" id="grab" hidden>
+    <div class="grab-head">
+      <span><b id="grabCount">0</b> songs on this page</span>
+      <span class="grab-links"><a href="#" id="grabAll">all</a> · <a href="#" id="grabNone">none</a></span>
+    </div>
+    <ul id="grabList"></ul>
+    <button id="grabBtn" class="grab-btn">Save exact copies</button>
+    <div class="grab-note" id="grabStatus">Downloads each song's original file from Suno: exact, original quality, nothing to play or record.</div>
+  </section>
+
   <section class="settings" id="settings">
     <div class="row">
       <span>Format</span>
@@ -135,7 +145,8 @@
     <div class="recent-head">
       <span class="label">Recent</span>
       <span class="recent-links">
-        <a href="#" id="clearHistory" title="Clear this list. Your saved files are not touched.">Clear history</a>
+        <a href="#" id="testNotify" title="Send a test notification">Test alert</a>
+        <a href="#" id="clearHistory" title="Clear this list. Your saved files are not touched.">Clear</a>
         <a href="#" id="openFolder">Open folder</a>
       </span>
     </div>

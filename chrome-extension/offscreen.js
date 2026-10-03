@@ -166,7 +166,7 @@ function wavWithTag(bytes, tag) {
 }
 
 // The original converted to the chosen format ('mp3' or 'wav'), with cover art.
-async function originalAs(ext, orig, tag) {
+async function originalAs(ext, orig, tag, kbps = 320) {
   if (ext === 'mp3' && orig.kind === 'mp3') {
     // Keep its own tag (it may already carry the cover); otherwise add ours.
     const hasTag = orig.bytes[0] === 0x49 && orig.bytes[1] === 0x44 && orig.bytes[2] === 0x33;
@@ -181,7 +181,7 @@ async function originalAs(ext, orig, tag) {
     for (let i = 0; i < frames; i++) for (let c = 0; c < ch.length; c++) inter[i * ch.length + c] = ch[c][i];
     return wavBlob([inter], inter.byteLength, ch.length, buf.sampleRate, tag);
   }
-  const enc = new lamejs.Mp3Encoder(ch.length, buf.sampleRate, session ? session.settings.bitrate : 320);
+  const enc = new lamejs.Mp3Encoder(ch.length, buf.sampleRate, session ? session.settings.bitrate : kbps);
   const parts = tag ? [tag] : [];
   for (let i = 0; i < ch[0].length; i += 1152 * 64) {
     const out = ch.length === 2
@@ -192,6 +192,37 @@ async function originalAs(ext, orig, tag) {
   const end = enc.flush();
   if (end.length) parts.push(new Uint8Array(end));
   return new Blob(parts, { type: 'audio/mpeg' });
+}
+
+// "Save exact copies": download each song's original file straight from Suno.
+const SUNO_AUDIO = (id) => [`https://cdn1.suno.ai/${id}.mp3`];
+const SUNO_COVER = (id) => [`https://cdn2.suno.ai/image_large_${id}.jpeg`, `https://cdn2.suno.ai/image_${id}.jpeg`];
+
+async function grab(songs, settings) {
+  const exts = settings.format === 'both' ? ['mp3', 'wav'] : [settings.format];
+  const failed = [];
+  let saved = 0;
+  for (let i = 0; i < songs.length; i++) {
+    const song = songs[i];
+    let ok = false;
+    for (const src of SUNO_AUDIO(song.id)) {
+      const orig = await loadOriginal({ originals: new Map() }, { src });
+      if (!orig) continue;
+      const art = await fetchArt([song.img, ...SUNO_COVER(song.id)].filter(Boolean));
+      const tag = art ? coverArtTag(art) : null;
+      for (const ext of exts) {
+        const blob = await originalAs(ext, orig, tag, settings.bitrate).catch(() => null);
+        if (!blob) continue;
+        await chrome.runtime.sendMessage({ target: 'background', type: 'save', url: URL.createObjectURL(blob), ext, name: song.title }).catch(() => {});
+        ok = true;
+      }
+      if (ok) break;
+    }
+    if (ok) saved++;
+    else failed.push(song.title);
+    chrome.runtime.sendMessage({ target: 'background', type: 'grabProgress', done: i + 1, total: songs.length, failed: failed.length }).catch(() => {});
+  }
+  chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, total: songs.length }).catch(() => {});
 }
 
 async function start(streamId, settings) {
@@ -819,6 +850,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     songStart: () => (session && session.keepSilence ? stemSongStart() : songStart()),
     songTiming: () => stemTiming(msg.zero, !!msg.final),
     calib: () => stemCalib(msg.walls),
+    grab: () => { grab(msg.songs, msg.settings); return { ok: true }; },
     original: () => {
       if (session) {
         session.originals.set(msg.key, msg.dataUrl);

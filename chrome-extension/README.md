@@ -17,6 +17,14 @@ so the file is ready the moment you press Stop. No converting afterwards, no acc
 3. Click the icon again → **Stop & Save**. The file lands in your **Downloads** folder,
    named after the song (or the tab title).
 
+## Save exact copies of Suno songs (best for stems)
+Open a Suno page that lists the songs you want (a playlist, your library, or a song's stems) and
+click the Audio Grabber icon. The popup lists every song on the page; untick any you don't want and
+press **Save exact copies**. Each song's original file is downloaded straight from Suno, named after
+the song, with its cover art: exact, original quality, done in seconds, nothing to play or record.
+Stems saved this way line up perfectly. **MP3** keeps Suno's file untouched; **WAV** converts it at its
+own sample rate. Songs Suno won't serve (e.g. deleted ones) are listed as "couldn't be fetched".
+
 ## Record a whole playlist, one file per song (great for Suno)
 1. Open the playlist in a tab (e.g. a Suno playlist) and don't press play yet.
 2. In the popup, turn on **Split into separate songs**.
@@ -78,9 +86,10 @@ recorded one after another lined up to within a fraction of a millisecond. Tips:
 
 **Done notification.** When the recording finishes on its own (playlist over, song limit, silence,
 auto-stop, or the tab closed), a desktop notification tells you why and how many songs were saved.
-Click it to open your Downloads folder. On a Mac, allow notifications for Google Chrome in
-**System Settings → Notifications → Google Chrome**, and pick **Alerts** if you want it to stay on
-screen until you dismiss it.
+Click it to open your Downloads folder. The popup also shows the last result when you open it, so
+you never miss it. Click **Test alert** (next to Recent) to check notifications work. If nothing
+appears on a Mac, allow notifications in **System Settings → Notifications → Google Chrome**, and
+check that Focus / Do Not Disturb isn't on.
 
 **Cover art.** Each file gets the song's cover image embedded (shown in Finder, Apple Music and
 most players). It's taken from Suno's "now playing" info or the song's picture on the page.

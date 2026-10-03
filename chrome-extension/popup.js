@@ -119,11 +119,19 @@ async function refresh() {
   state = res.state;
   applySettings(res.settings);
   render();
-  const ended = {
-    playlistEnd: 'Your playlist finished, so recording stopped and the songs are saved.',
-    songLimit: 'Reached your song limit, so recording stopped and the songs are saved.'
+  // The last recording's result, in case its notification never showed.
+  const why = {
+    playlistEnd: 'Your playlist finished.',
+    songLimit: 'Reached your song limit.',
+    silence: 'Nothing played for a while, so it stopped.',
+    autoStop: 'Auto-stop time reached.',
+    tabClosed: 'The tab was closed.'
   }[state.endReason];
-  if (!state.recording && ended) showMessage(ended, 'info');
+  if (!state.recording && why) {
+    const n = state.saved || 0;
+    const exact = state.exact ? ` ${state.exact === n ? 'All' : state.exact} exact cop${state.exact === 1 ? 'y' : 'ies'} of the originals.` : state.split && n ? ' None were exact copies (recordings only).' : '';
+    showMessage(`${why} ${n} file${n === 1 ? '' : 's'} saved.${exact}`, 'info');
+  }
   renderRecent();
 }
 
@@ -181,6 +189,16 @@ $('micSetup').onclick = (e) => {
   e.preventDefault();
   chrome.tabs.create({ url: chrome.runtime.getURL('mic.html') });
 };
+$('testNotify').onclick = async (e) => {
+  e.preventDefault();
+  const res = await bg('testNotify');
+  if (res && res.ok) {
+    showMessage('Test notification sent. If nothing appeared, macOS is blocking Chrome: System Settings → Notifications → Google Chrome → Allow notifications (and check Focus / Do Not Disturb).', 'info');
+  } else {
+    showMessage(`Chrome couldn't show a notification: ${(res && res.error) || 'unknown error'}`);
+  }
+};
+
 $('clearHistory').onclick = async (e) => {
   e.preventDefault();
   await chrome.storage.local.set({ recent: [] });
@@ -195,7 +213,86 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.recent) renderRecent();
 });
 
+// ---- Save exact copies of the songs on this page ----------------------------
+
+let pageSongs = [];
+let grabTimer = null;
+
+function renderGrabList() {
+  const list = $('grabList');
+  list.textContent = '';
+  for (const song of pageSongs) {
+    const li = document.createElement('li');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = song.selected;
+    box.onchange = () => { song.selected = box.checked; updateGrabButton(); };
+    const name = document.createElement('span');
+    name.textContent = song.title;
+    name.title = song.title;
+    li.append(box, name);
+    list.appendChild(li);
+  }
+  $('grabCount').textContent = pageSongs.length;
+  updateGrabButton();
+}
+
+function updateGrabButton() {
+  const n = pageSongs.filter((s) => s.selected).length;
+  $('grabBtn').textContent = `Save exact copies of ${n} song${n === 1 ? '' : 's'}`;
+  $('grabBtn').disabled = !n;
+}
+
+async function pollGrab() {
+  const { grab } = await chrome.storage.session.get('grab');
+  if (!grab) return;
+  if (grab.active) {
+    $('grabBtn').disabled = true;
+    $('grabStatus').textContent = `Saving ${grab.done} of ${grab.total}…` + (grab.failed ? ` (${grab.failed} couldn't be fetched)` : '');
+    if (!grabTimer) grabTimer = setInterval(pollGrab, 400);
+  } else {
+    if (grabTimer) { clearInterval(grabTimer); grabTimer = null; }
+    if (grab.saved !== undefined) {
+      $('grabStatus').textContent = `Done: ${grab.saved} exact cop${grab.saved === 1 ? 'y' : 'ies'} saved` +
+        (grab.failed ? `, ${grab.failed} couldn't be fetched.` : '.');
+    }
+    updateGrabButton();
+  }
+}
+
+async function scanPage() {
+  if (state.recording || !activeTab || !/^https?:/.test(activeTab.url || '')) return;
+  const res = await bg('scan', { tabId: activeTab.id }).catch(() => null);
+  pageSongs = ((res && res.songs) || []).map((s) => ({ ...s, selected: true }));
+  $('grab').hidden = !pageSongs.length;
+  if (pageSongs.length) {
+    renderGrabList();
+    pollGrab();
+  }
+}
+
+$('grabAll').onclick = (e) => { e.preventDefault(); pageSongs.forEach((s) => { s.selected = true; }); renderGrabList(); };
+$('grabNone').onclick = (e) => { e.preventDefault(); pageSongs.forEach((s) => { s.selected = false; }); renderGrabList(); };
+$('grabBtn').onclick = async () => {
+  const songs = pageSongs.filter((s) => s.selected).map(({ id, title, img }) => ({ id, title, img }));
+  $('grabBtn').disabled = true;
+  const res = await bg('grab', { songs });
+  if (res && res.ok === false) {
+    $('grabStatus').textContent = res.error;
+    updateGrabButton();
+    return;
+  }
+  pollGrab();
+};
+
 (async () => {
   [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   await refresh();
+  // Chrome itself can block the extension's notifications.
+  chrome.notifications.getPermissionLevel((level) => {
+    if (level === 'denied' && $('message').hidden) {
+      showMessage('Notifications from Audio Grabber are blocked in Chrome, so you won\'t be told when a recording finishes. The result is shown here instead.');
+    }
+  });
+  await scanPage();
 })();

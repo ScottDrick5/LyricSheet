@@ -119,7 +119,13 @@ async function loadOriginal(s, meta) {
   if (meta.key && s.originals.has(meta.key)) urls.push(s.originals.get(meta.key));
   if (meta.src) urls.push(meta.src);
   // meta.errors, when given, collects why each address failed (shown to the user).
-  const note = (url, why) => meta.errors && meta.errors.push(`${url.startsWith('data:') ? 'page copy' : new URL(url).host}: ${why}`);
+  const where = (url) => {
+    if (url.startsWith('data:')) return 'page copy';
+    const u = new URL(url);
+    const ext = (u.pathname.match(/\.\w+$/) || [''])[0];
+    return `${u.host}${ext ? ` …${ext}` : ''}${u.search ? ' (signed)' : ''}`;
+  };
+  const note = (url, why) => meta.errors && meta.errors.push(`${where(url)}: ${why}`);
   for (const url of urls) {
     try {
       const res = await fetch(url, { credentials: 'include' });
@@ -216,7 +222,7 @@ async function grab(songs, settings) {
     const song = songs[i];
     let ok = false;
     const errors = [];
-    for (const src of SUNO_AUDIO(song.id, settings.learnedAudio)) {
+    for (const src of [...new Set([...(song.urls || []), ...SUNO_AUDIO(song.id, settings.learnedAudio)])]) {
       const orig = await loadOriginal({ originals: new Map() }, { src, errors });
       if (!orig) continue;
       const art = await fetchArt([song.img, ...SUNO_COVER(song.id)].filter(Boolean));
@@ -236,7 +242,8 @@ async function grab(songs, settings) {
     }
     chrome.runtime.sendMessage({ target: 'background', type: 'grabProgress', done: i + 1, total: songs.length, failed: failed.length }).catch(() => {});
   }
-  chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, detail, total: songs.length }).catch(() => {});
+  chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, total: songs.length,
+    detail: detail && `${detail} | Suno's player loaded: ${(settings.audioLog || []).slice(0, 3).join(', ') || 'no audio seen yet (play a song on the page first)'}` }).catch(() => {});
 }
 
 async function start(streamId, settings) {

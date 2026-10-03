@@ -171,23 +171,69 @@ function scanSongsInPage() {
       if (!prev.img) prev.img = img;
     }
   }
-  return [...songs.values()].map((s) => ({ ...s, title: s.title || 'Untitled' }));
+  // Audio the page has loaded so far (its player's addresses for songs played here).
+  const AUDIO = /\.(mp3|m4a|mp4|aac|wav|ogg|opus|flac|webm)$/i;
+  const pageAudio = new Set();
+  for (const el of document.querySelectorAll('audio, video')) {
+    const u = el.currentSrc || el.src;
+    if (/^https?:/.test(u)) pageAudio.add(u);
+  }
+  for (const e of performance.getEntriesByType('resource')) {
+    let path = '';
+    try { path = new URL(e.name).pathname; } catch (err) {}
+    if (['audio', 'video'].includes(e.initiatorType) || AUDIO.test(path) || /audiopipe/i.test(e.name)) pageAudio.add(e.name);
+  }
+  const audio = [...pageAudio];
+  return [...songs.values()].map((s) => ({
+    ...s,
+    title: s.title || 'Untitled',
+    urls: audio.filter((u) => u.toLowerCase().includes(s.id))
+  }));
 }
 
-// Learn where Suno's player really fetches audio from: any audio request a
-// page makes whose address contains a song id becomes a pattern ("…{id}…")
-// that "Save exact copies" tries first.
+// Learn where Suno's player really fetches audio from. Suno refuses plain
+// addresses (403) and hands its player signed ones, so the exact address the
+// player used for each song is kept (heardAudio, by song id) and fetched as is;
+// it also becomes a pattern ("…{id}…") to try for other songs. A short log of
+// audio requests, with private query strings hidden, explains failures.
 const SONG_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const AUDIO_PATH = /\.(mp3|m4a|mp4|aac|wav|ogg|opus|flac|webm|m3u8|ts|m4s)$/i;
+
+function maskUrl(url) {
+  try {
+    const u = new URL(url);
+    return `${u.host}${u.pathname}${u.search ? '?…' : ''}`;
+  } catch (err) {
+    return url.slice(0, 80);
+  }
+}
+
 chrome.webRequest.onCompleted.addListener(async (d) => {
   if (d.tabId < 0 || d.statusCode >= 400 || !/^https?:/.test(d.url)) return;
   const type = ((d.responseHeaders || []).find((h) => h.name.toLowerCase() === 'content-type') || {}).value || '';
-  if (d.type !== 'media' && !/^audio\//i.test(type)) return;
-  const id = (d.url.match(SONG_ID) || [])[0];
-  if (!id) return;
-  const pattern = d.url.split(id).join('{id}');
-  const { learnedAudio = [] } = await chrome.storage.local.get('learnedAudio');
-  if (learnedAudio[0] === pattern) return;
-  await chrome.storage.local.set({ learnedAudio: [pattern, ...learnedAudio.filter((p) => p !== pattern)].slice(0, 5) });
+  const path = new URL(d.url).pathname;
+  const audioish = d.type === 'media' || /^audio\//i.test(type) || /audiopipe/i.test(d.url) ||
+    (AUDIO_PATH.test(path) && !['script', 'image', 'stylesheet', 'font', 'main_frame', 'sub_frame'].includes(d.type));
+  if (!audioish) return;
+  const store = await chrome.storage.session.get(['audioLog', 'heardAudio']);
+  const entry = `${maskUrl(d.url)} (${d.type}${type ? `, ${type.split(';')[0]}` : ''})`;
+  const audioLog = [entry, ...(store.audioLog || []).filter((e) => e !== entry)].slice(0, 8);
+  const update = { audioLog };
+  const id = ((d.url.match(SONG_ID) || [])[0] || '').toLowerCase();
+  if (id) {
+    const heard = store.heardAudio || {};
+    delete heard[id];
+    heard[id] = d.url;
+    const keys = Object.keys(heard);
+    for (const k of keys.slice(0, Math.max(0, keys.length - 100))) delete heard[k];
+    update.heardAudio = heard;
+    const pattern = d.url.split((d.url.match(SONG_ID) || [])[0]).join('{id}');
+    const { learnedAudio = [] } = await chrome.storage.local.get('learnedAudio');
+    if (learnedAudio[0] !== pattern) {
+      await chrome.storage.local.set({ learnedAudio: [pattern, ...learnedAudio.filter((p) => p !== pattern)].slice(0, 5) });
+    }
+  }
+  await chrome.storage.session.set(update);
 }, { urls: ['<all_urls>'] }, ['responseHeaders']);
 
 async function scanTab(tabId) {
@@ -202,7 +248,10 @@ async function grabSongs(songs) {
   await chrome.storage.session.set({ grab: { active: true, done: 0, total: songs.length, failed: 0 } });
   await ensureOffscreen();
   const { learnedAudio = [] } = await chrome.storage.local.get('learnedAudio');
-  await sendToOffscreen({ type: 'grab', songs, settings: { ...(await getSettings()), learnedAudio } });
+  const { heardAudio = {}, audioLog = [] } = await chrome.storage.session.get(['heardAudio', 'audioLog']);
+  // The exact (signed) address Suno's player used for each song comes first.
+  const withUrls = songs.map((s) => ({ ...s, urls: [...new Set([heardAudio[s.id], ...(s.urls || [])].filter(Boolean))] }));
+  await sendToOffscreen({ type: 'grab', songs: withUrls, settings: { ...(await getSettings()), learnedAudio, audioLog } });
   return { ok: true };
 }
 

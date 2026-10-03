@@ -254,7 +254,7 @@ async function pollGrab() {
     if (grabTimer) { clearInterval(grabTimer); grabTimer = null; }
     if (grab.saved !== undefined) {
       $('grabStatus').textContent = `Done: ${grab.saved} exact cop${grab.saved === 1 ? 'y' : 'ies'} saved` +
-        (grab.failed ? `, ${grab.failed} couldn't be fetched. Tip: play any song on this page for a few seconds, then try again, so the extension can learn where Suno keeps the audio. Details: ${grab.detail}` : '.');
+        (grab.failed ? `, ${grab.failed} couldn't be fetched. Tip: play each of those songs on this page for a few seconds, then try again: Suno only lets its own player's addresses through, and the extension picks them up as the songs play. Details: ${grab.detail}` : '.');
     }
     updateGrabButton();
   }
@@ -274,7 +274,7 @@ async function scanPage() {
 $('grabAll').onclick = (e) => { e.preventDefault(); pageSongs.forEach((s) => { s.selected = true; }); renderGrabList(); };
 $('grabNone').onclick = (e) => { e.preventDefault(); pageSongs.forEach((s) => { s.selected = false; }); renderGrabList(); };
 $('grabBtn').onclick = async () => {
-  const songs = pageSongs.filter((s) => s.selected).map(({ id, title, img }) => ({ id, title, img }));
+  const songs = pageSongs.filter((s) => s.selected).map(({ id, title, img, urls }) => ({ id, title, img, urls }));
   $('grabBtn').disabled = true;
   const res = await bg('grab', { songs });
   if (res && res.ok === false) {

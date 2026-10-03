@@ -421,7 +421,7 @@ async function onSongTiming(msg, sender) {
   if (!state.recording || !state.split || !state.keepSilence || !sender.tab || sender.tab.id !== state.tabId) return { ok: true };
   const { songFinal } = await chrome.storage.session.get('songFinal');
   const final = !!(songFinal && songFinal.key === msg.key && songFinal.final);
-  await sendToOffscreen({ type: 'songTiming', zero: msg.zero, final }).catch(() => {});
+  await sendToOffscreen({ type: 'songTiming', zero: msg.zero, final, source: msg.source || '' }).catch(() => {});
   return { ok: true };
 }
 

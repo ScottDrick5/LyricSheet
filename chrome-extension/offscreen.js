@@ -377,6 +377,7 @@ async function start(streamId, settings) {
     started: false,
     lastFrame: 0,
     clock: [],            // recent readings of (wall clock - audio clock), for converting times
+    sync: { precise: 0, rough: 0, source: '' }, // how each stem's start was found (shown in the popup)
     useOriginal: settings.useOriginal !== false,
     originals: new Map(), // song key -> the page's in-memory copy of its audio (data: URL)
     exact: 0,             // songs saved from the original file
@@ -680,7 +681,7 @@ function drainHold(s, all) {
         c.frame += at;
       }
       s.cuts.shift();
-      stemCut(s, cut.final);
+      stemCut(s, cut.final, cut.exact);
       continue;
     }
     if (!all && (s.lastFrame - c.frame <= HOLD_FRAMES || (s.tentative && end > s.tentative.frame))) break;
@@ -690,7 +691,9 @@ function drainHold(s, all) {
 }
 
 // One song ends and the next begins at exactly this point.
-function stemCut(s, final) {
+function stemCut(s, final, exact) {
+  if (exact) s.sync.precise++;
+  else s.sync.rough++;
   const old = s.track;
   if (old) {
     for (const [l, r] of s.pending) writeTrack(old, l, r);
@@ -810,17 +813,24 @@ function stemCalib(walls) {
 }
 
 // The exact moment this song's position 0 played, measured by the page.
-function stemTiming(zero, final) {
+function stemTiming(zero, final, source) {
   const s = session;
   if (!s || !s.split || !s.keepSilence || s.done || s.stopping) return { ok: true };
-  s.tentative = null;
   const frame = frameOf(s, zero);
-  // Replace a rough cut already made for this song change.
-  const near = s.cuts.find((c) => !c.exact && Math.abs(c.frame - (frame + s.latency)) < SAMPLE_RATE);
-  if (near) {
-    s.cuts.splice(s.cuts.indexOf(near), 1);
-    final = final || near.final;
+  const at = frame + s.latency;
+  // The exact time replaces any rough guess made for this song change (the page
+  // may announce the next song seconds before it actually starts playing).
+  if (s.tentative) {
+    final = final || s.tentative.final;
+    s.tentative = null;
   }
+  s.cuts = s.cuts.filter((c) => {
+    if (c.exact) return Math.abs(cutFrame(s, c) - at) > SAMPLE_RATE / 2; // same song timed twice
+    if (Math.abs(c.frame - at) > 5 * SAMPLE_RATE) return true;
+    final = final || c.final;
+    return false;
+  });
+  if (source) s.sync.source = source;
   addCut(s, { frame, final, exact: true });
   drainHold(s, false);
   return { ok: true };
@@ -908,7 +918,8 @@ function status() {
     exact: session.exact,
     playlistSize: session.playlistSize,
     maxSongs: session.maxSongs,
-    trackSeconds: t ? t.frames / SAMPLE_RATE : 0
+    trackSeconds: t ? t.frames / SAMPLE_RATE : 0,
+    sync: session.keepSilence ? session.sync : null
   };
 }
 
@@ -923,7 +934,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     status,
     songChange: () => (session && session.keepSilence ? stemSongChange(!!msg.final) : songChange(!!msg.final)),
     songStart: () => (session && session.keepSilence ? stemSongStart() : songStart()),
-    songTiming: () => stemTiming(msg.zero, !!msg.final),
+    songTiming: () => stemTiming(msg.zero, !!msg.final, msg.source),
     calib: () => stemCalib(msg.walls),
     grab: () => { grab(msg.songs, msg.settings); return { ok: true }; },
     original: () => {

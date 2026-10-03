@@ -40,9 +40,9 @@
     }
     if (e.data.__audioGrabber === 'timing') {
       if (!alive()) return stop(false);
-      const { key, zero } = e.data;
+      const { key, zero, source } = e.data;
       try {
-        chrome.runtime.sendMessage({ target: 'background', type: 'songTiming', key, zero }).catch(() => {});
+        chrome.runtime.sendMessage({ target: 'background', type: 'songTiming', key, zero, source }).catch(() => {});
       } catch (err) {
         stop(false);
       }

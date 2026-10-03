@@ -42,8 +42,12 @@
   // The element playing the music. Muted videos (animated covers, background
   // loops) are ignored, and a real <audio> player wins over any video.
   function currentAudio() {
+    // Players that only keep the page's audio session alive (a looping or very
+    // short silent file, like Suno's "sil-100.mp3") say nothing about the music.
+    const placeholder = (el) => el.loop || /(^|[/_-])(sil|silence|silent|blank)[-_.\d]/i.test(el.currentSrc || el.src || '') ||
+      (Number.isFinite(el.duration) && el.duration > 0 && el.duration < 2);
     const els = [...new Set([...document.querySelectorAll('audio, video'), ...window.__audioGrabberMedia])]
-      .filter((el) => !el.muted && el.volume > 0);
+      .filter((el) => !el.muted && el.volume > 0 && !placeholder(el));
     const playing = els.filter((el) => !el.paused);
     return playing.find((el) => el.tagName === 'AUDIO') || playing[0] ||
       els.find((el) => el.tagName === 'AUDIO' && (el.currentSrc || el.src)) || null;
@@ -126,16 +130,74 @@
   let timingKey = '';
   let timingDone = false;
   let samples = [];
+  // Players that play the music through Web Audio (decoded in the page): note
+  // exactly when each buffer starts, as the wall-clock time of its position 0.
+  window.__audioGrabberWA = window.__audioGrabberWA || { last: null };
+  if (!window.__audioGrabberWAHook && typeof AudioBufferSourceNode !== 'undefined') {
+    window.__audioGrabberWAHook = true;
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (when = 0, offset = 0, ...rest) {
+      try {
+        const buf = this.buffer;
+        const ctx = this.context;
+        if (buf && buf.duration >= 0.5 && ctx && ctx.state === 'running') {
+          // Audio-clock time it starts; turned into wall-clock time a little later,
+          // once the clock readings have settled (see useWebAudio).
+          window.__audioGrabberWA.last = { ctx, at: Math.max(when || 0, ctx.currentTime), offset: offset || 0, seen: performance.now(), used: false };
+          window.dispatchEvent(new Event('__audioGrabberWAStart'));
+        }
+      } catch (err) {}
+      return start.call(this, when, offset, ...rest);
+    };
+  }
+
+  // The first Web Audio start after a song change (or just before it, if the
+  // page announced the song a moment late) marks that song's start.
+  let armedKey = '';
+  function armWebAudio(key) {
+    armedKey = key;
+    const last = window.__audioGrabberWA.last;
+    if (last && !last.used && performance.now() - last.seen < 1500) useWebAudio();
+  }
+  function useWebAudio() {
+    const last = window.__audioGrabberWA.last;
+    if (!armedKey || !last || last.used) return;
+    last.used = true;
+    const key = armedKey;
+    armedKey = '';
+    if (key === timingKey) timingDone = true; // no need to time it from a player element
+    // Several readings of the audio clock against the wall clock, half a second
+    // in; the middle one gives the wall-clock time of the song's position 0.
+    const { ctx, at, offset } = last;
+    const walls = [];
+    let n = 0;
+    const read = () => {
+      const ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
+      walls.push(ts && ts.performanceTime > 0
+        ? performance.timeOrigin + ts.performanceTime + (at - ts.contextTime) * 1000
+        : performance.timeOrigin + performance.now() + (at - ctx.currentTime + (ctx.outputLatency || 0) + (ctx.baseLatency || 0)) * 1000);
+      if (++n < 7) return setTimeout(read, 40);
+      walls.sort((a, b) => a - b);
+      window.postMessage({ __audioGrabber: 'timing', key, zero: walls[3] - offset * 1000, source: 'webaudio' }, '*');
+    };
+    setTimeout(read, 400);
+  }
+  const onWebAudioStart = () => useWebAudio();
+  window.addEventListener('__audioGrabberWAStart', onWebAudioStart);
+
   function sampleTiming(key) {
-    if (key !== timingKey) { timingKey = key; timingDone = false; samples = []; }
+    if (key !== timingKey) { timingKey = key; timingDone = false; samples = []; armWebAudio(key); }
     if (timingDone) return;
+    // Music played through Web Audio: timed from there instead.
+    const wa = window.__audioGrabberWA.last;
+    if (wa && performance.now() - wa.seen < 15000) return;
     const el = currentAudio();
     if (!el || el.paused || el.seeking || el.playbackRate !== 1 || el.currentTime < 0.3) return;
     samples.push(performance.timeOrigin + performance.now() - el.currentTime * 1000);
     if (samples.length < 9) return;
     samples.sort((a, b) => a - b);
     timingDone = true;
-    window.postMessage({ __audioGrabber: 'timing', key, zero: samples[4] }, '*');
+    window.postMessage({ __audioGrabber: 'timing', key, zero: samples[4], source: 'player' }, '*');
   }
 
   // Stems: measure how long tab audio takes to reach the recorder. Three short,
@@ -205,6 +267,7 @@
   const stop = () => {
     clearInterval(timer);
     window.removeEventListener('message', onStop);
+    window.removeEventListener('__audioGrabberWAStart', onWebAudioStart);
     if (window.__audioGrabberWatch === stop) window.__audioGrabberWatch = null;
   };
   const onStop = (e) => {

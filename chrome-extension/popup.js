@@ -58,7 +58,10 @@ async function poll() {
   const ts = $('trackStatus');
   ts.hidden = !s.split;
   if (s.split) {
-    const saved = `${s.saved} song${s.saved === 1 ? '' : 's'} saved` + (s.exact ? ` (${s.exact} exact)` : '');
+    const saved = `${s.saved} song${s.saved === 1 ? '' : 's'} saved` + (s.exact ? ` (${s.exact} exact)` : '') +
+      (s.sync && (s.sync.precise || s.sync.rough)
+        ? ` · timing: ${s.sync.precise} precise${s.sync.source ? ` (${s.sync.source === 'webaudio' ? 'Web Audio' : 'player'})` : ''}${s.sync.rough ? `, ${s.sync.rough} rough` : ''}`
+        : '');
     const total = s.maxSongs && (!s.playlistSize || s.maxSongs < s.playlistSize) ? s.maxSongs : s.playlistSize;
     const of = total ? ` of ${total}` : '';
     ts.innerHTML = s.trackNumber

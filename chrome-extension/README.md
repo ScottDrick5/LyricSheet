@@ -87,8 +87,11 @@ converted at its own sample rate. When the original can't be reached, that song 
 recording described below. The popup and the done notification say how many songs were exact copies.
 Press **Record** before pressing play, so the extension sees each song being loaded.
 
-How recorded stems stay in sync (when an original isn't available): the extension reads the player's exact playback position to find the moment
-each stem's first sample played, and cuts the file at exactly that sample (the last few seconds are
+How recorded stems stay in sync (when an original isn't available): the extension finds the exact
+moment each stem's first sample played, either from the page's player position or, for players that
+play music through Web Audio (like Suno's), from the moment the page starts that audio. Silent
+"keep-alive" players (e.g. Suno's `sil-100.mp3`) are ignored, and rough guesses from the page
+announcing the next song early are discarded once the exact time is known. It then cuts the file at that sample, and cuts the file at exactly that sample (the last few seconds are
 held back so the cut can land precisely). At the start of a stems recording it also plays three very
 short, quiet chirps at 17-19 kHz (above most people's hearing) in the tab to measure how long Chrome
 takes to hand tab audio to the recorder, and corrects every cut by that delay. In testing, stems
@@ -97,6 +100,8 @@ recorded one after another lined up to within a fraction of a millisecond. Tips:
 - Use **WAV** for stems. MP3 encoding adds a short silent padding at the start of every file
   (the same for each stem, but some editors don't remove it).
 - The popup's song counter runs a few seconds behind in stems mode, because of the held-back audio.
+- While recording, the popup shows how each stem was timed, e.g. "timing: 4 precise (Web Audio)".
+  "rough" means the exact time couldn't be found for that stem, so it may need nudging.
 
 **Done notification.** When the recording finishes on its own (playlist over, song limit, silence,
 auto-stop, or the tab closed), a desktop notification tells you why and how many songs were saved.

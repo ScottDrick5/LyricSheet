@@ -56,7 +56,16 @@ stem file is the full length of the song. **Stop after silence of** still
 ends the recording, so set it longer than the longest silence in your stems (or to **Never**), and rely
 on **Stop when my playlist ends** or **Stop after N songs** instead.
 
-How stems stay in sync: the extension reads the player's exact playback position to find the moment
+**Save original files (exact)** (on by default). While the playlist plays, the extension saves the
+audio file the page itself is playing, instead of a recording of it, whenever it can reach that file
+(from the player's address, or the copy the page loaded into memory). That's an exact copy at original
+quality, so stems line up perfectly with no adjusting. If you chose the same format as the original
+(e.g. MP3 and Suno serves MP3), the file is saved untouched apart from the cover art; otherwise it's
+converted at its own sample rate. When the original can't be reached, that song falls back to the
+recording described below. The popup and the done notification say how many songs were exact copies.
+Press **Record** before pressing play, so the extension sees each song being loaded.
+
+How recorded stems stay in sync (when an original isn't available): the extension reads the player's exact playback position to find the moment
 each stem's first sample played, and cuts the file at exactly that sample (the last few seconds are
 held back so the cut can land precisely). At the start of a stems recording it also plays three very
 short, quiet chirps at 17-19 kHz (above most people's hearing) in the tab to measure how long Chrome
@@ -94,6 +103,7 @@ Keyboard shortcut: **Alt+Shift+R** starts/stops recording the current tab
 | Keep playing while recording | On: you still hear the tab. Off: the tab is silenced but still recorded |
 | Mix in microphone | Records your mic along with the tab. Click **allow mic** once first to give Chrome permission |
 | Split into separate songs | One file per song, named after it (see above) |
+| Save original files (exact) | Save the page's own audio file instead of a recording, when possible |
 | Keep silences (for stems) | Never split on silence or trim it; one full-length file per track |
 | Silent gap that splits | How long a silence has to last to end a song |
 | Silence level | How quiet counts as silence |

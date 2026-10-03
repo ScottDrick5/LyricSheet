@@ -58,7 +58,7 @@ async function poll() {
   const ts = $('trackStatus');
   ts.hidden = !s.split;
   if (s.split) {
-    const saved = `${s.saved} song${s.saved === 1 ? '' : 's'} saved`;
+    const saved = `${s.saved} song${s.saved === 1 ? '' : 's'} saved` + (s.exact ? ` (${s.exact} exact)` : '');
     const total = s.maxSongs && (!s.playlistSize || s.maxSongs < s.playlistSize) ? s.maxSongs : s.playlistSize;
     const of = total ? ` of ${total}` : '';
     ts.innerHTML = s.trackNumber
@@ -81,6 +81,7 @@ function applySettings(settings) {
   $('endAfterSilenceMinutes').value = String(settings.endAfterSilenceMinutes);
   $('stopAtPlaylistEnd').checked = settings.stopAtPlaylistEnd;
   $('keepSilence').checked = settings.keepSilence;
+  $('useOriginal').checked = settings.useOriginal;
   $('gapRow').hidden = settings.keepSilence;
   $('maxSongs').value = settings.maxSongs > 0 ? String(settings.maxSongs) : '';
   $('folder').value = settings.folder;
@@ -133,6 +134,7 @@ $('recordBtn').onclick = async () => {
     if (state.recording) {
       const res = await bg('stop');
       if (res && res.ok === false) showMessage(res.error);
+      else if (res && res.exact) showMessage(`Saved ${res.saved} song${res.saved === 1 ? '' : 's'} to your Downloads folder (${res.exact === res.saved ? 'all' : res.exact} exact copies of the originals).`, 'info');
       else showMessage(res && res.saved > 1 ? `Saved ${res.saved} songs to your Downloads folder.` : 'Saved to your Downloads folder.', 'info');
     } else {
       if (!activeTab) throw new Error('No tab to record.');
@@ -166,6 +168,7 @@ $('includeMic').onchange = (e) => save({ includeMic: e.target.checked });
 $('splitOnSilence').onchange = (e) => save({ splitOnSilence: e.target.checked });
 $('silenceSeconds').onchange = (e) => save({ silenceSeconds: Number(e.target.value) });
 $('silenceDb').onchange = (e) => save({ silenceDb: Number(e.target.value) });
+$('useOriginal').onchange = (e) => save({ useOriginal: e.target.checked });
 $('keepSilence').onchange = (e) => save({ keepSilence: e.target.checked });
 $('stopAtPlaylistEnd').onchange = (e) => save({ stopAtPlaylistEnd: e.target.checked });
 $('maxSongs').onchange = (e) => save({ maxSongs: Math.max(0, parseInt(e.target.value, 10) || 0) });

@@ -46,34 +46,152 @@ class WavSink {
     this.bytes += inter.byteLength;
   }
   finish(tag) {
-    // Optional "id3 " chunk after the audio carries the cover art.
-    const tagSize = tag ? tag.size + (tag.size & 1) : 0;
-    const extra = tag ? 8 + tagSize : 0;
-    const h = new DataView(new ArrayBuffer(44));
-    const str = (o, s) => [...s].forEach((c, i) => h.setUint8(o + i, c.charCodeAt(0)));
-    str(0, 'RIFF');
-    h.setUint32(4, 36 + this.bytes + extra, true);
-    str(8, 'WAVE');
-    str(12, 'fmt ');
-    h.setUint32(16, 16, true);
-    h.setUint16(20, 1, true);                   // PCM
-    h.setUint16(22, 2, true);                   // stereo
-    h.setUint32(24, SAMPLE_RATE, true);
-    h.setUint32(28, SAMPLE_RATE * 4, true);     // byte rate
-    h.setUint16(32, 4, true);                   // block align
-    h.setUint16(34, 16, true);                  // bits per sample
-    str(36, 'data');
-    h.setUint32(40, this.bytes, true);
-    const parts = [h.buffer, ...this.chunks];
-    if (tag) {
-      const ch = new DataView(new ArrayBuffer(8));
-      [...'id3 '].forEach((c, i) => ch.setUint8(i, c.charCodeAt(0)));
-      ch.setUint32(4, tag.size, true);
-      parts.push(ch.buffer, tag);
-      if (tag.size & 1) parts.push(new Uint8Array(1)); // chunks are word-aligned
-    }
-    return new Blob(parts, { type: 'audio/wav' });
+    return wavBlob(this.chunks, this.bytes, 2, SAMPLE_RATE, tag);
   }
+}
+
+// 16-bit PCM WAV from interleaved sample chunks. An optional "id3 " chunk
+// after the audio carries the cover art.
+function wavBlob(chunks, bytes, channels, rate, tag) {
+  const extra = tag ? 8 + tag.size + (tag.size & 1) : 0;
+  const h = new DataView(new ArrayBuffer(44));
+  const str = (o, s) => [...s].forEach((c, i) => h.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF');
+  h.setUint32(4, 36 + bytes + extra, true);
+  str(8, 'WAVE');
+  str(12, 'fmt ');
+  h.setUint32(16, 16, true);
+  h.setUint16(20, 1, true);                       // PCM
+  h.setUint16(22, channels, true);
+  h.setUint32(24, rate, true);
+  h.setUint32(28, rate * channels * 2, true);     // byte rate
+  h.setUint16(32, channels * 2, true);            // block align
+  h.setUint16(34, 16, true);                      // bits per sample
+  str(36, 'data');
+  h.setUint32(40, bytes, true);
+  const parts = [h.buffer, ...chunks];
+  if (tag) {
+    const ch = new DataView(new ArrayBuffer(8));
+    [...'id3 '].forEach((c, i) => ch.setUint8(i, c.charCodeAt(0)));
+    ch.setUint32(4, tag.size, true);
+    parts.push(ch.buffer, tag);
+    if (tag.size & 1) parts.push(new Uint8Array(1)); // chunks are word-aligned
+  }
+  return new Blob(parts, { type: 'audio/wav' });
+}
+
+// ---- Saving the page's original audio file instead of a recording ----------
+//
+// Exact: no playback timing involved, original quality. Kept as is when its
+// format matches the chosen one, otherwise decoded (at its own sample rate,
+// no resampling) and converted.
+
+function sniffAudio(b, contentType) {
+  const at = (o, s) => [...s].every((c, i) => b[o + i] === c.charCodeAt(0));
+  if (at(0, 'ID3') || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return 'mp3';
+  if (at(0, 'RIFF') && at(8, 'WAVE')) return 'wav';
+  if (at(4, 'ftyp')) return 'm4a';
+  if (at(0, 'OggS')) return 'ogg';
+  if (at(0, 'fLaC')) return 'flac';
+  return /^audio\//.test(contentType || '') ? 'audio' : '';
+}
+
+// Sample rate from an MP3's first frame header (after any ID3 tag).
+function mp3Rate(b) {
+  let o = 0;
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) o = 10 + ((b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9]);
+  for (; o + 4 < b.length && o < 200000; o++) {
+    if (b[o] !== 0xff || (b[o + 1] & 0xe0) !== 0xe0) continue;
+    const ver = (b[o + 1] >> 3) & 3;      // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
+    const idx = (b[o + 2] >> 2) & 3;
+    if (ver === 1 || idx === 3) continue;
+    return [[11025, 12000, 8000], null, [22050, 24000, 16000], [44100, 48000, 32000]][ver][idx];
+  }
+  return 0;
+}
+
+function wavRate(b) {
+  return new DataView(b.buffer, b.byteOffset).getUint32(24, true);
+}
+
+async function loadOriginal(s, meta) {
+  const urls = [];
+  if (meta.key && s.originals.has(meta.key)) urls.push(s.originals.get(meta.key));
+  if (meta.src) urls.push(meta.src);
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const kind = bytes.length > 10000 && sniffAudio(bytes, res.headers.get('content-type'));
+      if (kind) return { bytes, kind };
+    } catch (err) {
+      // try the next source
+    }
+  }
+  return null;
+}
+
+async function decodeOriginal(orig) {
+  const rate = (orig.kind === 'mp3' && mp3Rate(orig.bytes)) || (orig.kind === 'wav' && wavRate(orig.bytes)) || SAMPLE_RATE;
+  const ctx = new OfflineAudioContext(1, 1, rate);
+  return ctx.decodeAudioData(orig.bytes.slice().buffer);
+}
+
+// Decoded samples back to 16-bit; the exact inverse of how 16-bit audio is
+// decoded (x / 32768), so 16-bit originals come back sample-for-sample.
+function channelsOf(buf) {
+  const n = Math.min(2, buf.numberOfChannels);
+  return Array.from({ length: n }, (_, c) => {
+    const f = buf.getChannelData(c);
+    const out = new Int16Array(f.length);
+    for (let i = 0; i < f.length; i++) out[i] = Math.max(-32768, Math.min(32767, Math.round(f[i] * 32768)));
+    return out;
+  });
+}
+
+// A WAV original kept byte-for-byte, with the cover art added as an "id3 " chunk.
+function wavWithTag(bytes, tag) {
+  if (!tag) return new Blob([bytes], { type: 'audio/wav' });
+  const head = bytes.slice(0, 8);
+  const riff = new DataView(head.buffer).getUint32(4, true);
+  const body = bytes.subarray(8, 8 + riff);
+  const pad = body.length & 1 ? [new Uint8Array(1)] : [];
+  const ch = new DataView(new ArrayBuffer(8));
+  [...'id3 '].forEach((c, i) => ch.setUint8(i, c.charCodeAt(0)));
+  ch.setUint32(4, tag.size, true);
+  const total = riff + pad.length + 8 + tag.size + (tag.size & 1);
+  new DataView(head.buffer).setUint32(4, total, true);
+  return new Blob([head, body, ...pad, ch.buffer, tag, ...(tag.size & 1 ? [new Uint8Array(1)] : [])], { type: 'audio/wav' });
+}
+
+// The original converted to the chosen format ('mp3' or 'wav'), with cover art.
+async function originalAs(ext, orig, tag) {
+  if (ext === 'mp3' && orig.kind === 'mp3') {
+    // Keep its own tag (it may already carry the cover); otherwise add ours.
+    const hasTag = orig.bytes[0] === 0x49 && orig.bytes[1] === 0x44 && orig.bytes[2] === 0x33;
+    return new Blob(hasTag || !tag ? [orig.bytes] : [tag, orig.bytes], { type: 'audio/mpeg' });
+  }
+  if (ext === 'wav' && orig.kind === 'wav') return wavWithTag(orig.bytes, tag);
+  const buf = await decodeOriginal(orig);
+  const ch = channelsOf(buf);
+  if (ext === 'wav') {
+    const frames = ch[0].length;
+    const inter = new Int16Array(frames * ch.length);
+    for (let i = 0; i < frames; i++) for (let c = 0; c < ch.length; c++) inter[i * ch.length + c] = ch[c][i];
+    return wavBlob([inter], inter.byteLength, ch.length, buf.sampleRate, tag);
+  }
+  const enc = new lamejs.Mp3Encoder(ch.length, buf.sampleRate, session ? session.settings.bitrate : 320);
+  const parts = tag ? [tag] : [];
+  for (let i = 0; i < ch[0].length; i += 1152 * 64) {
+    const out = ch.length === 2
+      ? enc.encodeBuffer(ch[0].subarray(i, i + 1152 * 64), ch[1].subarray(i, i + 1152 * 64))
+      : enc.encodeBuffer(ch[0].subarray(i, i + 1152 * 64));
+    if (out.length) parts.push(new Uint8Array(out));
+  }
+  const end = enc.flush();
+  if (end.length) parts.push(new Uint8Array(end));
+  return new Blob(parts, { type: 'audio/mpeg' });
 }
 
 async function start(streamId, settings) {
@@ -153,6 +271,9 @@ async function start(streamId, settings) {
     started: false,
     lastFrame: 0,
     clock: [],            // recent readings of (wall clock - audio clock), for converting times
+    useOriginal: settings.useOriginal !== false,
+    originals: new Map(), // song key -> the page's in-memory copy of its audio (data: URL)
+    exact: 0,             // songs saved from the original file
     latency: settings.captureLatency || 0, // frames between the page playing audio and it arriving here
     calibs: null,         // expected frames of the calibration chirps, while measuring      // how many songs the page's playlist has (from the song watcher)
     done: false,          // playlist finished: ignore any audio that follows
@@ -195,8 +316,13 @@ function queueSave(s, track) {
     const meta = await chrome.runtime.sendMessage({ target: 'background', type: 'trackMeta', track: number }).catch(() => null);
     const art = meta && (await fetchArt(meta.art));
     const tag = art ? coverArtTag(art) : null;
+    // The page's original file beats any recording of it.
+    const orig = s.split && s.useOriginal && meta && (meta.key || meta.src) ? await loadOriginal(s, meta) : null;
+    if (orig) s.exact++;
     for (const { ext, sink } of track.sinks) {
-      const url = URL.createObjectURL(sink.finish(tag));
+      let blob = null;
+      if (orig) blob = await originalAs(ext, orig, tag).catch(() => null);
+      const url = URL.createObjectURL(blob || sink.finish(tag));
       await chrome.runtime.sendMessage({ target: 'background', type: 'save', url, ext, track: number }).catch(() => {});
     }
   });
@@ -648,7 +774,7 @@ function stop() {
     }
     await s.saves;
     if (!s.saved) return { ok: false, error: s.split ? 'No songs were detected, so nothing was saved.' : 'Nothing was recorded.' };
-    return { ok: true, saved: s.saved };
+    return { ok: true, saved: s.saved, exact: s.exact };
   })();
   return s.stopping;
 }
@@ -656,7 +782,7 @@ function stop() {
 async function finishAndNotify(reason) {
   if (!session || session.stopping) return;
   const res = await stop();
-  chrome.runtime.sendMessage({ target: 'background', type: 'ended', reason, saved: (res && res.saved) || 0 });
+  chrome.runtime.sendMessage({ target: 'background', type: 'ended', reason, saved: (res && res.saved) || 0, exact: (res && res.exact) || 0 });
 }
 
 function status() {
@@ -673,6 +799,7 @@ function status() {
     split: session.split,
     saved: session.saved,
     trackNumber: t ? t.number : 0,
+    exact: session.exact,
     playlistSize: session.playlistSize,
     maxSongs: session.maxSongs,
     trackSeconds: t ? t.frames / SAMPLE_RATE : 0
@@ -692,6 +819,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     songStart: () => (session && session.keepSilence ? stemSongStart() : songStart()),
     songTiming: () => stemTiming(msg.zero, !!msg.final),
     calib: () => stemCalib(msg.walls),
+    original: () => {
+      if (session) {
+        session.originals.set(msg.key, msg.dataUrl);
+        if (session.originals.size > 8) session.originals.delete(session.originals.keys().next().value);
+      }
+      return { ok: true };
+    },
     playlistInfo: () => { if (session) session.playlistSize = msg.size; return { ok: true }; }
   }[msg.type];
   if (!run) return false;

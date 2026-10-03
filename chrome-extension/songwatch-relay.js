@@ -15,6 +15,20 @@
 
   const onMessage = (e) => {
     if (e.source !== window || !e.data) return;
+    if (e.data.__audioGrabber === 'original') {
+      if (!alive()) return stop(false);
+      const { key, blob } = e.data;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          chrome.runtime.sendMessage({ target: 'background', type: 'original', key, dataUrl: reader.result }).catch(() => {});
+        } catch (err) {
+          stop(false);
+        }
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
     if (e.data.__audioGrabber === 'calib') {
       if (!alive()) return stop(false);
       try {
@@ -36,9 +50,9 @@
     }
     if (e.data.__audioGrabber !== 'song') return;
     if (!alive()) return stop(false);
-    const { id, playing, title, artist, art, key, playlistIds } = e.data;
+    const { id, src, playing, title, artist, art, key, playlistIds } = e.data;
     try {
-      chrome.runtime.sendMessage({ target: 'background', type: 'song', id, playing, title, artist, art, key, playlistIds })
+      chrome.runtime.sendMessage({ target: 'background', type: 'song', id, src, playing, title, artist, art, key, playlistIds })
         .then((res) => { if (res && res.keep === false) stop(); })
         .catch(() => stop());
     } catch (err) {

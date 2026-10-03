@@ -9,6 +9,24 @@
 
   const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
+  // Audio the page loads into memory and plays from a blob: address. Kept so
+  // the original file can be saved instead of a recording of it.
+  window.__audioGrabberBlobs = window.__audioGrabberBlobs || new Map();
+  if (!window.__audioGrabberBlobHook) {
+    window.__audioGrabberBlobHook = true;
+    const create = URL.createObjectURL;
+    URL.createObjectURL = function (obj) {
+      const url = create.call(URL, obj);
+      try {
+        if (obj instanceof Blob && obj.size > 10000 && obj.size < 200e6 && (!obj.type || /audio|octet|mpeg|mp4|wav|ogg|flac/.test(obj.type))) {
+          window.__audioGrabberBlobs.set(url, obj);
+          if (window.__audioGrabberBlobs.size > 30) window.__audioGrabberBlobs.delete(window.__audioGrabberBlobs.keys().next().value);
+        }
+      } catch (err) {}
+      return url;
+    };
+  }
+
   // Players kept out of the page (new Audio()) are found by noting every
   // element that gets play() called on it.
   window.__audioGrabberMedia = window.__audioGrabberMedia || new Set();
@@ -83,6 +101,8 @@
     if (!title && id) title = linkTitle(id);
     return {
       id,
+      src: /^https?:/.test(src) ? src : '',
+      blobSrc: src.startsWith('blob:') ? src : '',
       playing: !!el && !el.paused,
       title: title.trim(),
       artist: ((md && md.artist) || '').trim(),
@@ -160,6 +180,7 @@
   }
 
   let last = '';
+  let sentOriginal = '';
   let lastPlaying = false;
   let playlistIds = null;
   const timer = setInterval(() => {
@@ -171,6 +192,13 @@
     lastPlaying = song.playing;
     // Snapshot the playlist when playback starts, before the page can change.
     if (!playlistIds) playlistIds = pageSongIds();
+    // The song's original file, if the page holds it in memory.
+    const blob = song.blobSrc && window.__audioGrabberBlobs.get(song.blobSrc);
+    if (blob && song.key !== sentOriginal) {
+      sentOriginal = song.key;
+      window.postMessage({ __audioGrabber: 'original', key: song.key, blob }, '*');
+    }
+    delete song.blobSrc;
     window.postMessage({ __audioGrabber: 'song', ...song, playlistIds }, '*');
   }, 100);
 

@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   endAfterSilenceMinutes: 2, // stop the whole recording when nothing plays this long (0 = never)
   stopAtPlaylistEnd: true, // stop when the page plays a song that isn't in the playlist
   keepSilence: false,      // stems: keep silences, split only when the song changes
+  useOriginal: true,       // save the page's original audio file instead of the recording, when possible
   maxSongs: 0              // stop after this many songs (0 = no limit)
 };
 
@@ -126,15 +127,16 @@ async function stopRecording(fromPopup) {
   chrome.tabs.sendMessage(state.tabId, { type: 'songwatch-stop' }).catch(() => {});
   await setState({ recording: false });
   await closeOffscreenIfIdle();
-  if (!fromPopup) await notifyDone(state, 'stopped', (res && res.saved) || 0);
+  if (!fromPopup) await notifyDone(state, 'stopped', (res && res.saved) || 0, (res && res.exact) || 0);
   return res || { ok: true };
 }
 
 // Desktop notification when a recording finishes, so you don't have to keep checking.
-async function notifyDone(state, reason, saved) {
+async function notifyDone(state, reason, saved, exact = 0) {
   const settings = await getSettings();
+  const copies = exact ? (exact === saved ? ' (all exact copies of the originals)' : ` (${exact} exact copies of the originals)`) : '';
   const what = state.split
-    ? `${saved} song${saved === 1 ? '' : 's'} saved`
+    ? `${saved} song${saved === 1 ? '' : 's'} saved${copies}`
     : saved ? 'Recording saved' : 'Nothing was recorded';
   const where = saved ? ` to ${settings.folder ? `Downloads/${settings.folder}` : 'Downloads'}.` : '.';
   const why = {
@@ -233,12 +235,12 @@ async function onSong(msg, sender) {
   const changed = !!nowPlaying && nowPlaying.key !== msg.key;
   const newTitle = msg.title && (!nowPlaying || nowPlaying.title !== msg.title);
   await chrome.storage.session.set({
-    nowPlaying: { title: msg.title, artist: msg.artist, art: msg.art || [], key: msg.key },
+    nowPlaying: { title: msg.title, artist: msg.artist, art: msg.art || [], key: msg.key, src: msg.src || '' },
     songsSeen: songsSeen + (newTitle ? 1 : 0)
   });
   // The audio of a new song can arrive a moment before the page reports its name.
   if (msg.title && lastTrack && Date.now() - lastTrack.at < 4000) {
-    await setTrackInfo(lastTrack.track, { title: msg.title, artist: msg.artist, art: msg.art || [] });
+    await setTrackInfo(lastTrack.track, { title: msg.title, artist: msg.artist, art: msg.art || [], key: msg.key, src: msg.src || '' });
   }
   // Remember which songs make up the playlist on the page when playback starts,
   // and only trust that list if it checks out: it must list several songs and
@@ -300,7 +302,7 @@ async function trackInfo(track) {
     await chrome.storage.session.get(['trackTitles', 'nowPlaying', 'songsSeen']);
   let info = track ? trackTitles[track] : songsSeen === 1 ? nowPlaying : null;
   if (!info || !info.title) info = { title: state.title };
-  return { title: cleanTitle(info.title), art: info.art || [] };
+  return { title: cleanTitle(info.title), art: info.art || [], key: info.key || '', src: info.src || '' };
 }
 
 async function saveFile({ url, ext, track }) {
@@ -355,6 +357,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // From the song watcher in the recorded tab:
     song: () => onSong(msg, sender),
     songTiming: () => onSongTiming(msg, sender),
+    // The page's own copy of a song's audio (it plays it from memory).
+    original: async () => {
+      const state = await getState();
+      if (state.recording && sender.tab && sender.tab.id === state.tabId) {
+        await sendToOffscreen({ type: 'original', key: msg.key, dataUrl: msg.dataUrl }).catch(() => {});
+      }
+      return { ok: true };
+    },
     calib: async () => {
       const state = await getState();
       if (state.recording && state.keepSilence && sender.tab && sender.tab.id === state.tabId) {
@@ -380,7 +390,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
       if (state.recording) await setState({ recording: false, endReason: msg.reason || '' });
       await closeOffscreenIfIdle();
-      await notifyDone(state, msg.reason, msg.saved || 0);
+      await notifyDone(state, msg.reason, msg.saved || 0, msg.exact || 0);
       return { ok: true };
     }
   };

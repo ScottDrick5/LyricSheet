@@ -17,7 +17,12 @@ so the file is ready the moment you press Stop. No converting afterwards, no acc
 3. Click the icon again → **Stop & Save**. The file lands in your **Downloads** folder,
    named after the song (or the tab title).
 
-## Save exact copies of Suno songs (best for stems)
+## Save exact copies of songs listed on a page
+
+> **Suno note:** Suno encrypts (copy-protects) the audio files its player streams, so on Suno this
+> usually can't save anything; the extension detects that, saves nothing, and tells you. For exact,
+> synced Suno stems, use Suno's own download (Download → stems / WAV on paid plans). The extension
+> does not, and will not, try to get around that protection.
 Open a Suno page that lists the songs you want (a playlist, your library, or a song's stems) and
 click the Audio Grabber icon. The popup lists every song on the page; untick any you don't want and
 press **Save exact copies**. Each song's original file is downloaded straight from Suno, named after

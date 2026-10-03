@@ -252,6 +252,11 @@ async function pollGrab() {
     if (!grabTimer) grabTimer = setInterval(pollGrab, 400);
   } else {
     if (grabTimer) { clearInterval(grabTimer); grabTimer = null; }
+    if (grab.saved !== undefined && grab.protectedCount) {
+      $('grabStatus').textContent = `${grab.saved ? `${grab.saved} saved. ` : ''}${grab.protectedCount} song${grab.protectedCount === 1 ? '' : 's'} couldn't be saved directly: Suno encrypts (copy-protects) the files its player streams, so nothing was saved for ${grab.protectedCount === 1 ? 'it' : 'them'}. For exact, synced stems use Suno's own download (Download → stems / WAV on paid plans), or record them with "Split into separate songs" + "Keep silences".`;
+      updateGrabButton();
+      return;
+    }
     if (grab.saved !== undefined) {
       $('grabStatus').textContent = `Done: ${grab.saved} exact cop${grab.saved === 1 ? 'y' : 'ies'} saved` +
         (grab.failed ? `, ${grab.failed} couldn't be fetched. Tip: play each of those songs on this page for a few seconds, then try again: Suno only lets its own player's addresses through, and the extension picks them up as the songs play.` : '.') +

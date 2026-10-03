@@ -95,7 +95,18 @@ function sniffAudio(b, contentType) {
   if (['ftyp', 'styp', 'moov', 'moof', 'sidx', 'free', 'skip', 'mdat', 'emsg', 'prft', 'wide'].some((t) => at(4, t))) return 'm4a';
   if (at(0, 'OggS')) return 'ogg';
   if (at(0, 'fLaC')) return 'flac';
-  return /^audio\//.test(contentType || '') ? 'audio' : '';
+  return '';
+}
+
+// Encrypted data looks like perfect noise (~8 bits of entropy per byte) with
+// no file structure at all. Such files are copy-protected and are never saved.
+function looksEncrypted(b) {
+  const n = Math.min(b.length, 1 << 20);
+  const counts = new Uint32Array(256);
+  for (let i = 0; i < n; i++) counts[b[i]]++;
+  let bits = 0;
+  for (const c of counts) if (c) bits -= (c / n) * Math.log2(c / n);
+  return bits > 7.98;
 }
 
 // Sample rate from an MP3's first frame header (after any ID3 tag).
@@ -137,7 +148,12 @@ async function loadOriginal(s, meta) {
       const bytes = new Uint8Array(await res.arrayBuffer());
       const kind = bytes.length > 10000 && sniffAudio(bytes, res.headers.get('content-type'));
       if (kind) return { bytes, kind };
-      note(url, `not audio (${res.headers.get('content-type') || 'unknown type'}, ${bytes.length} bytes)`);
+      if (bytes.length > 10000 && looksEncrypted(bytes)) {
+        if (meta.errors) meta.protectedFile = true;
+        note(url, 'the file is encrypted (copy-protected), so it can\'t be saved directly');
+      } else {
+        note(url, `not audio (${res.headers.get('content-type') || 'unknown type'}, ${bytes.length} bytes)`);
+      }
     } catch (err) {
       note(url, err.message || 'network error');
     }
@@ -239,13 +255,15 @@ async function grab(songs, settings) {
   const failed = [];
   let detail = '';
   let notes = '';
+  let protectedCount = 0;
   let saved = 0;
   for (let i = 0; i < songs.length; i++) {
     const song = songs[i];
     let ok = false;
     const errors = [];
+    const tried = { errors };
     for (const src of [...new Set([...(song.urls || []), ...SUNO_AUDIO(song.id, settings.learnedAudio)])]) {
-      const orig = await loadOriginal({ originals: new Map() }, { src, errors });
+      const orig = await loadOriginal({ originals: new Map() }, Object.assign(tried, { src }));
       if (!orig) continue;
       const art = await fetchArt([song.img, ...SUNO_COVER(song.id)].filter(Boolean));
       const tag = art ? coverArtTag(art) : null;
@@ -273,11 +291,12 @@ async function grab(songs, settings) {
     if (ok) saved++;
     else {
       failed.push(song.title);
+      if (tried.protectedFile) protectedCount++;
       if (!detail) detail = `${song.title}: ${errors.join('; ')}`;
     }
     chrome.runtime.sendMessage({ target: 'background', type: 'grabProgress', done: i + 1, total: songs.length, failed: failed.length }).catch(() => {});
   }
-  chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, total: songs.length,
+  chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, total: songs.length, protectedCount,
     detail: [notes, detail && `${detail} | Suno's player loaded: ${(settings.audioLog || []).slice(0, 3).join(', ') || 'no audio seen yet (play a song on the page first)'}`].filter(Boolean).join(' | ') }).catch(() => {});
 }
 

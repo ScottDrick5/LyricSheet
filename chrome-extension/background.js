@@ -257,7 +257,7 @@ async function grabSongs(songs) {
 
 async function grabDone(msg) {
   grabbing = false;
-  await chrome.storage.session.set({ grab: { active: false, done: msg.total, total: msg.total, failed: msg.failed.length, saved: msg.saved, detail: msg.detail || '' } });
+  await chrome.storage.session.set({ grab: { active: false, done: msg.total, total: msg.total, failed: msg.failed.length, saved: msg.saved, protectedCount: msg.protectedCount || 0, detail: msg.detail || '' } });
   const settings = await getSettings();
   const where = settings.folder ? `Downloads/${settings.folder}` : 'Downloads';
   await notify(

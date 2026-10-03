@@ -68,11 +68,23 @@ const MP4 = (() => {
     return { codec: 'opus', description: head };
   }
 
+  // How the file is laid out, e.g. "styp, sidx, moof×40, mdat×40" (for error messages).
+  function layout(b) {
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const runs = [];
+    for (const x of boxes(b, dv, 0, b.length)) {
+      const last = runs[runs.length - 1];
+      if (last && last.type === x.type) last.n++;
+      else runs.push({ type: x.type, n: 1 });
+    }
+    return runs.slice(0, 10).map((r) => (r.n > 1 ? `${r.type}×${r.n}` : r.type)).join(', ') || 'not MP4 boxes';
+  }
+
   function parse(b) {
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
     const top = boxes(b, dv, 0, b.length);
     const moov = top.find((x) => x.type === 'moov');
-    if (!moov) return null;
+    if (!moov) throw new Error(`no track info in the file (layout: ${layout(b)})`);
     const kids = (box) => boxes(b, dv, box.body, box.end);
     const full = (box) => kids({ ...box, body: box.body + 4 }); // skip version/flags
     const find = (list, t) => list.find((x) => x.type === t);
@@ -101,7 +113,8 @@ const MP4 = (() => {
       let cfg = null;
       if (entry.type === 'mp4a' && find(inner, 'esds')) cfg = aacConfig(b, find(inner, 'esds'));
       if (entry.type === 'Opus' && find(inner, 'dOps')) cfg = opusConfig(b, dv, find(inner, 'dOps'));
-      if (!cfg) throw new Error(`unsupported audio format "${entry.type}"`);
+      if (entry.type === 'enca') throw new Error('the audio is encrypted (copy-protected)');
+      if (!cfg) throw new Error(`unsupported audio format "${entry.type}" (layout: ${layout(b)})`);
 
       // Edit list: skip encoder priming at the start, trim padding at the end.
       let skip = 0;
@@ -192,15 +205,14 @@ const MP4 = (() => {
           }
         }
       }
-      if (!samples.length) throw new Error('no audio frames found in the file');
+      if (!samples.length) throw new Error(`no audio frames found in the file (layout: ${layout(b)})`);
       return { ...cfg, sampleRate: rate, channels, timescale, skip, keep, samples };
     }
-    throw new Error('no audio track in the file');
+    throw new Error(`no audio track in the file (layout: ${layout(b)})`);
   }
 
   async function decode(bytes) {
     const t = parse(bytes);
-    if (!t) throw new Error('not an MP4 file');
     const config = { codec: t.codec, sampleRate: t.sampleRate, numberOfChannels: t.channels, description: t.description };
     if (typeof AudioDecoder === 'undefined' || !(await AudioDecoder.isConfigSupported(config)).supported) {
       throw new Error(`Chrome can't decode ${t.codec}`);
@@ -253,7 +265,7 @@ const MP4 = (() => {
     return { sampleRate: rate, numberOfChannels: chs, length: end - start, getChannelData: (c) => data[c] };
   }
 
-  return { parse, decode };
+  return { parse, decode, layout };
 })();
 
 if (typeof module !== 'undefined') module.exports = MP4;

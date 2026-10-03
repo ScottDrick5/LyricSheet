@@ -88,9 +88,11 @@ function wavBlob(chunks, bytes, channels, rate, tag) {
 
 function sniffAudio(b, contentType) {
   const at = (o, s) => [...s].every((c, i) => b[o + i] === c.charCodeAt(0));
+  if (b[0] === 0xff && (b[1] & 0xf6) === 0xf0) return 'aac'; // raw AAC (ADTS)
   if (at(0, 'ID3') || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return 'mp3';
   if (at(0, 'RIFF') && at(8, 'WAVE')) return 'wav';
-  if (at(4, 'ftyp')) return 'm4a';
+  // MP4 / M4A, whatever box it starts with (streaming files often skip "ftyp").
+  if (['ftyp', 'styp', 'moov', 'moof', 'sidx', 'free', 'skip', 'mdat', 'emsg', 'prft', 'wide'].some((t) => at(4, t))) return 'm4a';
   if (at(0, 'OggS')) return 'ogg';
   if (at(0, 'fLaC')) return 'flac';
   return /^audio\//.test(contentType || '') ? 'audio' : '';
@@ -146,7 +148,7 @@ async function loadOriginal(s, meta) {
 async function decodeOriginal(orig) {
   let mp4Error = null;
   let rate = (orig.kind === 'mp3' && mp3Rate(orig.bytes)) || (orig.kind === 'wav' && wavRate(orig.bytes)) || 0;
-  if (orig.kind === 'm4a') {
+  if (orig.kind === 'm4a' || orig.kind === 'audio') {
     // MP4/M4A (incl. the fragmented kind streaming players use): demux + WebCodecs.
     try {
       return await MP4.decode(orig.bytes);
@@ -158,7 +160,11 @@ async function decodeOriginal(orig) {
   rate = rate || SAMPLE_RATE;
   const ctx = new OfflineAudioContext(1, 1, rate);
   return ctx.decodeAudioData(orig.bytes.slice().buffer).catch((err) => {
-    throw mp4Error || err;
+    // Report both attempts, so a failure can be diagnosed.
+    const head = [...orig.bytes.subarray(0, 8)].map((x) => x.toString(16).padStart(2, '0')).join(' ');
+    throw new Error(mp4Error
+      ? `M4A reader: ${mp4Error.message}; Chrome: ${err.message}`
+      : `${err.message} (file type ${orig.kind}, starts ${head})`);
   });
 }
 
@@ -257,7 +263,7 @@ async function grab(songs, settings) {
       }
       if (!ok) {
         // Couldn't convert it: save Suno's file exactly as it is instead.
-        const ext = { m4a: 'm4a', ogg: 'ogg', flac: 'flac', mp3: 'mp3', wav: 'wav' }[orig.kind] || 'm4a';
+        const ext = { m4a: 'm4a', aac: 'aac', ogg: 'ogg', flac: 'flac', mp3: 'mp3', wav: 'wav' }[orig.kind] || 'm4a';
         await chrome.runtime.sendMessage({ target: 'background', type: 'save', url: URL.createObjectURL(new Blob([orig.bytes])), ext, name: song.title }).catch(() => {});
         ok = true;
         if (!notes) notes = `${song.title} saved as the original .${ext}, because it couldn't be converted (${convertError})`;

@@ -174,6 +174,22 @@ function scanSongsInPage() {
   return [...songs.values()].map((s) => ({ ...s, title: s.title || 'Untitled' }));
 }
 
+// Learn where Suno's player really fetches audio from: any audio request a
+// page makes whose address contains a song id becomes a pattern ("…{id}…")
+// that "Save exact copies" tries first.
+const SONG_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+chrome.webRequest.onCompleted.addListener(async (d) => {
+  if (d.tabId < 0 || d.statusCode >= 400 || !/^https?:/.test(d.url)) return;
+  const type = ((d.responseHeaders || []).find((h) => h.name.toLowerCase() === 'content-type') || {}).value || '';
+  if (d.type !== 'media' && !/^audio\//i.test(type)) return;
+  const id = (d.url.match(SONG_ID) || [])[0];
+  if (!id) return;
+  const pattern = d.url.split(id).join('{id}');
+  const { learnedAudio = [] } = await chrome.storage.local.get('learnedAudio');
+  if (learnedAudio[0] === pattern) return;
+  await chrome.storage.local.set({ learnedAudio: [pattern, ...learnedAudio.filter((p) => p !== pattern)].slice(0, 5) });
+}, { urls: ['<all_urls>'] }, ['responseHeaders']);
+
 async function scanTab(tabId) {
   const [res] = await chrome.scripting.executeScript({ target: { tabId }, func: scanSongsInPage });
   return (res && res.result) || [];
@@ -185,13 +201,14 @@ async function grabSongs(songs) {
   grabbing = true;
   await chrome.storage.session.set({ grab: { active: true, done: 0, total: songs.length, failed: 0 } });
   await ensureOffscreen();
-  await sendToOffscreen({ type: 'grab', songs, settings: await getSettings() });
+  const { learnedAudio = [] } = await chrome.storage.local.get('learnedAudio');
+  await sendToOffscreen({ type: 'grab', songs, settings: { ...(await getSettings()), learnedAudio } });
   return { ok: true };
 }
 
 async function grabDone(msg) {
   grabbing = false;
-  await chrome.storage.session.set({ grab: { active: false, done: msg.total, total: msg.total, failed: msg.failed.length, saved: msg.saved } });
+  await chrome.storage.session.set({ grab: { active: false, done: msg.total, total: msg.total, failed: msg.failed.length, saved: msg.saved, detail: msg.detail || '' } });
   const settings = await getSettings();
   const where = settings.folder ? `Downloads/${settings.folder}` : 'Downloads';
   await notify(

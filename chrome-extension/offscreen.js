@@ -118,15 +118,18 @@ async function loadOriginal(s, meta) {
   const urls = [];
   if (meta.key && s.originals.has(meta.key)) urls.push(s.originals.get(meta.key));
   if (meta.src) urls.push(meta.src);
+  // meta.errors, when given, collects why each address failed (shown to the user).
+  const note = (url, why) => meta.errors && meta.errors.push(`${url.startsWith('data:') ? 'page copy' : new URL(url).host}: ${why}`);
   for (const url of urls) {
     try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) { note(url, `HTTP ${res.status}`); continue; }
       const bytes = new Uint8Array(await res.arrayBuffer());
       const kind = bytes.length > 10000 && sniffAudio(bytes, res.headers.get('content-type'));
       if (kind) return { bytes, kind };
+      note(url, `not audio (${res.headers.get('content-type') || 'unknown type'}, ${bytes.length} bytes)`);
     } catch (err) {
-      // try the next source
+      note(url, err.message || 'network error');
     }
   }
   return null;
@@ -195,18 +198,26 @@ async function originalAs(ext, orig, tag, kbps = 320) {
 }
 
 // "Save exact copies": download each song's original file straight from Suno.
-const SUNO_AUDIO = (id) => [`https://cdn1.suno.ai/${id}.mp3`];
+// Addresses learned from Suno's own player (see background.js) come first.
+const SUNO_AUDIO = (id, learned = []) => [...new Set([
+  ...learned.map((p) => p.split('{id}').join(id)),
+  `https://cdn1.suno.ai/${id}.mp3`,
+  `https://cdn1.suno.ai/${id}.m4a`,
+  `https://audiopipe.suno.ai/?item_id=${id}`
+])];
 const SUNO_COVER = (id) => [`https://cdn2.suno.ai/image_large_${id}.jpeg`, `https://cdn2.suno.ai/image_${id}.jpeg`];
 
 async function grab(songs, settings) {
   const exts = settings.format === 'both' ? ['mp3', 'wav'] : [settings.format];
   const failed = [];
+  let detail = '';
   let saved = 0;
   for (let i = 0; i < songs.length; i++) {
     const song = songs[i];
     let ok = false;
-    for (const src of SUNO_AUDIO(song.id)) {
-      const orig = await loadOriginal({ originals: new Map() }, { src });
+    const errors = [];
+    for (const src of SUNO_AUDIO(song.id, settings.learnedAudio)) {
+      const orig = await loadOriginal({ originals: new Map() }, { src, errors });
       if (!orig) continue;
       const art = await fetchArt([song.img, ...SUNO_COVER(song.id)].filter(Boolean));
       const tag = art ? coverArtTag(art) : null;
@@ -219,10 +230,13 @@ async function grab(songs, settings) {
       if (ok) break;
     }
     if (ok) saved++;
-    else failed.push(song.title);
+    else {
+      failed.push(song.title);
+      if (!detail) detail = `${song.title}: ${errors.join('; ')}`;
+    }
     chrome.runtime.sendMessage({ target: 'background', type: 'grabProgress', done: i + 1, total: songs.length, failed: failed.length }).catch(() => {});
   }
-  chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, total: songs.length }).catch(() => {});
+  chrome.runtime.sendMessage({ target: 'background', type: 'grabDone', saved, failed, detail, total: songs.length }).catch(() => {});
 }
 
 async function start(streamId, settings) {

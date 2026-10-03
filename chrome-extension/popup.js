@@ -254,7 +254,7 @@ async function pollGrab() {
     if (grabTimer) { clearInterval(grabTimer); grabTimer = null; }
     if (grab.saved !== undefined) {
       $('grabStatus').textContent = `Done: ${grab.saved} exact cop${grab.saved === 1 ? 'y' : 'ies'} saved` +
-        (grab.failed ? `, ${grab.failed} couldn't be fetched.` : '.');
+        (grab.failed ? `, ${grab.failed} couldn't be fetched. Tip: play any song on this page for a few seconds, then try again, so the extension can learn where Suno keeps the audio. Details: ${grab.detail}` : '.');
     }
     updateGrabButton();
   }

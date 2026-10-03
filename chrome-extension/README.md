@@ -23,7 +23,10 @@ click the Audio Grabber icon. The popup lists every song on the page; untick any
 press **Save exact copies**. Each song's original file is downloaded straight from Suno, named after
 the song, with its cover art: exact, original quality, done in seconds, nothing to play or record.
 Stems saved this way line up perfectly. **MP3** keeps Suno's file untouched; **WAV** converts it at its
-own sample rate. Songs Suno won't serve (e.g. deleted ones) are listed as "couldn't be fetched".
+own sample rate. Songs Suno won't serve (e.g. deleted ones) are listed as "couldn't be fetched", with the reason.
+
+If every song fails, play any song on that page for a few seconds and try again: the extension
+watches where Suno's own player loads audio from, learns that address, and uses it for the rest.
 
 ## Record a whole playlist, one file per song (great for Suno)
 1. Open the playlist in a tab (e.g. a Suno playlist) and don't press play yet.

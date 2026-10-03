@@ -378,6 +378,8 @@ async function start(streamId, settings) {
     lastFrame: 0,
     clock: [],            // recent readings of (wall clock - audio clock), for converting times
     sync: { precise: 0, rough: 0, source: '' }, // how each stem's start was found (shown in the popup)
+    log: [],              // stems: what happened when, for "Copy diagnostics"
+    cutSeq: 0,
     useOriginal: settings.useOriginal !== false,
     originals: new Map(), // song key -> the page's in-memory copy of its audio (data: URL)
     exact: 0,             // songs saved from the original file
@@ -642,12 +644,25 @@ function frameOf(s, wallMs) {
   return Math.round(((wallMs - offset) / 1000) * SAMPLE_RATE);
 }
 
+function diagLog(s, text) {
+  s.log.push(`${(s.frames / SAMPLE_RATE).toFixed(2)}s ${text}`);
+  if (s.log.length > 60) s.log.shift();
+}
+
 function stemChunk(s, frame, l16, r16, loud) {
   s.hold.push({ frame, l: l16, r: r16, loud });
   s.lastFrame = frame + l16.length;
+  // Nothing has said when the first song starts: start at its first sound
+  // rather than record nothing (replaced if an exact time turns up).
+  // (Not in the first 2 s: that's when the calibration chirps play.)
+  if (loud && !s.started && !s.tentative && !s.cuts.length && !s.done && s.frames > 2 * SAMPLE_RATE) {
+    s.tentative = { frame, final: false };
+    diagLog(s, 'sound began, no song start reported yet: rough start here');
+  }
   if (s.calibs && s.lastFrame > Math.max(...s.calibs) + 0.4 * SAMPLE_RATE) measureLatency(s);
   // A rough cut whose exact timing never came: use it as is.
   if (s.tentative && s.lastFrame - s.tentative.frame >= TENTATIVE_WAIT) {
+    diagLog(s, 'no exact time arrived: using the rough cut');
     addCut(s, s.tentative);
     s.tentative = null;
   }
@@ -681,7 +696,8 @@ function drainHold(s, all) {
         c.frame += at;
       }
       s.cuts.shift();
-      stemCut(s, cut.final, cut.exact);
+      if (cut.end) stemEnd(s, cut);
+      else stemCut(s, cut.final, cut.exact, cut.id);
       continue;
     }
     if (!all && (s.lastFrame - c.frame <= HOLD_FRAMES || (s.tentative && end > s.tentative.frame))) break;
@@ -691,9 +707,10 @@ function drainHold(s, all) {
 }
 
 // One song ends and the next begins at exactly this point.
-function stemCut(s, final, exact) {
+function stemCut(s, final, exact, id) {
   if (exact) s.sync.precise++;
   else s.sync.rough++;
+  diagLog(s, `cut applied (${exact ? 'exact' : 'rough'}${final ? ', end of playlist' : ''})${s.track ? `, saving song ${s.track.number} (${(s.track.frames / SAMPLE_RATE).toFixed(1)}s)` : ''}`);
   const old = s.track;
   if (old) {
     for (const [l, r] of s.pending) writeTrack(old, l, r);
@@ -712,8 +729,31 @@ function stemCut(s, final, exact) {
   }
   s.started = true;
   s.track = newTrack(s);
+  s.track.cutId = id;
   s.idleFrames = 0;
   chrome.runtime.sendMessage({ target: 'background', type: 'trackStart', track: s.track.number }).catch(() => {});
+}
+
+// The song's audio ended (known from its length): close its file exactly here.
+// The next song's file starts at its own start time, so whatever plays in
+// between (a gap, or someone else's song) isn't in either file.
+function stemEnd(s, cut) {
+  const old = s.track;
+  // Only the song this end belongs to (back-to-back songs can overlap by a few samples).
+  if (!old || old.cutId !== cut.of) return;
+  for (const [l, r] of s.pending) writeTrack(old, l, r);
+  s.pending = [];
+  s.quietFrames = 0;
+  diagLog(s, `song ${old.number} ended (${(old.frames / SAMPLE_RATE).toFixed(1)}s)`);
+  if (old.frames >= SAMPLE_RATE) queueSave(s, old);
+  else s.trackCount--;
+  s.track = null;
+  if (s.maxSongs && s.saved >= s.maxSongs) {
+    s.hold = [];
+    s.cuts = [];
+    s.tentative = null;
+    finishPlaylist(s, 'songLimit');
+  }
 }
 
 // Audio leaving the hold: into the current file, keeping silences (but
@@ -813,7 +853,7 @@ function stemCalib(walls) {
 }
 
 // The exact moment this song's position 0 played, measured by the page.
-function stemTiming(zero, final, source) {
+function stemTiming(zero, final, source, duration) {
   const s = session;
   if (!s || !s.split || !s.keepSilence || s.done || s.stopping) return { ok: true };
   const frame = frameOf(s, zero);
@@ -825,13 +865,18 @@ function stemTiming(zero, final, source) {
     s.tentative = null;
   }
   s.cuts = s.cuts.filter((c) => {
+    if (c.end) return true;
     if (c.exact) return Math.abs(cutFrame(s, c) - at) > SAMPLE_RATE / 2; // same song timed twice
     if (Math.abs(c.frame - at) > 5 * SAMPLE_RATE) return true;
     final = final || c.final;
     return false;
   });
   if (source) s.sync.source = source;
-  addCut(s, { frame, final, exact: true });
+  diagLog(s, `exact start time from ${source || 'page'}${final ? ' (not in playlist: end)' : ''}`);
+  const id = ++s.cutSeq;
+  addCut(s, { frame, final, exact: true, id });
+  // Its length is known: end the file exactly where its audio ends.
+  if (duration > 1 && !final) addCut(s, { frame: frame + Math.round(duration * SAMPLE_RATE), exact: true, end: true, of: id });
   drainHold(s, false);
   return { ok: true };
 }
@@ -840,6 +885,7 @@ function stemTiming(zero, final, source) {
 function stemSongStart() {
   const s = session;
   if (!s || s.done || s.stopping || s.started || s.tentative || s.cuts.length) return { ok: true };
+  diagLog(s, 'page says playback started: rough start');
   s.tentative = { frame: s.lastFrame, final: false };
   return { ok: true };
 }
@@ -851,6 +897,7 @@ function stemSongChange(final) {
     if (final) finishPlaylist(s, 'playlistEnd');
     return { ok: true };
   }
+  diagLog(s, `page announced a new song${final ? ' (not in playlist)' : ''}`);
   if (s.tentative) s.tentative.final = s.tentative.final || final;
   else s.tentative = { frame: s.lastFrame, final };
   return { ok: true };
@@ -889,6 +936,10 @@ function stop() {
       else if (s.track.frames) queueSave(s, s.track);
     }
     await s.saves;
+    chrome.runtime.sendMessage({ target: 'background', type: 'recDiag', data: {
+      saved: s.saved, seconds: Math.round(s.frames / SAMPLE_RATE), split: s.split, stems: s.keepSilence,
+      sync: s.sync, latencyMs: Math.round((s.latency / SAMPLE_RATE) * 1000), log: s.log
+    } }).catch(() => {});
     if (!s.saved) return { ok: false, error: s.split ? 'No songs were detected, so nothing was saved.' : 'Nothing was recorded.' };
     return { ok: true, saved: s.saved, exact: s.exact };
   })();
@@ -934,7 +985,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     status,
     songChange: () => (session && session.keepSilence ? stemSongChange(!!msg.final) : songChange(!!msg.final)),
     songStart: () => (session && session.keepSilence ? stemSongStart() : songStart()),
-    songTiming: () => stemTiming(msg.zero, !!msg.final, msg.source),
+    songTiming: () => stemTiming(msg.zero, !!msg.final, msg.source, msg.duration),
     calib: () => stemCalib(msg.walls),
     grab: () => { grab(msg.songs, msg.settings); return { ok: true }; },
     original: () => {

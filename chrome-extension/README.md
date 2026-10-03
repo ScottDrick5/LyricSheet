@@ -102,6 +102,16 @@ recorded one after another lined up to within a fraction of a millisecond. Tips:
 - The popup's song counter runs a few seconds behind in stems mode, because of the held-back audio.
 - While recording, the popup shows how each stem was timed, e.g. "timing: 4 precise (Web Audio)".
   "rough" means the exact time couldn't be found for that stem, so it may need nudging.
+- When the player reveals a stem's length (Web Audio players like Suno's do), each file ends exactly
+  where that stem's audio ends, so every stem file is exactly the stem's length, and whatever plays
+  after it (a gap, or someone else's song) isn't included. **Stop after N songs** then stops right
+  at the end of the Nth stem.
+- New long audio starting from its beginning counts as a new song even if the page doesn't announce
+  one, and if nothing reports a start at all, the first file starts at the first sound.
+
+**Copy diagnostics** (bottom of the popup) copies a short report of what the extension saw on the
+page: how it plays audio, which songs it noticed, and how each cut was timed. It contains no audio
+and no private addresses; paste it into a support chat if something doesn't work as expected.
 
 **Done notification.** When the recording finishes on its own (playlist over, song limit, silence,
 auto-stop, or the tab closed), a desktop notification tells you why and how many songs were saved.

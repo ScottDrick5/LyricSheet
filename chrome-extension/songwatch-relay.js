@@ -29,6 +29,15 @@
       reader.readAsDataURL(blob);
       return;
     }
+    if (e.data.__audioGrabber === 'diag') {
+      if (!alive()) return stop(false);
+      try {
+        chrome.runtime.sendMessage({ target: 'background', type: 'pageDiag', data: e.data.data }).catch(() => {});
+      } catch (err) {
+        stop(false);
+      }
+      return;
+    }
     if (e.data.__audioGrabber === 'calib') {
       if (!alive()) return stop(false);
       try {
@@ -40,9 +49,9 @@
     }
     if (e.data.__audioGrabber === 'timing') {
       if (!alive()) return stop(false);
-      const { key, zero, source } = e.data;
+      const { key, zero, source, duration } = e.data;
       try {
-        chrome.runtime.sendMessage({ target: 'background', type: 'songTiming', key, zero, source }).catch(() => {});
+        chrome.runtime.sendMessage({ target: 'background', type: 'songTiming', key, zero, source, duration }).catch(() => {});
       } catch (err) {
         stop(false);
       }

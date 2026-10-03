@@ -192,6 +192,17 @@ $('micSetup').onclick = (e) => {
   e.preventDefault();
   chrome.tabs.create({ url: chrome.runtime.getURL('mic.html') });
 };
+$('copyDiag').onclick = async (e) => {
+  e.preventDefault();
+  const res = await bg('diagnostics');
+  try {
+    await navigator.clipboard.writeText(res.text);
+    showMessage('Diagnostics copied. Paste them into the chat. They contain no audio and no private addresses.', 'info');
+  } catch (err) {
+    showMessage(res.text, 'info');
+  }
+};
+
 $('testNotify').onclick = async (e) => {
   e.preventDefault();
   const res = await bg('testNotify');

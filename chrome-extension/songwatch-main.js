@@ -133,6 +133,28 @@
   // Players that play the music through Web Audio (decoded in the page): note
   // exactly when each buffer starts, as the wall-clock time of its position 0.
   window.__audioGrabberWA = window.__audioGrabberWA || { last: null };
+
+  // Diagnostics: how the page plays audio (no audio data or private addresses).
+  const diag = window.__audioGrabberDiag = window.__audioGrabberDiag ||
+    { waStarts: [], hooks: {}, mse: [], worklets: [], reports: 0, titles: [] };
+  const count = (k) => { diag.hooks[k] = (diag.hooks[k] || 0) + 1; };
+  const mask = (u) => { try { const x = new URL(u, location.href); return x.protocol === 'blob:' ? 'blob:' : `${x.host}${x.pathname.slice(-40)}${x.search ? '?…' : ''}`; } catch (e) { return String(u).slice(0, 40); } };
+  if (!window.__audioGrabberDiagHooks) {
+    window.__audioGrabberDiagHooks = true;
+    const wrap = (proto, name, fn) => {
+      if (!proto || typeof proto[name] !== 'function') return;
+      const orig = proto[name];
+      proto[name] = function (...args) { try { fn.apply(this, args); } catch (e) {} return orig.apply(this, args); };
+    };
+    const B = window.BaseAudioContext && BaseAudioContext.prototype;
+    wrap(B, 'createScriptProcessor', () => count('scriptProcessor'));
+    wrap(B, 'createMediaElementSource', () => count('mediaElementSource'));
+    wrap(B, 'createMediaStreamSource', () => count('mediaStreamSource'));
+    wrap(B, 'decodeAudioData', () => count('decodeAudioData'));
+    wrap(window.AudioWorklet && AudioWorklet.prototype, 'addModule', (u) => { count('workletModule'); diag.worklets.push(mask(u)); });
+    wrap(window.MediaSource && MediaSource.prototype, 'addSourceBuffer', (mime) => { count('mseSourceBuffer'); diag.mse.push(String(mime)); });
+    wrap(window.SourceBuffer && SourceBuffer.prototype, 'appendBuffer', () => count('mseAppend'));
+  }
   if (!window.__audioGrabberWAHook && typeof AudioBufferSourceNode !== 'undefined') {
     window.__audioGrabberWAHook = true;
     const start = AudioBufferSourceNode.prototype.start;
@@ -143,7 +165,11 @@
         if (buf && buf.duration >= 0.5 && ctx && ctx.state === 'running') {
           // Audio-clock time it starts; turned into wall-clock time a little later,
           // once the clock readings have settled (see useWebAudio).
-          window.__audioGrabberWA.last = { ctx, at: Math.max(when || 0, ctx.currentTime), offset: offset || 0, seen: performance.now(), used: false };
+          // A long buffer starting from its beginning is almost certainly a new song.
+          const fresh = buf.duration >= 20 && !(offset > 0);
+          window.__audioGrabberWA.last = { ctx, at: Math.max(when || 0, ctx.currentTime), offset: offset || 0, seen: performance.now(), used: false, fresh, dur: buf.duration - (offset || 0) };
+          const d = window.__audioGrabberDiag;
+          if (d) { d.waStarts.push(`${buf.duration.toFixed(1)}s@${(offset || 0).toFixed(1)}`); if (d.waStarts.length > 12) d.waStarts.shift(); }
           window.dispatchEvent(new Event('__audioGrabberWAStart'));
         }
       } catch (err) {}
@@ -168,7 +194,7 @@
     if (key === timingKey) timingDone = true; // no need to time it from a player element
     // Several readings of the audio clock against the wall clock, half a second
     // in; the middle one gives the wall-clock time of the song's position 0.
-    const { ctx, at, offset } = last;
+    const { ctx, at, offset, dur } = last;
     const walls = [];
     let n = 0;
     const read = () => {
@@ -178,11 +204,17 @@
         : performance.timeOrigin + performance.now() + (at - ctx.currentTime + (ctx.outputLatency || 0) + (ctx.baseLatency || 0)) * 1000);
       if (++n < 7) return setTimeout(read, 40);
       walls.sort((a, b) => a - b);
-      window.postMessage({ __audioGrabber: 'timing', key, zero: walls[3] - offset * 1000, source: 'webaudio' }, '*');
+      window.postMessage({ __audioGrabber: 'timing', key, zero: walls[3] - offset * 1000, duration: dur, source: 'webaudio' }, '*');
     };
     setTimeout(read, 400);
   }
-  const onWebAudioStart = () => useWebAudio();
+  // A fresh long buffer counts as a song start even if the page didn't announce
+  // a new song (e.g. stems with the same title, or no "now playing" info).
+  const onWebAudioStart = () => {
+    const last = window.__audioGrabberWA.last;
+    if (!armedKey && last && last.fresh) armedKey = timingKey || last.seen.toFixed(0);
+    useWebAudio();
+  };
   window.addEventListener('__audioGrabberWAStart', onWebAudioStart);
 
   function sampleTiming(key) {
@@ -197,7 +229,9 @@
     if (samples.length < 9) return;
     samples.sort((a, b) => a - b);
     timingDone = true;
-    window.postMessage({ __audioGrabber: 'timing', key, zero: samples[4], source: 'player' }, '*');
+    const el2 = currentAudio();
+    const duration = el2 && Number.isFinite(el2.duration) && el2.duration > 0 ? el2.duration : 0;
+    window.postMessage({ __audioGrabber: 'timing', key, zero: samples[4], duration, source: 'player' }, '*');
   }
 
   // Stems: measure how long tab audio takes to reach the recorder. Three short,
@@ -245,6 +279,18 @@
   let sentOriginal = '';
   let lastPlaying = false;
   let playlistIds = null;
+  // Send a diagnostics snapshot every few seconds while recording.
+  const diagTimer = setInterval(() => {
+    const md = navigator.mediaSession && navigator.mediaSession.metadata;
+    const media = [...new Set([...document.querySelectorAll('audio, video'), ...window.__audioGrabberMedia])].slice(0, 6).map((el) =>
+      `${el.tagName.toLowerCase()} ${mask(el.currentSrc || el.src)} ${el.paused ? 'paused' : 'playing'}${el.muted ? ' muted' : ''}${el.loop ? ' loop' : ''} dur=${Number.isFinite(el.duration) ? el.duration.toFixed(1) : el.duration} t=${el.currentTime.toFixed(1)}`);
+    window.postMessage({ __audioGrabber: 'diag', data: {
+      nowPlaying: md ? `${md.title || '(no title)'} / art:${(md.artwork || []).length}` : '(none)',
+      media, waStarts: diag.waStarts.slice(-8), hooks: diag.hooks, mse: diag.mse.slice(-3), worklets: diag.worklets.slice(-3),
+      reports: diag.reports, titles: diag.titles.slice(-6), chosen: (() => { const el = currentAudio(); return el ? mask(el.currentSrc || el.src) : '(none)'; })()
+    } }, '*');
+  }, 3000);
+
   const timer = setInterval(() => {
     const song = read();
     if (song.key !== '|') sampleTiming(song.key);
@@ -252,6 +298,8 @@
     if (song.key === '|' || (song.key === last && song.playing === lastPlaying)) return;
     last = song.key;
     lastPlaying = song.playing;
+    diag.reports++;
+    if (song.title && diag.titles[diag.titles.length - 1] !== song.title) { diag.titles.push(song.title); if (diag.titles.length > 12) diag.titles.shift(); }
     // Snapshot the playlist when playback starts, before the page can change.
     if (!playlistIds) playlistIds = pageSongIds();
     // The song's original file, if the page holds it in memory.
@@ -266,6 +314,7 @@
 
   const stop = () => {
     clearInterval(timer);
+    clearInterval(diagTimer);
     window.removeEventListener('message', onStop);
     window.removeEventListener('__audioGrabberWAStart', onWebAudioStart);
     if (window.__audioGrabberWatch === stop) window.__audioGrabberWatch = null;

@@ -421,7 +421,7 @@ async function onSongTiming(msg, sender) {
   if (!state.recording || !state.split || !state.keepSilence || !sender.tab || sender.tab.id !== state.tabId) return { ok: true };
   const { songFinal } = await chrome.storage.session.get('songFinal');
   const final = !!(songFinal && songFinal.key === msg.key && songFinal.final);
-  await sendToOffscreen({ type: 'songTiming', zero: msg.zero, final, source: msg.source || '' }).catch(() => {});
+  await sendToOffscreen({ type: 'songTiming', zero: msg.zero, final, source: msg.source || '', duration: msg.duration || 0 }).catch(() => {});
   return { ok: true };
 }
 
@@ -507,6 +507,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return { ok: true };
     },
     grabDone: () => grabDone(msg),
+    pageDiag: async () => {
+      const state = await getState();
+      if (state.recording && sender.tab && sender.tab.id === state.tabId) await chrome.storage.session.set({ pageDiag: msg.data });
+      return { ok: true };
+    },
+    recDiag: async () => {
+      await chrome.storage.session.set({ recDiag: msg.data });
+      return { ok: true };
+    },
+    diagnostics: async () => {
+      const { pageDiag, recDiag, audioLog, captureLatency } = {
+        ...(await chrome.storage.session.get(['pageDiag', 'recDiag', 'audioLog'])),
+        ...(await chrome.storage.local.get('captureLatency'))
+      };
+      const live = (await getState()).recording ? await sendToOffscreen({ type: 'status' }).catch(() => null) : null;
+      return { text: [
+        `Audio Grabber ${chrome.runtime.getManifest().version} diagnostics`,
+        `Settings: ${JSON.stringify(await getSettings())}`,
+        `Page: ${JSON.stringify(pageDiag || null)}`,
+        `Recording: ${JSON.stringify(live || recDiag || null)}`,
+        `Audio requests: ${JSON.stringify((audioLog || []).slice(0, 5))}`,
+        `Capture delay: ${captureLatency || 0} frames`
+      ].join('\n') };
+    },
     testNotify: async () => {
       await notify('Audio Grabber: test', 'Notifications are working. You will get one like this when a recording finishes.');
       const { notifyError } = await chrome.storage.local.get('notifyError');

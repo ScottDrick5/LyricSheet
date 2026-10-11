@@ -164,13 +164,29 @@ function avsAlignFromEnd(items, entries) {
   return items.map((_, i) => (i + offset >= 0 ? entries[i + offset] : null));
 }
 
+// The block holding a whole reply: a known turn block, else the outermost marked element around
+// the marker, else (for a small marker like a "ChatGPT said:" label) its parent if that holds
+// no other reply.
+function avsTurnOf(node, nodes) {
+  const block = node.closest(AVS_TURN_SEL);
+  if (block) return block;
+  const attrs = avsLearnedRoleAttr ? [avsLearnedRoleAttr, ...AVS_ROLE_ATTRS] : AVS_ROLE_ATTRS;
+  const sel = attrs.map(avsRoleSelector).join(', ');
+  let outer = node;
+  for (let e = node.parentElement; e; e = e.parentElement) if (e.matches(sel)) outer = e;
+  if (outer !== node) return outer;
+  const parent = node.parentElement;
+  if (parent && (node.textContent || '').trim().length < 60 && !nodes.some((m) => m !== node && parent.contains(m))) return parent;
+  return node;
+}
+
 // Each assistant turn can contain several message nodes; read-aloud uses the last one.
 function avsAssistantTurns() {
   const nodes = avsAssistantNodes();
   const record = avsRecord.conv === avsConversationId() ? avsRecord.turns : [];
   if (nodes.length) {
     const turns = new Map();
-    for (const node of nodes) turns.set(node.closest(AVS_TURN_SEL) || node, node);
+    for (const node of nodes) turns.set(avsTurnOf(node, nodes), node);
     const list = [...turns].map(([turn, node]) => ({ turn, node, messageId: avsDomMessageId(node) }));
     if (list.some((t) => !t.messageId)) {
       const ids = avsAlignFromEnd(list, record.filter((t) => t.role === 'assistant'));
@@ -324,12 +340,30 @@ function avsPlaceChatPlayer(turn, node, messageId) {
     avsChatPlayers.set(messageId, p);
   }
   // A regenerated reply gets a new id; drop the old bar in this turn.
-  const scope = turn === node ? node.parentElement || node : turn;
-  for (const old of scope.querySelectorAll('.avs-player')) if (old !== p.el && old.previousElementSibling === node) old.remove();
-  if (p.el.previousElementSibling !== node) {
-    if (node.parentElement) node.insertAdjacentElement('afterend', p.el);
-    else node.appendChild(p.el);
+  if (turn !== node) for (const old of turn.querySelectorAll('.avs-player')) if (old !== p.el) old.remove();
+  // Under the reply's text (before ChatGPT's own buttons), or at the end of the turn.
+  const anchor = avsReplyAnchor(turn, node);
+  if (anchor) {
+    if (p.el.previousElementSibling !== anchor) anchor.insertAdjacentElement('afterend', p.el);
+  } else if (turn !== node) {
+    if (turn.lastElementChild !== p.el) turn.appendChild(p.el);
+  } else if (p.el.previousElementSibling !== node) {
+    node.insertAdjacentElement('afterend', p.el);
   }
+}
+
+// The element holding the reply's text, so the bar goes below the reply. The author marker
+// isn't always it (it can be a small label at the top of the reply).
+function avsReplyAnchor(turn, node) {
+  const len = (el) => (el.textContent || '').trim().length;
+  const total = len(turn);
+  if (node !== turn && len(node) >= total * 0.5) return node;
+  let best = null;
+  for (const el of turn.querySelectorAll('[data-message-id], .markdown, [class*="markdown"], .prose')) {
+    if (el.closest('.avs-player') || el === turn) continue;
+    if (len(el) >= total * 0.5) best = el;
+  }
+  return best;
 }
 
 avsWatchPage(avsInjectPlayers);

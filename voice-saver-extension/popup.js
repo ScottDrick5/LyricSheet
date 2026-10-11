@@ -105,6 +105,12 @@ async function initChatGPT() {
       bad = true;
     } else {
       msg = `Player bars on this page: ${status.players} of ${status.replies} replies` + (status.generating ? ' (one is still being written)' : '') + '.';
+      const missing = status.players < status.replies && !(status.generating && status.players === status.replies - 1);
+      if (missing) {
+        const why = [...new Set(status.reasons || [])].join('; ');
+        msg += (why ? ` Reason: ${why}.` : '') + ' Click Copy page info and send it to get this fixed.';
+        bad = true;
+      }
     }
     setStatus($('pageCheck'), msg, bad);
     $('copyLayout').hidden = !(bad && status.conversation && settings.showPlayerChatgpt);

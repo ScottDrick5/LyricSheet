@@ -93,3 +93,22 @@ async function avsSiteFetch(url, options) {
     }
   }
 }
+
+// Runs fn soon after the page changes. A pure debounce never fires on pages that change all the time
+// (an animation or a ticking element), so this runs at most every 300ms but never waits longer,
+// and once every few seconds anyway. Changes made by our own player bars are ignored.
+function avsWatchPage(fn) {
+  let timer = null;
+  const run = () => {
+    timer = null;
+    try { fn(); } catch (err) { console.warn('AI Voice Saver:', err); }
+  };
+  const ours = (node) => node && node.nodeType === 1 && (node.classList.contains('avs-player') || node.closest('.avs-player'));
+  new MutationObserver((records) => {
+    if (timer) return;
+    if (records.every((r) => ours(r.target) || [...r.addedNodes, ...r.removedNodes].every(ours))) return;
+    timer = setTimeout(run, 300);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(() => { if (!timer) run(); }, 3000);
+  run();
+}

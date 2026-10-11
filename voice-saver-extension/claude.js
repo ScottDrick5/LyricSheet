@@ -171,9 +171,4 @@ function avsInjectClaudePlayers() {
   }
 }
 
-let avsClaudeScanTimer = null;
-new MutationObserver(() => {
-  clearTimeout(avsClaudeScanTimer);
-  avsClaudeScanTimer = setTimeout(avsInjectClaudePlayers, 400);
-}).observe(document.documentElement, { childList: true, subtree: true });
-avsInjectClaudePlayers();
+avsWatchPage(avsInjectClaudePlayers);

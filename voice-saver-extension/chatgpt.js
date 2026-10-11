@@ -249,6 +249,8 @@ function avsLayoutReport() {
     `Chat record: ${avsRecord.turns.length} turns, ${avsRecord.turns.filter((t) => t.role === 'assistant').length} replies`,
     `Test ids: ${top(testids, 25)}`,
     `Data attributes: ${top(attrCounts, 25)}`,
+    `Replies found: ${avsAssistantTurns().length}, bars: ${document.querySelectorAll('.avs-player').length}, last check ${Math.round((Date.now() - avsInjectState.time) / 1000)}s ago, skipped: ${avsInjectState.reasons.join('; ') || 'none'}`,
+    `First reply: ${(() => { const t = avsAssistantTurns()[0]; return t ? chain(t.node) + (t.node.parentElement ? '' : ' (no parent)') : 'none'; })()}`,
     `Copy button: ${copy ? chain(copy) : 'not found'}`,
     `Read-aloud button: ${read ? chain(read) : 'not found'}`
   ].join('\n');
@@ -286,40 +288,51 @@ function avsInjectPlayers() {
   }
   const turns = avsAssistantTurns();
   const generating = avsGenerating();
+  const reasons = [];
+  avsInjectState = { time: Date.now(), reasons };
   turns.forEach(({ turn, node, messageId }, i) => {
-    if (!messageId) return;
+    if (!messageId) return reasons.push('no message id');
     // Wait until the reply has finished writing.
-    if ((generating && i === turns.length - 1) || node.querySelector('.result-streaming')) return;
-
-    let p = avsChatPlayers.get(messageId);
-    if (!p) {
-      p = avsCreatePlayer({
-        site: 'chatgpt',
-        choice: async () => {
-          const c = await avsChatGPTChoice();
-          return { ...c, key: `${c.voice}|${c.format}` };
-        },
-        fetch: async (choice) => {
-          const { blob, voice, format } = await avsFetchAudio(messageId, choice);
-          return { blob, voice, ext: format };
-        },
-        fillVoices: avsFillVoiceSelect
-      });
-      avsChatPlayers.set(messageId, p);
+    if (generating && i === turns.length - 1) return reasons.push('still being written');
+    if (node.querySelector('.result-streaming')) return reasons.push('still being written (streaming class)');
+    try {
+      avsPlaceChatPlayer(turn, node, messageId);
+      if (!avsChatPlayers.get(messageId).el.isConnected) reasons.push('bar was added but the page removed it');
+    } catch (err) {
+      reasons.push('error: ' + (err.message || err));
     }
-    // A regenerated reply gets a new id; drop the old bar in this turn.
-    const scope = turn === node ? node.parentElement || node : turn;
-    for (const old of scope.querySelectorAll('.avs-player')) if (old !== p.el && old.previousElementSibling === node) old.remove();
-    if (p.el.previousElementSibling !== node) node.insertAdjacentElement('afterend', p.el);
   });
 }
 
-let avsScanTimer = null;
-new MutationObserver(() => {
-  clearTimeout(avsScanTimer);
-  avsScanTimer = setTimeout(avsInjectPlayers, 400);
-}).observe(document.documentElement, { childList: true, subtree: true });
-avsInjectPlayers();
+let avsInjectState = { time: 0, reasons: [] };
+
+function avsPlaceChatPlayer(turn, node, messageId) {
+  let p = avsChatPlayers.get(messageId);
+  if (!p) {
+    p = avsCreatePlayer({
+      site: 'chatgpt',
+      choice: async () => {
+        const c = await avsChatGPTChoice();
+        return { ...c, key: `${c.voice}|${c.format}` };
+      },
+      fetch: async (choice) => {
+        const { blob, voice, format } = await avsFetchAudio(messageId, choice);
+        return { blob, voice, ext: format };
+      },
+      fillVoices: avsFillVoiceSelect
+    });
+    avsChatPlayers.set(messageId, p);
+  }
+  // A regenerated reply gets a new id; drop the old bar in this turn.
+  const scope = turn === node ? node.parentElement || node : turn;
+  for (const old of scope.querySelectorAll('.avs-player')) if (old !== p.el && old.previousElementSibling === node) old.remove();
+  if (p.el.previousElementSibling !== node) {
+    if (node.parentElement) node.insertAdjacentElement('afterend', p.el);
+    else node.appendChild(p.el);
+  }
+}
+
+avsWatchPage(avsInjectPlayers);
 
 async function avsSaveAll() {
   const turns = avsAssistantTurns().filter((t) => t.messageId);
@@ -359,7 +372,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       replies: turns.length,
       withIds: turns.filter((t) => t.messageId).length,
       players: document.querySelectorAll('.avs-player').length,
-      generating: avsGenerating()
+      generating: avsGenerating(),
+      reasons: avsInjectState.reasons,
+      lastRun: Date.now() - avsInjectState.time
     });
   } else if (msg.type === 'chatgpt-layout') {
     const reply = () => sendResponse({ report: avsLayoutReport() });

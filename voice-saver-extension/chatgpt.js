@@ -63,14 +63,26 @@ async function avsSaveMessage(messageId, suffix = '') {
   avsDownloadBlob(blob, avsFilename('chatgpt', voice, format, suffix));
 }
 
+// The message id ChatGPT's read-aloud needs: on the message itself, a wrapper, or inside it.
+function avsMessageId(node) {
+  const el = node.closest('[data-message-id]') || node.querySelector('[data-message-id]');
+  return el ? el.getAttribute('data-message-id') : null;
+}
+
 // Each assistant turn can contain several message nodes; read-aloud uses the last one.
 function avsAssistantTurns() {
   const turns = new Map();
-  for (const node of document.querySelectorAll('[data-message-author-role="assistant"][data-message-id]')) {
-    const turn = node.closest('article, [data-testid^="conversation-turn"]') || node.parentElement;
+  for (const node of document.querySelectorAll('[data-message-author-role="assistant"]')) {
+    if (node.parentElement && node.parentElement.closest('[data-message-author-role="assistant"]')) continue;
+    const turn = node.closest('article, [data-testid^="conversation-turn"], [data-turn="assistant"]') || node;
     turns.set(turn, node);
   }
-  return [...turns].map(([turn, node]) => ({ turn, node, messageId: node.getAttribute('data-message-id') }));
+  return [...turns].map(([turn, node]) => ({ turn, node, messageId: avsMessageId(node) }));
+}
+
+// True while ChatGPT is still writing a reply (its Stop button is showing).
+function avsGenerating() {
+  return !!document.querySelector('[data-testid="stop-button"], button[aria-label^="Stop" i]');
 }
 
 // ---------- Voice list (the popup asks for this same list, so both always match) ----------
@@ -95,11 +107,12 @@ async function avsFillVoiceSelect(select) {
 const avsChatPlayers = new Map(); // messageId -> player
 
 function avsInjectPlayers() {
-  const anyActionBar = !!document.querySelector('[data-testid="copy-turn-action-button"]');
-  for (const { turn, node, messageId } of avsAssistantTurns()) {
-    if (!messageId) continue;
-    // Wait until the reply has finished writing (its Copy button shows up then).
-    if (anyActionBar && !turn.querySelector('[data-testid="copy-turn-action-button"]')) continue;
+  const turns = avsAssistantTurns();
+  const generating = avsGenerating();
+  turns.forEach(({ turn, node, messageId }, i) => {
+    if (!messageId) return;
+    // Wait until the reply has finished writing.
+    if ((generating && i === turns.length - 1) || node.querySelector('.result-streaming')) return;
 
     let p = avsChatPlayers.get(messageId);
     if (!p) {
@@ -118,9 +131,10 @@ function avsInjectPlayers() {
       avsChatPlayers.set(messageId, p);
     }
     // A regenerated reply gets a new id; drop the old bar in this turn.
-    for (const old of turn.querySelectorAll('.avs-player')) if (old !== p.el) old.remove();
+    const scope = turn === node ? node.parentElement || node : turn;
+    for (const old of scope.querySelectorAll('.avs-player')) if (old !== p.el && old.previousElementSibling === node) old.remove();
     if (p.el.previousElementSibling !== node) node.insertAdjacentElement('afterend', p.el);
-  }
+  });
 }
 
 let avsScanTimer = null;
@@ -162,7 +176,14 @@ async function avsListVoices() {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'chatgpt-status') {
-    sendResponse({ conversation: !!avsConversationId(), replies: avsAssistantTurns().length });
+    const turns = avsAssistantTurns();
+    sendResponse({
+      conversation: !!avsConversationId(),
+      replies: turns.length,
+      withIds: turns.filter((t) => t.messageId).length,
+      players: document.querySelectorAll('.avs-player').length,
+      generating: avsGenerating()
+    });
   } else if (msg.type === 'chatgpt-save-all') {
     avsSaveAll().then(sendResponse, (err) => sendResponse({ saved: 0, total: 0, errors: [String(err.message || err)] }));
     return true;

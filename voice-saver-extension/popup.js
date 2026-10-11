@@ -89,6 +89,25 @@ async function initChatGPT() {
   $('format').addEventListener('change', (e) => saveSetting('chatgptFormat', e.target.value));
 
   const status = await send({ type: 'chatgpt-status' });
+  if (status) {
+    let msg;
+    let bad = false;
+    if (!settings.showPlayerChatgpt) {
+      msg = 'Player bars are turned off. Turn on "Show player bar on ChatGPT" in Settings below.';
+      bad = true;
+    } else if (!status.replies) {
+      msg = status.conversation
+        ? "Couldn't find any ChatGPT replies on this page. ChatGPT may have changed its layout. Send this message to get the extension updated."
+        : 'Open a chat to see player bars under the replies.';
+      bad = status.conversation;
+    } else if (!status.withIds) {
+      msg = `Found ${status.replies} replies, but none has the ID ChatGPT needs to read it aloud. ChatGPT may have changed its layout.`;
+      bad = true;
+    } else {
+      msg = `Player bars on this page: ${status.players} of ${status.replies} replies` + (status.generating ? ' (one is still being written)' : '') + '.';
+    }
+    setStatus($('pageCheck'), msg, bad);
+  }
   if (!status) {
     setStatus($('saveAllStatus'), 'Reload the ChatGPT tab to finish setting up the extension.', true);
     $('saveAll').disabled = true;

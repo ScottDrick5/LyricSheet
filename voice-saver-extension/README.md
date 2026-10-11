@@ -27,8 +27,11 @@ Files go to your normal Downloads folder, named like `chatgpt-ember-2026-09-26_1
 - The voice list is loaded from ChatGPT when it can be. **Custom…** in the popup lets you type any other
   voice name, and it then shows up in the players too.
 - This only works in saved chats. Temporary chats can't be read aloud.
-- The popup shows how many replies on the page have a player bar. If it says it couldn't find any
-  replies, ChatGPT has probably changed its layout and the extension needs an update.
+- The popup shows how many replies on the page have a player bar. The extension finds replies in
+  several ways, and gets message IDs from ChatGPT's own record of the chat when the page doesn't show
+  them. If it still can't find any replies, ChatGPT has changed its layout again. Click **Copy page
+  info** in the popup and send it along. It describes how the page is built, with no chat text, so the
+  extension can be updated.
 
 ## Claude
 - Every finished Claude reply gets the same **player bar** as ChatGPT: play/pause, scrub bar, voice

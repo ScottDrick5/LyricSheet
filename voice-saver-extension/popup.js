@@ -97,17 +97,24 @@ async function initChatGPT() {
       bad = true;
     } else if (!status.replies) {
       msg = status.conversation
-        ? "Couldn't find any ChatGPT replies on this page. ChatGPT may have changed its layout. Send this message to get the extension updated."
+        ? "Couldn't find any ChatGPT replies on this page. ChatGPT may have changed its layout. Click Copy page info and send it to get the extension updated."
         : 'Open a chat to see player bars under the replies.';
       bad = status.conversation;
     } else if (!status.withIds) {
-      msg = `Found ${status.replies} replies, but none has the ID ChatGPT needs to read it aloud. ChatGPT may have changed its layout.`;
+      msg = `Found ${status.replies} replies, but none has the ID ChatGPT needs to read it aloud. Click Copy page info and send it to get the extension updated.`;
       bad = true;
     } else {
       msg = `Player bars on this page: ${status.players} of ${status.replies} replies` + (status.generating ? ' (one is still being written)' : '') + '.';
     }
     setStatus($('pageCheck'), msg, bad);
+    $('copyLayout').hidden = !(bad && status.conversation && settings.showPlayerChatgpt);
   }
+  $('copyLayout').addEventListener('click', async () => {
+    const res = await send({ type: 'chatgpt-layout' });
+    if (!res) return;
+    await navigator.clipboard.writeText(res.report);
+    $('copyLayout').textContent = 'Copied. Paste it in your message';
+  });
   if (!status) {
     setStatus($('saveAllStatus'), 'Reload the ChatGPT tab to finish setting up the extension.', true);
     $('saveAll').disabled = true;

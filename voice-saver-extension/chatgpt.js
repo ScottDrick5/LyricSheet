@@ -115,17 +115,25 @@ function avsDomMessageId(node) {
 
 // ---------- The chat's own record (for ids the page doesn't show) ----------
 
-let avsRecord = { conv: null, turns: [], fetchedAt: 0, loading: null };
+let avsRecord = { conv: null, turns: [], node: null, fetchedAt: 0, loading: null };
+// Re-reads since the replies last changed: the first few come quickly (ChatGPT's record can lag a
+// moment behind the page), then they slow down.
+let avsRecordTries = 0;
+const avsRecordWait = () => (avsRecordTries < 4 ? 1500 : Math.min(1500 * 2 ** (avsRecordTries - 3), 60000));
 
-// The visible turns of the current branch: [{ role: 'user'|'assistant', id }]. For an assistant
-// turn, the id of its last text message (what read-aloud reads).
+// Letters and digits only, lowercased: the page shows rendered text and the record holds
+// markdown, so this is what the two have in common.
+const avsNorm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+// The visible turns of the current branch: [{ role, id, text }]. For an assistant turn, the id and
+// text of its last text message (what read-aloud reads).
 function avsLoadRecord() {
   const conv = avsConversationId();
   if (!conv) return Promise.resolve([]);
   if (avsRecord.loading) return avsRecord.loading;
-  if (avsRecord.conv === conv && Date.now() - avsRecord.fetchedAt < 5000) return Promise.resolve(avsRecord.turns);
   avsRecord.loading = (async () => {
     let turns = avsRecord.conv === conv ? avsRecord.turns : [];
+    let node = avsRecord.conv === conv ? avsRecord.node : null;
     try {
       const token = await avsGetToken();
       const res = await avsSiteFetch(`/backend-api/conversation/${conv}`, {
@@ -142,26 +150,62 @@ function avsLoadRecord() {
         const m = n.message;
         if (!m || !m.author) continue;
         if ((m.metadata || {}).is_visually_hidden_from_conversation) continue;
+        const c = m.content || {};
+        const text = (c.parts || [c.text]).filter((x) => typeof x === 'string').join('\n');
         const role = m.author.role;
-        if (role === 'user') { list.push({ role: 'user', id: m.id }); continue; }
+        if (role === 'user') { list.push({ role: 'user', id: m.id, text: avsNorm(text) }); continue; }
         if (role !== 'assistant' && role !== 'tool') continue;
         let last = list[list.length - 1];
-        if (!last || last.role !== 'assistant') { last = { role: 'assistant', id: null }; list.push(last); }
-        const ct = (m.content && m.content.content_type) || '';
-        if (role === 'assistant' && (m.recipient || 'all') === 'all' && /text/.test(ct)) last.id = m.id;
+        if (!last || last.role !== 'assistant') { last = { role: 'assistant', id: null, text: '' }; list.push(last); }
+        if (role === 'assistant' && (m.recipient || 'all') === 'all' && /text/.test(c.content_type || '')) {
+          last.id = m.id;
+          last.text = avsNorm(text);
+        }
       }
+      node = data.current_node;
       turns = list.filter((t) => t.role === 'user' || t.id);
     } catch {}
-    avsRecord = { conv, turns, fetchedAt: Date.now(), loading: null };
+    avsRecordTries++;
+    avsRecord = { conv, turns, node, fetchedAt: Date.now(), loading: null };
     return turns;
   })();
   return avsRecord.loading;
 }
 
-// Pairs page items with record entries, counting back from the newest.
-function avsAlignFromEnd(items, entries) {
-  const offset = entries.length - items.length;
-  return items.map((_, i) => (i + offset >= 0 ? entries[i + offset] : null));
+// A reply's text on the page, without our player bar's text.
+function avsPageText(el) {
+  let t = el.textContent || '';
+  for (const p of el.querySelectorAll('.avs-player')) t = t.replace(p.textContent, '');
+  return t;
+}
+
+// How well a reply on the page matches a record entry: short replies must match exactly; longer
+// ones by how many of five 12-character samples (start, quarters, end) appear in the entry.
+function avsMatches(pageNorm, entryNorm) {
+  if (!entryNorm) return false;
+  if (pageNorm.length < 24) return pageNorm.length > 0 && pageNorm === entryNorm;
+  const L = pageNorm.length;
+  const starts = [0, Math.floor(L / 4), Math.floor(L / 2), Math.floor((3 * L) / 4), L - 12];
+  const hits = starts.filter((i) => entryNorm.includes(pageNorm.slice(i, i + 12))).length;
+  return hits >= 3;
+}
+
+// Which message a reply on the page is, remembered per reply block until its text changes
+// (a regenerated reply, or one still being written, gets matched again).
+const avsTurnIds = new WeakMap(); // turn element -> { conv, id, len }
+
+function avsRecordIdFor(turn, node, used) {
+  const conv = avsConversationId();
+  const anchor = avsReplyAnchor(turn, node) || node;
+  const text = avsPageText(anchor);
+  const cached = avsTurnIds.get(turn);
+  if (cached && cached.conv === conv && cached.len === text.length && !used.has(cached.id)) return cached.id;
+  if (avsRecord.conv !== conv) return null;
+  const pageNorm = avsNorm(text);
+  const entry = avsRecord.turns.find((t) => t.role === 'assistant' && !used.has(t.id) && avsMatches(pageNorm, t.text));
+  if (!entry) return null;
+  avsTurnIds.set(turn, { conv, id: entry.id, len: text.length });
+  return entry.id;
 }
 
 // The block holding a whole reply: a known turn block, else the outermost marked element around
@@ -180,41 +224,72 @@ function avsTurnOf(node, nodes) {
   return node;
 }
 
+// The replies on the page, each with the message id read-aloud needs (null until known).
 // Each assistant turn can contain several message nodes; read-aloud uses the last one.
 function avsAssistantTurns() {
   const nodes = avsAssistantNodes();
-  const record = avsRecord.conv === avsConversationId() ? avsRecord.turns : [];
+  let list;
+  let fromBlocks = false;
   if (nodes.length) {
     const turns = new Map();
     for (const node of nodes) turns.set(avsTurnOf(node, nodes), node);
-    const list = [...turns].map(([turn, node]) => ({ turn, node, messageId: avsDomMessageId(node) }));
-    if (list.some((t) => !t.messageId)) {
-      const ids = avsAlignFromEnd(list, record.filter((t) => t.role === 'assistant'));
-      list.forEach((t, i) => { if (!t.messageId && ids[i]) t.messageId = ids[i].id; });
-    }
-    return list;
+    list = [...turns].map(([turn, node]) => ({ turn, node, messageId: avsDomMessageId(node) }));
+  } else {
+    // No author markers at all: every turn block, kept below only if it matches a reply.
+    fromBlocks = true;
+    list = [...document.querySelectorAll(AVS_TURN_SEL)]
+      .filter((b) => !(b.parentElement && b.parentElement.closest(AVS_TURN_SEL)))
+      .map((b) => ({ turn: b, node: b, messageId: null }));
   }
-  // No author markers at all: use the turn blocks in order, matched to the record's turns.
-  const blocks = [...document.querySelectorAll(AVS_TURN_SEL)].filter((b) => !(b.parentElement && b.parentElement.closest(AVS_TURN_SEL)));
-  if (!blocks.length || !record.length) return [];
-  const matched = avsAlignFromEnd(blocks, record);
-  return blocks
-    .map((block, i) => ({ turn: block, node: block, entry: matched[i] }))
-    .filter((t) => t.entry && t.entry.role === 'assistant')
-    .map(({ turn, node, entry }) => ({ turn, node, messageId: entry.id }));
+  if (list.some((t) => !t.messageId)) {
+    const used = new Set(list.map((t) => t.messageId).filter(Boolean));
+    if (avsRecordHasText()) {
+      for (const t of list) {
+        if (t.messageId) continue;
+        t.messageId = avsRecordIdFor(t.turn, t.node, used);
+        if (t.messageId) used.add(t.messageId);
+      }
+    } else {
+      avsMatchByPosition(list, fromBlocks);
+    }
+  }
+  return fromBlocks ? list.filter((t) => t.messageId) : list;
 }
 
-// The record is needed when the page doesn't show message ids or author markers, and is
-// re-read only when the page has more turns than the record knows about (a new reply).
-function avsRecordNeeded() {
-  const nodes = avsAssistantNodes();
-  if (nodes.length && nodes.every((n) => avsDomMessageId(n))) return false;
+// Normally the record holds each message's text. If it doesn't, fall back to matching by position
+// (counting back from the newest), but only with a record read after the page last changed.
+function avsRecordHasText() {
+  return avsRecord.turns.some((t) => t.role === 'assistant' && t.text);
+}
+
+function avsMatchByPosition(list, fromBlocks) {
+  if (avsRecord.conv !== avsConversationId() || avsRecord.fetchedAt < avsPageState.since) return;
+  const entries = fromBlocks ? avsRecord.turns : avsRecord.turns.filter((t) => t.role === 'assistant');
+  const offset = entries.length - list.length;
+  list.forEach((t, i) => {
+    const e = entries[i + offset];
+    if (!t.messageId && e && e.role === 'assistant') t.messageId = e.id;
+  });
+}
+
+// Page state used to decide when to re-read the record: wait until replies stop changing.
+let avsPageState = { sig: '', since: 0 };
+
+function avsNoteChanges(turns) {
+  const sig = turns.map((t) => avsPageText(t.turn).length).join(',') + '|' + document.querySelectorAll(AVS_TURN_SEL).length;
+  if (sig !== avsPageState.sig) avsPageState = { sig, since: Date.now() };
+}
+
+// Re-read the record when a reply has no id yet, the page has settled, ChatGPT isn't writing,
+// and enough time has passed (longer each time a re-read brings nothing new).
+function avsRecordNeeded(turns) {
+  if (avsRecord.loading || avsGenerating()) return false;
   if (avsRecord.conv !== avsConversationId()) return true;
-  if (nodes.length) {
-    const replies = new Set(nodes.map((n) => n.closest(AVS_TURN_SEL) || n)).size;
-    return replies > avsRecord.turns.filter((t) => t.role === 'assistant').length;
-  }
-  return document.querySelectorAll(AVS_TURN_SEL).length > avsRecord.turns.length;
+  const missing = turns.some((t) => !t.messageId) || (!turns.length && document.querySelector(AVS_TURN_SEL));
+  if (!missing) return false;
+  if (Date.now() - avsPageState.since < 1500) return false;
+  if (avsPageState.since > avsRecord.fetchedAt) avsRecordTries = 0;
+  return Date.now() - avsRecord.fetchedAt > avsRecordWait();
 }
 
 // A short description of how the page is built, for when replies can't be found.
@@ -299,18 +374,22 @@ async function avsFillVoiceSelect(select) {
 const avsChatPlayers = new Map(); // messageId -> player
 
 function avsInjectPlayers() {
-  if (!avsRecord.loading && Date.now() - avsRecord.fetchedAt > 5000 && avsRecordNeeded()) {
-    avsLoadRecord().then(avsInjectPlayers);
-  }
   const turns = avsAssistantTurns();
+  avsNoteChanges(turns);
+  if (avsRecordNeeded(turns)) avsLoadRecord().then(avsInjectPlayers);
   const generating = avsGenerating();
   const reasons = [];
   avsInjectState = { time: Date.now(), reasons };
   turns.forEach(({ turn, node, messageId }, i) => {
-    if (!messageId) return reasons.push('no message id');
-    // Wait until the reply has finished writing.
-    if (generating && i === turns.length - 1) return reasons.push('still being written');
-    if (node.querySelector('.result-streaming')) return reasons.push('still being written (streaming class)');
+    // No bar while the reply is unknown or still being written (a regenerated reply keeps no old bar).
+    if (!messageId) {
+      avsRemoveBars(turn, node);
+      return reasons.push("waiting to match it with ChatGPT's record of the chat");
+    }
+    if ((generating && i === turns.length - 1) || node.querySelector('.result-streaming')) {
+      avsRemoveBars(turn, node);
+      return reasons.push('still being written');
+    }
     try {
       avsPlaceChatPlayer(turn, node, messageId);
       if (!avsChatPlayers.get(messageId).el.isConnected) reasons.push('bar was added but the page removed it');
@@ -321,6 +400,16 @@ function avsInjectPlayers() {
 }
 
 let avsInjectState = { time: 0, reasons: [] };
+
+function avsRemoveBars(turn, node) {
+  const bars = [...turn.querySelectorAll('.avs-player')];
+  const next = turn.nextElementSibling;
+  if (turn === node && next && next.classList.contains('avs-player')) bars.push(next);
+  for (const el of bars) {
+    for (const p of avsChatPlayers.values()) if (p.el === el) p.audio.pause();
+    el.remove();
+  }
+}
 
 function avsPlaceChatPlayer(turn, node, messageId) {
   let p = avsChatPlayers.get(messageId);
@@ -355,7 +444,7 @@ function avsPlaceChatPlayer(turn, node, messageId) {
 // The element holding the reply's text, so the bar goes below the reply. The author marker
 // isn't always it (it can be a small label at the top of the reply).
 function avsReplyAnchor(turn, node) {
-  const len = (el) => (el.textContent || '').trim().length;
+  const len = (el) => avsPageText(el).trim().length; // our bar's own text doesn't count
   const total = len(turn);
   if (node !== turn && len(node) >= total * 0.5) return node;
   let best = null;

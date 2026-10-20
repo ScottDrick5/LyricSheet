@@ -1800,6 +1800,21 @@
   /* room to scroll the last lines clear of the button */
   #canvas-wrap { padding-bottom: 96px !important; }
   /* Search matches in the open song */
+  ::highlight(spell-miss) { text-decoration: underline wavy rgba(224, 72, 62, 0.9); text-decoration-thickness: 1.4px; text-underline-offset: 3px; }
+  #spell-chip {
+    position: fixed; z-index: 66; display: flex; align-items: center; gap: 2px; max-width: calc(100vw - 16px);
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: 19px; padding: 3px;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.2); font-family: var(--font-ui);
+  }
+  #spell-chip[hidden] { display: none; }
+  #spell-chip button {
+    height: 32px; border: none; background: none; color: var(--shell-text); border-radius: 16px; padding: 0 11px;
+    font-family: var(--font-lyric); font-size: 0.98rem; cursor: pointer; white-space: nowrap;
+  }
+  #spell-chip button:active { background: var(--shell-hover); }
+  #spell-chip .sp-learn { font-family: var(--font-ui); font-size: 0.78rem; color: var(--accent); font-weight: 600; }
+  #spell-chip .sp-none { font-family: var(--font-ui); font-size: 0.78rem; color: var(--shell-text-dim); padding: 0 8px; }
+  #spell-chip .sp-sep { width: 1px; align-self: stretch; margin: 6px 2px; background: var(--shell-border); }
   ::highlight(search-hit) { background-color: var(--hl-yellow); color: #1D1B16; }
   ::highlight(search-line) { background-color: rgba(255, 214, 0, 0.14); }
   #canvas .line-row.search-line { background: rgba(255, 214, 0, 0.14); border-radius: 6px; }
@@ -2703,6 +2718,10 @@
           <button id="rhymefind-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymefind-label"><span></span></button>
         </div>
         <div class="set-item">
+          <div class="set-text"><span id="spell-label">Check spelling</span><small>Underline words that may be misspelled. Tap one for fixes, or Learn it.</small></div>
+          <button id="spell-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="spell-label"><span></span></button>
+        </div>
+        <div class="set-item">
           <div class="set-text"><span id="rhymeletters-label">Rhyme letters</span><small>A, B, C beside each line show the rhyme scheme</small></div>
           <button id="rhymeletters-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymeletters-label"><span></span></button>
         </div>
@@ -2932,6 +2951,7 @@
   <button id="rhyme-pick" data-rhyme-ui aria-label="Find rhymes" title="Find rhymes for this word">Rhyme</button>
 </div>
 <div id="fmt-menu" role="menu" hidden></div>
+<div id="spell-chip" role="toolbar" aria-label="Spelling" hidden></div>
 <div id="rhyme-panel" role="dialog" aria-labelledby="rhyme-heading" hidden>
   <div class="rp-grab" aria-hidden="true"></div>
   <div class="rp-head">
@@ -4355,6 +4375,7 @@
     lineObjs.forEach(function (l, i) { el.appendChild(i === 0 && withTitle ? readTitleEl(l.text, song) : readLineEl(l.text, l.runs)); });
     if (withTitle) markEditorPlaceholders(el, song);
     if (el.isConnected && searchQuery()) applySearchHighlight();
+    if (withTitle) scheduleSpell(el.isConnected ? 60 : 200);
   }
 
   // Read the Basic editor back into text + per-character styles.
@@ -4464,6 +4485,7 @@
 
   function readEdited(song, ed) {
     markEditorPlaceholders(ed, song);
+    scheduleSpell();
     if (searchQuery()) applySearchHighlight();
     readSync.song = song; readSync.el = ed;
     clearTimeout(readSync.timer);
@@ -4544,7 +4566,7 @@
     ed.setAttribute("role", "textbox");
     ed.setAttribute("aria-multiline", "true");
     ed.setAttribute("aria-label", "Title and lyrics");
-    ed.spellcheck = true;
+    ed.spellcheck = !(spellOn() && canHighlight);   // the app's own spelling check replaces the system's underline
 
     activePinSong = song;
     fillReadEditor(ed, editorLines(song), song);
@@ -6043,9 +6065,11 @@
       root.style.setProperty("--vv-top", vv.offsetTop + "px");
       root.style.setProperty("--vv-h", vv.height + "px");
       if (!open) return;
-      // keep the cursor in view inside the sheet
+      // keep the cursor in view inside the sheet (only a cursor: while words are being selected, moving the
+      // sheet to the start of the selection made a long selection jump back to where it began)
       var sel = window.getSelection(), wrap = document.getElementById("canvas-wrap");
       if (!sel || !sel.rangeCount || !wrap || !wrap.contains(sel.anchorNode)) return;
+      if (!sel.getRangeAt(0).collapsed) return;
       var r = sel.getRangeAt(0).getBoundingClientRect(), w = wrap.getBoundingClientRect();
       if (!r.height) return;
       if (r.bottom > w.bottom - 16) wrap.scrollTop += r.bottom - w.bottom + 40;
@@ -6053,6 +6077,21 @@
     }
     vv.addEventListener("resize", fit);
     vv.addEventListener("scroll", fit);
+    // scrolling back up through the song (by finger) puts the keyboard away, like leaving the line you were on
+    var wrap0 = document.getElementById("canvas-wrap"), drag = null;
+    wrap0.addEventListener("touchstart", function () { drag = { top: wrap0.scrollTop, until: 0 }; }, { passive: true });
+    wrap0.addEventListener("touchend", function () { if (drag) drag.until = Date.now() + 900; }, { passive: true });   // a flick keeps going
+    wrap0.addEventListener("scroll", function () {
+      if (!drag || !document.body.classList.contains("kb-open")) return;
+      if (drag.until && Date.now() > drag.until) { drag = null; return; }
+      var sel = window.getSelection();
+      if (sel.rangeCount && !sel.getRangeAt(0).collapsed) return;   // selecting words: leave it alone
+      if (wrap0.scrollTop < drag.top - 60) {
+        drag = null;
+        var a = document.activeElement;
+        if (a && isTypingTarget(a)) a.blur();
+      }
+    }, { passive: true });
     document.addEventListener("selectionchange", function () { if (document.body.classList.contains("kb-open")) fit(); });
   })();
   document.addEventListener("focusout", function () {
@@ -6391,7 +6430,7 @@
   document.getElementById("reset-settings-btn").addEventListener("click", function () {
     askConfirm("Put every setting back to how a new user starts? Your songs, notes, folders and sync stay as they are.", "Reset settings", true, function () {
       maybeSnapshotOnLeave();
-      var fresh = { fontSize: 17, savedHeaders: settings.savedHeaders || [], welcomed: true };
+      var fresh = { fontSize: 17, savedHeaders: settings.savedHeaders || [], spellWords: settings.spellWords || [], welcomed: true };
       if (settings.welcomeId) fresh.welcomeId = settings.welcomeId;
       settings = fresh;   // (so nothing saves the old ones back on the way out)
       persistSettings();
@@ -6736,6 +6775,10 @@
     var headers = settings.savedHeaders.slice();
     meta.savedHeaders.forEach(function (x) { if (savedIndex(x) === -1) headers.push(x); });
     if (headers.length !== settings.savedHeaders.length) { settings.savedHeaders = headers; persistSettings(); localChanged = true; }
+    // and so do words you've taught the spelling check
+    var spellWords = learnedWords().slice();
+    (meta.spellWords || []).forEach(function (x) { if (spellWords.indexOf(x) === -1) spellWords.push(x); });
+    if (spellWords.length !== learnedWords().length) { settings.spellWords = spellWords; persistSettings(); scheduleSpell(); }
     // folders: newest name wins, deletions stick
     var fmap = {};
     (meta.folders || []).forEach(function (f) { fmap[f.id] = f; });
@@ -6752,7 +6795,7 @@
       saveFolders(true);
       localChanged = true;
     }
-    var metaOut = JSON.stringify({ format: 2, deleted: deleted, savedHeaders: headers, folders: mergedFolders, deletedFolders: fdel });
+    var metaOut = JSON.stringify({ format: 2, deleted: deleted, savedHeaders: headers, spellWords: spellWords, folders: mergedFolders, deletedFolders: fdel });
     if (metaOut !== metaRaw) { patch[META_FILE] = { content: metaOut }; patchCount++; }
 
     sync.deleted = deleted;
@@ -7725,6 +7768,184 @@
   document.getElementById("echo-done").addEventListener("click", closeEchoes);
   echoModal.addEventListener("click", function (e) { if (e.target === echoModal) closeEchoes(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && echoModal.classList.contains("open")) closeEchoes(); });
+
+  // ---------- spelling ----------
+  // Words not in the dictionary (rhymes.js's ~45,000 words) get a red wavy underline, drawn with the Highlight
+  // API so the lyrics themselves are never touched. Endings like "-in'", "-ing", "-ed", "-s", stretched words
+  // ("ooooh"), joined words ("heartbreaker") and common lyric slang all count as spelled right; anything else
+  // can be learned (and learned words go to your other devices with sync).
+  var SPELL_SLANG = ("aint yall imma ima tryna finna gon gotta lowkey highkey nah yuh ayy ayo ohh ooh whoa woah yeah yea ya " +
+    "em til cuz coz bout ol lil thru tho nothin somethin cmon mmm hmm uh huh la da na oh ah eh hey yo").split(" ");
+  function spellOn() { return settings.spellCheck !== false; }
+  function learnedWords() { return settings.spellWords || (settings.spellWords = []); }
+  function dictHas(w) {
+    return !!rhymeDict && (w in rhymeDict.index || SPELL_SLANG.indexOf(w) !== -1 || learnedWords().indexOf(w) !== -1);
+  }
+  function knownWord(raw) {
+    var w = raw.toLowerCase().replace(/\u2019/g, "'").replace(/^'+|'+$/g, "");
+    if (w.length < 2 || dictHas(w)) return true;
+    if (/'s$/.test(w) && dictHas(w.slice(0, -2))) return true;            // possessive
+    if (/in$/.test(w) && dictHas(w + "g")) return true;                     // lovin' = loving
+    var short = w.replace(/(.)\1{2,}/g, "$1$1");                          // stretched: soooo, ooooh
+    if (short !== w && (dictHas(short) || dictHas(short.replace(/(.)\1/g, "$1")))) return true;
+    var stems = [], m;
+    if ((m = /^(.+?)(s|es|ed|d|ing|in|er|est|ly|ness|less|ful|y)$/.exec(w))) {
+      var b = m[1];
+      stems.push(b, b + "e");
+      if (/(.)\1$/.test(b)) stems.push(b.slice(0, -1));                      // stopped, running
+      if (/i$/.test(b)) stems.push(b.slice(0, -1) + "y");                     // cried, happiest
+    }
+    if (stems.some(function (x) { return x.length > 1 && dictHas(x); })) return true;
+    for (var i = 3; i <= w.length - 3; i++) if (dictHas(w.slice(0, i)) && knownWordSimple(w.slice(i))) return true;   // heartbreaker
+    return false;
+  }
+  function knownWordSimple(w) {
+    if (dictHas(w)) return true;
+    var m = /^(.+?)(s|es|er|ers|ed|ing)$/.exec(w);
+    return !!m && (dictHas(m[1]) || dictHas(m[1] + "e"));
+  }
+  var spellTimer = null, spellMisses = [];
+  function scheduleSpell(delay) {
+    clearTimeout(spellTimer);
+    spellTimer = setTimeout(checkSpelling, delay == null ? 450 : delay);
+  }
+  function checkSpelling() {
+    if (!canHighlight) return;
+    var ed = document.querySelector("#canvas .read-editor:not(.pv-sheet)"), song = getActiveSong();
+    if (!ed || !song || !spellOn()) { CSS.highlights.delete("spell-miss"); spellMisses = []; hideSpellChip(); return; }
+    if (!rhymeDict) { loadRhymes().then(function () { scheduleSpell(0); }, function () {}); return; }
+    // the word being typed isn't judged until you've moved on from it
+    var sel = window.getSelection(), caretNode = null, caretOff = -1;
+    if (sel.rangeCount && sel.getRangeAt(0).collapsed && ed.contains(sel.anchorNode) && document.activeElement === ed) {
+      caretNode = sel.anchorNode; caretOff = sel.anchorOffset;
+    }
+    var hl = new Highlight(), misses = [];
+    Array.prototype.forEach.call(ed.children, function (div, li) {
+      if (li === 0) return;   // the title
+      var text = div.textContent;
+      if (!text.trim() || detectHeader(text)) return;
+      var re = /[A-Za-z][A-Za-z'\u2019]*/g, m;
+      while ((m = re.exec(text))) {
+        var word = m[0].replace(/['\u2019]+$/, "");
+        if (word.length < 2 || knownWord(word)) continue;
+        // a capitalized word in the middle of a line is likely a name
+        if (/^[A-Z]/.test(word) && text.slice(0, m.index).trim() && !/^[A-Z]+$/.test(word)) continue;
+        var r = rangeInEl(div, m.index, m.index + word.length);
+        if (!r) continue;
+        if (caretNode && r.comparePoint(caretNode, caretOff) === 0 && caretOff === r.endOffset && caretNode === r.endContainer) continue;
+        hl.add(r);
+        misses.push({ range: r, word: word });
+      }
+    });
+    spellMisses = misses;
+    if (misses.length) CSS.highlights.set("spell-miss", hl); else CSS.highlights.delete("spell-miss");
+  }
+  // up to three likely fixes: words one letter off (most common first), else two
+  function spellSuggest(word) {
+    var w = word.toLowerCase(), abc = "abcdefghijklmnopqrstuvwxyz'";
+    function edits(x) {
+      var out = [];
+      for (var i = 0; i <= x.length; i++) {
+        if (i < x.length) out.push(x.slice(0, i) + x.slice(i + 1));
+        if (i < x.length - 1) out.push(x.slice(0, i) + x[i + 1] + x[i] + x.slice(i + 2));
+        for (var c = 0; c < abc.length; c++) {
+          if (i < x.length) out.push(x.slice(0, i) + abc[c] + x.slice(i + 1));
+          out.push(x.slice(0, i) + abc[c] + x.slice(i));
+        }
+      }
+      return out;
+    }
+    function rank(list) {
+      var seen = {};
+      return list.filter(function (x) { if (seen[x] || !(x in rhymeDict.index) || rhymeDict.hidden[rhymeDict.index[x]]) return false; return (seen[x] = true); })
+        .sort(function (a, b) { return rhymeDict.index[a] - rhymeDict.index[b]; });
+    }
+    var one = edits(w), found = rank(one);
+    if (found.length < 3 && w.length <= 12) {
+      var two = [];
+      one.forEach(function (x) { if (x.length > 1) two = two.concat(edits(x)); });
+      found = found.concat(rank(two).filter(function (x) { return found.indexOf(x) === -1; }));
+    }
+    var cap = /^[A-Z]/.test(word);
+    return found.slice(0, 3).map(function (x) { return cap ? x.charAt(0).toUpperCase() + x.slice(1) : x; });
+  }
+  var spellChip = document.getElementById("spell-chip"), spellAt = null;
+  function hideSpellChip() { spellChip.hidden = true; spellAt = null; }
+  function showSpellChip(miss) {
+    spellAt = miss;
+    spellChip.innerHTML = "";
+    var sugg = spellSuggest(miss.word);
+    sugg.forEach(function (x) {
+      var b = document.createElement("button");
+      b.textContent = x;
+      b.setAttribute("data-fix", x);
+      spellChip.appendChild(b);
+    });
+    if (!sugg.length) {
+      var none = document.createElement("span");
+      none.className = "sp-none";
+      none.textContent = "No suggestions";
+      spellChip.appendChild(none);
+    }
+    var sep = document.createElement("span");
+    sep.className = "sp-sep";
+    spellChip.appendChild(sep);
+    var learn = document.createElement("button");
+    learn.className = "sp-learn";
+    learn.textContent = "Learn";
+    learn.title = "\u201C" + miss.word + "\u201D is spelled right: stop underlining it";
+    learn.setAttribute("data-learn", "1");
+    spellChip.appendChild(learn);
+    spellChip.hidden = false;
+    var r = miss.range.getBoundingClientRect(), w = spellChip.offsetWidth, h = spellChip.offsetHeight;
+    var top = r.bottom + 8;
+    if (top + h > window.innerHeight - 8) top = r.top - h - 8;
+    spellChip.style.top = Math.max(8, top) + "px";
+    spellChip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px";
+  }
+  // tapping into an underlined word offers fixes
+  document.addEventListener("selectionchange", function () {
+    if (!spellMisses.length) { if (!spellChip.hidden) hideSpellChip(); return; }
+    var sel = window.getSelection();
+    if (!sel.rangeCount || !sel.getRangeAt(0).collapsed) { hideSpellChip(); return; }
+    var n = sel.anchorNode, o = sel.anchorOffset;
+    var hit = spellMisses.filter(function (x) {
+      try { return x.range.startContainer.isConnected && x.range.comparePoint(n, o) === 0; } catch (e) { return false; }
+    })[0];
+    if (!hit) { hideSpellChip(); return; }
+    if (hit !== spellAt) showSpellChip(hit);
+  });
+  onPress(spellChip, function (b) {
+    var miss = spellAt;
+    if (!miss) return;
+    if (b.hasAttribute("data-learn")) {
+      var w = miss.word.toLowerCase().replace(/\u2019/g, "'");
+      if (learnedWords().indexOf(w) === -1) learnedWords().push(w);
+      persistSettings();
+      if (typeof scheduleSync === "function") scheduleSync(2000);
+      hideSpellChip();
+      checkSpelling();
+      return;
+    }
+    var fix = b.getAttribute("data-fix");
+    if (!fix) return;
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(miss.range.cloneRange());
+    hideSpellChip();
+    document.execCommand("insertText", false, fix);
+    scheduleSpell(0);
+  });
+  document.getElementById("spell-switch").addEventListener("click", function () {
+    settings.spellCheck = !spellOn();
+    persistSettings();
+    var ed = document.querySelector("#canvas .read-editor:not(.pv-sheet)");
+    if (ed) ed.spellcheck = !(spellOn() && canHighlight);
+    this.setAttribute("aria-checked", String(spellOn()));
+    checkSpelling();
+  });
+  document.getElementById("spell-switch").setAttribute("aria-checked", String(spellOn()));
+  document.getElementById("canvas-wrap").addEventListener("scroll", function () { if (!spellChip.hidden) hideSpellChip(); }, { passive: true });
 
   // ---------- commands (Mac menu bar, right-click menu, keyboard) ----------
   function runCommand(cmd) {

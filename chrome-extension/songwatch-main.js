@@ -30,11 +30,6 @@
   // Players kept out of the page (new Audio()) are found by noting every
   // element that gets play() called on it.
   window.__audioGrabberMedia = window.__audioGrabberMedia || new Set();
-  // A new recording starts fresh: players left over from earlier songs (the
-  // page isn't reloaded when a new song is generated) must not be mistaken
-  // for the one playing now.
-  for (const el of [...window.__audioGrabberMedia]) if (el.paused) window.__audioGrabberMedia.delete(el);
-  if (window.__audioGrabberWA) window.__audioGrabberWA.last = null;
   if (!window.__audioGrabberPlayHook) {
     window.__audioGrabberPlayHook = true;
     const play = HTMLMediaElement.prototype.play;
@@ -54,10 +49,8 @@
     const els = [...new Set([...document.querySelectorAll('audio, video'), ...window.__audioGrabberMedia])]
       .filter((el) => !el.muted && el.volume > 0 && !placeholder(el));
     const playing = els.filter((el) => !el.paused);
-    // Paused: only a player that's still on the page and hasn't finished
-    // (the song loaded but not started yet), never a leftover from an earlier song.
     return playing.find((el) => el.tagName === 'AUDIO') || playing[0] ||
-      els.find((el) => el.tagName === 'AUDIO' && el.isConnected && !el.ended && (el.currentSrc || el.src)) || null;
+      els.find((el) => el.tagName === 'AUDIO' && (el.currentSrc || el.src)) || null;
   }
 
   // A song ID from a URL. Temporary blob: addresses carry a random UUID that

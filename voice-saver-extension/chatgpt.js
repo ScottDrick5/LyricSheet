@@ -121,9 +121,13 @@ let avsRecord = { conv: null, turns: [], node: null, fetchedAt: 0, loading: null
 let avsRecordTries = 0;
 const avsRecordWait = () => (avsRecordTries < 4 ? 1500 : Math.min(1500 * 2 ** (avsRecordTries - 3), 60000));
 
-// Letters and digits only, lowercased: the page shows rendered text and the record holds
-// markdown, so this is what the two have in common.
-const avsNorm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+// Letters only, lowercased: the page shows rendered text and the record holds markdown, so this
+// is what the two have in common (list numbers, for one, are in the record but not the page text).
+// Digits are kept only for a reply with no letters at all.
+const avsNorm = (s) => {
+  const t = String(s || '').toLowerCase();
+  return t.replace(/[^\p{L}]+/gu, '') || t.replace(/[^\p{N}]+/gu, '');
+};
 
 // The visible turns of the current branch: [{ role, id, text }]. For an assistant turn, the id and
 // text of its last text message (what read-aloud reads).
@@ -179,15 +183,39 @@ function avsPageText(el) {
   return t;
 }
 
+// A reply's text for matching: without the author marker (when it's a separate label) or the
+// text of buttons (Copy, Read aloud, …).
+function avsReplyText(src, node) {
+  let t = avsPageText(src);
+  const drop = [...src.querySelectorAll('button')].map((b) => b.textContent);
+  if (node !== src && src.contains(node) && (node.textContent || '').length < 60) drop.push(node.textContent);
+  for (const d of drop) if (d) t = t.replace(d, ' ');
+  return t;
+}
+
 // How well a reply on the page matches a record entry: short replies must match exactly; longer
 // ones by how many of five 12-character samples (start, quarters, end) appear in the entry.
+// The page text can carry extras the record doesn't (a "ChatGPT said:" label, "Thought for 5s",
+// button text) and the record extras the page doesn't (markdown, citation markers), so:
+// a short reply must appear in the page text with little else around it; a longer one matches when
+// at least 4 of 10 12-character samples spread across the page text appear in the entry.
+const AVS_SAMPLES = 10;
+
+function avsSampleHits(pageNorm, entryNorm) {
+  const L = Math.max(0, pageNorm.length - 12);
+  let hits = 0;
+  for (let k = 0; k < AVS_SAMPLES; k++) {
+    const i = Math.floor((L * k) / (AVS_SAMPLES - 1));
+    if (entryNorm.includes(pageNorm.slice(i, i + 12))) hits++;
+  }
+  return hits;
+}
+
 function avsMatches(pageNorm, entryNorm) {
-  if (!entryNorm) return false;
-  if (pageNorm.length < 24) return pageNorm.length > 0 && pageNorm === entryNorm;
-  const L = pageNorm.length;
-  const starts = [0, Math.floor(L / 4), Math.floor(L / 2), Math.floor((3 * L) / 4), L - 12];
-  const hits = starts.filter((i) => entryNorm.includes(pageNorm.slice(i, i + 12))).length;
-  return hits >= 3;
+  if (!entryNorm || !pageNorm) return false;
+  if (entryNorm.length < 24) return pageNorm.includes(entryNorm) && pageNorm.length - entryNorm.length < 60;
+  if (pageNorm.length < 24) return false;
+  return avsSampleHits(pageNorm, entryNorm) >= 4;
 }
 
 // Which message a reply on the page is, remembered per reply block until its text changes
@@ -196,8 +224,9 @@ const avsTurnIds = new WeakMap(); // turn element -> { conv, id, len }
 
 function avsRecordIdFor(turn, node, used) {
   const conv = avsConversationId();
-  const anchor = avsReplyAnchor(turn, node) || node;
-  const text = avsPageText(anchor);
+  // The reply's text: its text block if one is recognisable, otherwise the whole reply block
+  // (never just the author marker, which can be a bare "ChatGPT said:" label).
+  const text = avsReplyText(avsReplyAnchor(turn, node) || turn, node);
   const cached = avsTurnIds.get(turn);
   if (cached && cached.conv === conv && cached.len === text.length && !used.has(cached.id)) return cached.id;
   if (avsRecord.conv !== conv) return null;
@@ -292,6 +321,23 @@ function avsRecordNeeded(turns) {
   return Date.now() - avsRecord.fetchedAt > avsRecordWait();
 }
 
+// For the layout report: how close each reply on the page comes to a record entry (numbers only).
+function avsMatchReport() {
+  const entries = avsRecord.turns.filter((t) => t.role === 'assistant' && t.text);
+  const nodes = avsAssistantNodes();
+  const turns = new Map();
+  for (const node of nodes) turns.set(avsTurnOf(node, nodes), node);
+  const out = [...turns].slice(-5).map(([turn, node]) => {
+    const src = avsReplyAnchor(turn, node) || turn;
+    const page = avsNorm(avsReplyText(src, node));
+    let best = 0;
+    for (const e of entries) best = Math.max(best, avsSampleHits(page, e.text));
+    const lens = entries.map((e) => e.text.length);
+    return `page ${page.length} chars (${src === turn ? 'whole block' : 'text block'}), best ${best}/${AVS_SAMPLES}, closest record length ${lens.length ? lens.reduce((a, b) => (Math.abs(b - page.length) < Math.abs(a - page.length) ? b : a)) : '-'}`;
+  });
+  return out.join('; ') || 'no replies';
+}
+
 // A short description of how the page is built, for when replies can't be found.
 // Attribute names, counts and short marker values only; no chat text.
 function avsLayoutReport() {
@@ -337,7 +383,8 @@ function avsLayoutReport() {
     `Page: ${location.pathname.replace(idPattern, '{id}')}`,
     `Author markers: ${top(markers, 10)}`,
     `Turn blocks: ${document.querySelectorAll(AVS_TURN_SEL).length}, articles: ${document.querySelectorAll('article').length}, sections: ${document.querySelectorAll('section').length}, shadow roots: ${shadowHosts}, iframes: ${document.querySelectorAll('iframe').length}`,
-    `Chat record: ${avsRecord.turns.length} turns, ${avsRecord.turns.filter((t) => t.role === 'assistant').length} replies`,
+    `Chat record: ${avsRecord.turns.length} turns, ${avsRecord.turns.filter((t) => t.role === 'assistant').length} replies, ${avsRecord.turns.filter((t) => t.role === 'assistant' && t.text).length} with text`,
+    `Matching: ${avsMatchReport()}`,
     `Test ids: ${top(testids, 25)}`,
     `Data attributes: ${top(attrCounts, 25)}`,
     `Replies found: ${avsAssistantTurns().length}, bars: ${document.querySelectorAll('.avs-player').length}, last check ${Math.round((Date.now() - avsInjectState.time) / 1000)}s ago, skipped: ${avsInjectState.reasons.join('; ') || 'none'}`,

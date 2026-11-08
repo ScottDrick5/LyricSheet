@@ -1800,6 +1800,7 @@
   /* room to scroll the last lines clear of the button */
   #canvas-wrap { padding-bottom: 96px !important; }
   /* Search matches in the open song */
+  ::highlight(autofix) { text-decoration: underline; text-decoration-color: #3478f6; text-decoration-thickness: 2px; text-underline-offset: 3px; }
   ::highlight(spell-miss) { text-decoration: underline wavy rgba(224, 72, 62, 0.9); text-decoration-thickness: 1.4px; text-underline-offset: 3px; }
   #spell-chip {
     position: fixed; z-index: 66; display: flex; align-items: center; gap: 2px; max-width: calc(100vw - 16px);
@@ -2718,7 +2719,7 @@
           <button id="rhymefind-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="rhymefind-label"><span></span></button>
         </div>
         <div class="set-item">
-          <div class="set-text"><span id="spell-label">Check spelling</span><small>Underline words that may be misspelled. Tap one for fixes, or Learn it.</small></div>
+          <div class="set-text"><span id="spell-label">Check spelling</span><small>Underline words that may be misspelled (tap one for fixes, or Learn it), and put apostrophes back as you type: dont → don’t</small></div>
           <button id="spell-switch" class="switch" role="switch" aria-checked="true" aria-labelledby="spell-label"><span></span></button>
         </div>
         <div class="set-item">
@@ -7935,6 +7936,57 @@
     hideSpellChip();
     document.execCommand("insertText", false, fix);
     scheduleSpell(0);
+  });
+  // Apostrophes put back as you type: "dont " becomes "don’t ", "im " becomes "I’m ". Only words that
+  // aren't words on their own are fixed ("well", "were", "ill", "its", "wont"… are left alone). The fixed
+  // word is underlined for a moment so you can see it changed; Undo puts it back.
+  var CONTRACTIONS = {};
+  ("dont:don’t didnt:didn’t doesnt:doesn’t cant:can’t couldnt:couldn’t shouldnt:shouldn’t wouldnt:wouldn’t " +
+   "isnt:isn’t arent:aren’t wasnt:wasn’t werent:weren’t hasnt:hasn’t havent:haven’t hadnt:hadn’t mustnt:mustn’t " +
+   "neednt:needn’t mightnt:mightn’t aint:ain’t im:I’m ive:I’ve youre:you’re youve:you’ve youll:you’ll youd:you’d " +
+   "theyre:they’re theyve:they’ve theyll:they’ll theyd:they’d weve:we’ve thats:that’s whats:what’s wheres:where’s " +
+   "theres:there’s heres:here’s hows:how’s whos:who’s whatll:what’ll thatll:that’ll itll:it’ll itd:it’d shouldve:should’ve " +
+   "couldve:could’ve wouldve:would’ve mightve:might’ve mustve:must’ve yall:y’all oclock:o’clock lets:let’s"
+  ).split(" ").forEach(function (p) { var i = p.indexOf(":"); CONTRACTIONS[p.slice(0, i)] = p.slice(i + 1); });
+  delete CONTRACTIONS.lets;   // "lets" is a word too ("she lets me go")
+  function contractionFor(word) {
+    var fix = CONTRACTIONS[word.toLowerCase()];
+    if (!fix) return null;
+    if (word === word.toUpperCase() && word.length > 1) return fix.toUpperCase();
+    if (/^[A-Z]/.test(word)) return fix.charAt(0).toUpperCase() + fix.slice(1);
+    return fix;
+  }
+  var autofixTimer = null;
+  document.addEventListener("input", function (e) {
+    var ed = e.target;
+    if (!spellOn() || !ed.classList || !ed.classList.contains("read-editor") || ed.classList.contains("pv-sheet")) return;
+    if (e.inputType !== "insertText" || !e.data || !/^[\s.,!?;:)"\u201d]$/.test(e.data)) return;
+    var sel = window.getSelection();
+    if (!sel.rangeCount || !sel.getRangeAt(0).collapsed) return;
+    var node = sel.anchorNode, off = sel.anchorOffset;
+    if (!node || node.nodeType !== 3) return;
+    var before = node.data.slice(0, off), m = /(^|[^A-Za-z'\u2019])([A-Za-z]+)([\s.,!?;:)"\u201d\u00a0])$/.exec(before);
+    if (!m) return;
+    var fix = contractionFor(m[2]);
+    if (!fix) return;
+    var start = off - m[3].length - m[2].length, r = document.createRange();
+    r.setStart(node, start); r.setEnd(node, start + m[2].length);
+    sel.removeAllRanges(); sel.addRange(r);
+    document.execCommand("insertText", false, fix);
+    // put the cursor back after the space or mark that was typed
+    var s2 = window.getSelection(), n2 = s2.anchorNode, o2 = s2.anchorOffset;
+    if (n2 && n2.nodeType === 3 && o2 + m[3].length <= n2.data.length) {
+      var c = document.createRange();
+      c.setStart(n2, o2 + m[3].length); c.collapse(true);
+      s2.removeAllRanges(); s2.addRange(c);
+      if (canHighlight) {
+        var hr = document.createRange();
+        hr.setStart(n2, o2 - fix.length); hr.setEnd(n2, o2);
+        CSS.highlights.set("autofix", new Highlight(hr));
+        clearTimeout(autofixTimer);
+        autofixTimer = setTimeout(function () { CSS.highlights.delete("autofix"); }, 2200);
+      }
+    }
   });
   document.getElementById("spell-switch").addEventListener("click", function () {
     settings.spellCheck = !spellOn();

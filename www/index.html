@@ -2137,6 +2137,63 @@
   }
   #pin-toast[hidden] { display: none; }
   /* Unused Lyrics drawer */
+  /* voice memos */
+  #memo-modal { position: fixed; inset: 0; z-index: 58; background: var(--overlay); display: none; align-items: center; justify-content: center; padding: 20px; }
+  #memo-modal.open { display: flex; }
+  #memo-panel {
+    background: var(--bg-raised); border: 1px solid var(--shell-border); border-radius: var(--radius-md);
+    width: 100%; max-width: 440px; max-height: 100%; overflow-y: auto; padding: 18px 20px; color: var(--shell-text);
+  }
+  #memo-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 4px; }
+  #memo-list-view[hidden], #memo-rec-view[hidden] { display: none; }
+  .memo-new {
+    width: 100%; min-height: 44px; margin: 10px 0 4px; border-radius: var(--radius-sm); cursor: pointer;
+    background: none; border: 1px solid var(--accent-dim); color: var(--accent); font-family: var(--font-ui); font-size: 0.9rem; font-weight: 600;
+  }
+  #memo-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 14px; }
+  .memo-item { display: flex; align-items: center; gap: 10px; border: 1px solid var(--shell-border); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .memo-item .m-play, .memo-marker {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--accent-dim); background: var(--tint-2);
+    color: var(--accent); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+  .memo-item .m-body { flex: 1; min-width: 0; }
+  .memo-item .m-line { font-family: var(--font-lyric); font-size: 0.98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .memo-item .m-meta { font-size: 0.72rem; color: var(--shell-text-dim); margin-top: 2px; }
+  .memo-item .m-del { background: none; border: none; color: var(--danger); font-family: var(--font-ui); font-size: 0.8rem; cursor: pointer; padding: 6px; }
+  .memo-empty { color: var(--shell-text-dim); font-size: 0.88rem; padding: 8px 0; }
+  .memo-for { font-family: var(--font-lyric); font-size: 1.02rem; margin: 10px 0 0; text-align: center; }
+  .memo-rec { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 0 10px; }
+  #memo-rec-btn {
+    width: 84px; height: 84px; border-radius: 50%; border: 4px solid var(--shell-border); background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  #memo-rec-btn span { width: 56px; height: 56px; border-radius: 50%; background: #e0483e; transition: all 0.15s ease; }
+  #memo-rec-btn.on span { width: 30px; height: 30px; border-radius: 6px; }
+  #memo-rec-btn.on { animation: memo-pulse 1.4s ease-in-out infinite; }
+  @keyframes memo-pulse { 50% { border-color: rgba(224,72,62,0.5); } }
+  #memo-time { font-family: var(--font-ui); font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+  #memo-rec-hint { text-align: center; margin: 0; }
+  .memo-rec-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+  .memo-rec-actions button {
+    flex: 1; min-height: 44px; border-radius: 10px; cursor: pointer; background: none; border: 1px solid var(--shell-border);
+    color: var(--shell-text); font-family: var(--font-ui); font-size: 0.88rem; font-weight: 600;
+  }
+  .memo-rec-actions button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .memo-rec-actions button:disabled { opacity: 0.45; cursor: default; }
+  #memo-done {
+    width: 100%; background: var(--accent); border: none; color: var(--on-accent);
+    font-weight: 600; font-family: var(--font-ui); font-size: 0.9rem; padding: 11px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  #memo-rec-view:not([hidden]) ~ #memo-done { display: none; }
+  /* the mic marker after a line that has a memo */
+  .memo-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+  .memo-marker { position: absolute; width: 24px; height: 24px; pointer-events: auto; border-width: 1px; }
+  .memo-marker.playing { background: var(--accent); color: var(--on-accent); }
+  .read-editor.pv-sheet ~ .memo-layer { display: none; }
+  @media (max-width: 640px) {
+    #memo-modal { align-items: flex-end; padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+    #memo-panel { max-width: none; max-height: 85%; }
+  }
   #echo-modal { position: fixed; inset: 0; z-index: 57; background: var(--overlay); display: none; align-items: center; justify-content: center; padding: 20px; }
   #echo-modal.open { display: flex; }
   #echo-panel {
@@ -2914,6 +2971,7 @@
     <div id="more-status" class="seg" role="group" aria-label="Status"></div>
     <button id="more-unused" class="more-row">Unused Lyrics</button>
     <button id="more-echoes" class="more-row">Repeated Lines</button>
+    <button id="more-memos" class="more-row">Voice Memos</button>
     <div id="more-tools"></div>
     <button id="more-customize" class="more-row">Customize Top Bar…</button>
     <button id="more-delete" class="more-row more-danger">Delete Song</button>
@@ -2938,6 +2996,31 @@
     </div>
     <div id="unused-list"></div>
     <button id="unused-done">Done</button>
+  </div>
+</div>
+
+<div id="memo-modal" role="dialog" aria-modal="true" aria-labelledby="memo-title">
+  <div id="memo-panel">
+    <h2 id="memo-title">Voice Memos</h2>
+    <div id="memo-list-view">
+      <p id="memo-help" class="setting-help"></p>
+      <button id="memo-new" class="memo-new">Record a Memo</button>
+      <div id="memo-list"></div>
+    </div>
+    <div id="memo-rec-view" hidden>
+      <p id="memo-for" class="memo-for"></p>
+      <div class="memo-rec">
+        <button id="memo-rec-btn" aria-label="Record"><span></span></button>
+        <div id="memo-time">0:00</div>
+        <div id="memo-rec-hint" class="setting-help">Tap to record. Hum or sing how the line goes.</div>
+      </div>
+      <div class="memo-rec-actions">
+        <button id="memo-play-take" disabled>Play</button>
+        <button id="memo-discard">Cancel</button>
+        <button id="memo-save" class="primary" disabled>Save</button>
+      </div>
+    </div>
+    <button id="memo-done">Done</button>
   </div>
 </div>
 
@@ -3289,6 +3372,7 @@
 
   function openSong(id) {
     maybeSnapshotOnLeave();
+    stopMemo();
     var prev = getActiveSong();
     if (prev && prev.id !== id) discardIfBlank(prev);
     searchScrollPending = true;
@@ -4401,7 +4485,7 @@
     lineObjs.forEach(function (l, i) { el.appendChild(i === 0 && withTitle ? readTitleEl(l.text, song) : readLineEl(l.text, l.runs)); });
     if (withTitle) markEditorPlaceholders(el, song);
     if (el.isConnected && searchQuery()) applySearchHighlight();
-    if (withTitle) scheduleSpell(el.isConnected ? 60 : 200);
+    if (withTitle) { scheduleSpell(el.isConnected ? 60 : 200); scheduleMemoMarkers(); }
   }
 
   // Read the Basic editor back into text + per-character styles.
@@ -4512,6 +4596,7 @@
   function readEdited(song, ed) {
     markEditorPlaceholders(ed, song);
     scheduleSpell();
+    scheduleMemoMarkers();
     if (searchQuery()) applySearchHighlight();
     readSync.song = song; readSync.el = ed;
     clearTimeout(readSync.timer);
@@ -5605,6 +5690,7 @@
     renderMoreStatus();
     renderMoreUnused();
     renderMoreEchoes();
+    renderMoreMemos();
     hudToolsAvailable().forEach(function (t) {
       if (layout.indexOf(t.id) !== -1) return;
       var el = document.querySelector('#meta-bar [data-hud="' + t.id + '"]');
@@ -7322,6 +7408,7 @@
       fmtMenu.setAttribute("aria-label", "Pin or set aside");
       menuBtn(selectionHasPin(selectionInfo(true)) ? "Unpin" : "Pin in Place", { "data-keep": "pin", "class": "wide", "aria-checked": "false" });
       menuBtn("Move to Unused Lyrics", { "data-keep": "cut", "class": "wide", "aria-checked": "false" });
+      menuBtn("Record Voice Memo", { "data-keep": "memo", "class": "wide", "aria-checked": "false" });
     } else if (kind === "size") {
       fmtMenu.setAttribute("aria-label", "Font size");
       ptSizes().forEach(function (pt) {
@@ -7346,7 +7433,9 @@
     if (b.hasAttribute("data-keep")) {
       var k = b.getAttribute("data-keep");
       closeFmtMenu();
-      if (k === "pin") togglePinSelection(); else cutSelectionToUnused();
+      if (k === "pin") togglePinSelection();
+      else if (k === "memo") { var mi = selectionInfo(true), ml = mi ? selectedLineTexts(mi)[0] : ""; hideSizeBar(); openMemoRecorder(ml || ""); }
+      else cutSelectionToUnused();
       return;
     }
     if (b.hasAttribute("data-swap")) swapHeader(b.getAttribute("data-swap"));
@@ -7777,6 +7866,291 @@
   document.getElementById("unused-done").addEventListener("click", closeUnused);
   unusedModal.addEventListener("click", function (e) { if (e.target === unusedModal) closeUnused(); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && unusedModal.classList.contains("open")) closeUnused(); });
+
+  // ---------- voice memos ----------
+  // Hum or sing how a line goes. A memo belongs to a song and to the line it was recorded for (by the line's
+  // words, like pins), and shows as a small mic marker after that line; tap it to play. The audio is kept on
+  // this device only (IndexedDB "lyricsheet-memos"), not in the song or in sync.
+  var memoDB = null;
+  function memoStore(mode) {
+    return (memoDB || (memoDB = new Promise(function (resolve, reject) {
+      if (!window.indexedDB) { reject(new Error("no storage")); return; }
+      var req = indexedDB.open("lyricsheet-memos", 1);
+      req.onupgradeneeded = function () {
+        var st = req.result.createObjectStore("memos", { keyPath: "id" });
+        st.createIndex("song", "songId");
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { memoDB = null; reject(req.error); };
+    }))).then(function (db) { return db.transaction("memos", mode || "readonly").objectStore("memos"); });
+  }
+  function idbDone(req) {
+    return new Promise(function (resolve, reject) { req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
+  }
+  var memoCache = {};   // songId -> [memo without audio]
+  function memosFor(songId) {
+    if (memoCache[songId]) return Promise.resolve(memoCache[songId]);
+    return memoStore().then(function (st) { return idbDone(st.index("song").getAll(songId)); }).then(function (list) {
+      memoCache[songId] = list.map(function (m) { return { id: m.id, songId: m.songId, line: m.line, created: m.created, dur: m.dur }; })
+        .sort(function (a, b) { return a.created - b.created; });
+      return memoCache[songId];
+    }, function () { return []; });
+  }
+  function saveMemo(m) {
+    return memoStore("readwrite").then(function (st) { return idbDone(st.put(m)); }).then(function () { delete memoCache[m.songId]; });
+  }
+  function deleteMemo(m) {
+    return memoStore("readwrite").then(function (st) { return idbDone(st.delete(m.id)); }).then(function () { delete memoCache[m.songId]; });
+  }
+  function fmtDur(sec) { sec = Math.max(0, Math.round(sec || 0)); return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0"); }
+
+  // playing: one memo at a time
+  var memoAudio = null, memoPlayingId = null;
+  function stopMemo() {
+    if (memoAudio) { memoAudio.pause(); URL.revokeObjectURL(memoAudio.src); }
+    memoAudio = null; memoPlayingId = null;
+    Array.prototype.forEach.call(document.querySelectorAll(".memo-marker.playing, .m-play.playing"), function (b) { b.classList.remove("playing"); setPlayIcon(b, false); });
+  }
+  function setPlayIcon(b, playing) {
+    b.innerHTML = playing
+      ? '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor"/></svg>'
+      : (b.classList.contains("memo-marker")
+        ? '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5" fill="currentColor"/><path d="M3.5 7.5a4.5 4.5 0 009 0M8 12v2.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
+        : '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4.5 2.5v11l9-5.5z" fill="currentColor"/></svg>');
+    b.setAttribute("aria-label", playing ? "Stop voice memo" : "Play voice memo");
+  }
+  function playMemo(id) {
+    if (memoPlayingId === id) { stopMemo(); return; }
+    stopMemo();
+    memoStore().then(function (st) { return idbDone(st.get(id)); }).then(function (m) {
+      if (!m) return;
+      var url = URL.createObjectURL(new Blob([m.data], { type: m.mime }));
+      memoAudio = new Audio(url);
+      memoPlayingId = id;
+      Array.prototype.forEach.call(document.querySelectorAll('[data-memo="' + id + '"]'), function (b) { b.classList.add("playing"); setPlayIcon(b, true); });
+      memoAudio.addEventListener("ended", stopMemo);
+      var pr = memoAudio.play();
+      if (pr && pr.catch) pr.catch(stopMemo);
+    });
+  }
+
+  // the mic markers after lines with memos (Write sheet)
+  var memoMarkTimer = null;
+  function scheduleMemoMarkers() { clearTimeout(memoMarkTimer); memoMarkTimer = setTimeout(drawMemoMarkers, 120); }
+  function drawMemoMarkers() {
+    var ed = document.querySelector("#canvas .read-editor:not(.pv-sheet)"), song = getActiveSong();
+    var sheet = ed && ed.closest(".read-sheet");
+    if (!sheet || !song) return;
+    memosFor(song.id).then(function (memos) {
+      var layer = sheet.querySelector(".memo-layer");
+      if (!layer) { layer = document.createElement("div"); layer.className = "memo-layer"; sheet.appendChild(layer); }
+      layer.innerHTML = "";
+      if (!memos.length) return;
+      var sr = sheet.getBoundingClientRect(), used = {}, perLine = {};
+      var lines = Array.prototype.slice.call(ed.children, 1);
+      memos.forEach(function (m) {
+        var k = phraseKey(m.line || ""), div = null;
+        if (k.trim()) div = lines.filter(function (d) { return phraseKey(d.textContent) === k; })[0];
+        if (!div) return;   // its line was changed: still listed under ⋯ › Voice Memos
+        var r = document.createRange();
+        r.selectNodeContents(div);
+        var rects = r.getClientRects(), last = rects.length ? rects[rects.length - 1] : div.getBoundingClientRect();
+        var n = perLine[k] = (perLine[k] || 0) + 1;
+        var b = document.createElement("button");
+        b.className = "memo-marker" + (memoPlayingId === m.id ? " playing" : "");
+        b.setAttribute("data-memo", m.id);
+        b.title = "Voice memo (" + fmtDur(m.dur) + ")";
+        setPlayIcon(b, memoPlayingId === m.id);
+        var left = last.right - sr.left + 8 + (n - 1) * 28;
+        left = Math.min(left, sheet.clientWidth - 28);
+        b.style.left = left + "px";
+        b.style.top = (last.top - sr.top + last.height / 2 - 12) + "px";
+        b.addEventListener("mousedown", function (e) { e.preventDefault(); });   // keep the cursor where it is
+        b.addEventListener("click", function () { playMemo(m.id); });
+        layer.appendChild(b);
+        used[m.id] = true;
+      });
+    });
+  }
+  window.addEventListener("resize", scheduleMemoMarkers);
+
+  // ⋯ › Voice Memos, and the recorder
+  var memoModal = document.getElementById("memo-modal");
+  function renderMoreMemos() {
+    var song = getActiveSong(), row = document.getElementById("more-memos");
+    row.textContent = "Voice Memos";
+    if (song) memosFor(song.id).then(function (l) { row.textContent = "Voice Memos" + (l.length ? " (" + l.length + ")" : ""); });
+  }
+  function caretLineText() {
+    var ed = document.querySelector("#canvas .read-editor:not(.pv-sheet)"), song = getActiveSong();
+    if (!ed || !song || !lastCaret || lastCaret.id !== song.id) return "";
+    var T = walkEditor(ed).text, s0 = T.lastIndexOf("\n", lastCaret.index - 1) + 1, e0 = T.indexOf("\n", lastCaret.index);
+    if (s0 === 0) return "";   // the title
+    var t = T.slice(s0, e0 === -1 ? T.length : e0).trim();
+    return t && !detectHeader(t) ? t : "";
+  }
+  function openMemos() {
+    var song = getActiveSong();
+    if (!song) return;
+    showMemoList();
+    memoModal.classList.add("open");
+  }
+  function showMemoList() {
+    var song = getActiveSong();
+    document.getElementById("memo-title").textContent = "Voice Memos";
+    document.getElementById("memo-list-view").hidden = false;
+    document.getElementById("memo-rec-view").hidden = true;
+    var line = caretLineText();
+    document.getElementById("memo-new").textContent = line ? "Record a Memo for \u201C" + (line.length > 28 ? line.slice(0, 26) + "\u2026" : line) + "\u201D" : "Record a Memo";
+    document.getElementById("memo-new").setAttribute("data-line", line);
+    document.getElementById("memo-help").textContent = "Hum or sing how a line goes. A memo shows as a mic after its line; tap it to play. Memos stay on this device.";
+    var list = document.getElementById("memo-list");
+    list.innerHTML = "";
+    memosFor(song.id).then(function (memos) {
+      list.innerHTML = "";
+      if (!memos.length) {
+        var e = document.createElement("p");
+        e.className = "memo-empty";
+        e.textContent = "No memos for this song yet. Put the cursor on a line, then record one here (or select a line and use the pin button\u2019s Record Voice Memo).";
+        list.appendChild(e);
+        return;
+      }
+      memos.forEach(function (m) {
+        var item = document.createElement("div");
+        item.className = "memo-item";
+        var play = document.createElement("button");
+        play.className = "m-play" + (memoPlayingId === m.id ? " playing" : "");
+        play.setAttribute("data-memo", m.id);
+        setPlayIcon(play, memoPlayingId === m.id);
+        play.addEventListener("click", function () { playMemo(m.id); });
+        var body = document.createElement("div");
+        body.className = "m-body";
+        var ln = document.createElement("div");
+        ln.className = "m-line";
+        ln.textContent = m.line || "Whole song";
+        var meta = document.createElement("div");
+        meta.className = "m-meta";
+        meta.textContent = fmtDur(m.dur) + " \u00B7 " + fmtShort(m.created);
+        body.appendChild(ln); body.appendChild(meta);
+        var del = document.createElement("button");
+        del.className = "m-del";
+        del.textContent = "Delete";
+        del.addEventListener("click", function () {
+          askConfirm("Delete this voice memo? This can't be undone.", "Delete", true, function () {
+            if (memoPlayingId === m.id) stopMemo();
+            deleteMemo(m).then(function () { showMemoList(); drawMemoMarkers(); renderMoreMemos(); });
+          });
+        });
+        item.appendChild(play); item.appendChild(body); item.appendChild(del);
+        list.appendChild(item);
+      });
+    });
+  }
+  // recording
+  var rec = { mr: null, stream: null, chunks: [], start: 0, timer: null, blob: null, mime: "", dur: 0, line: "" };
+  function pickMime() {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+    return ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"].filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0] || "";
+  }
+  function openMemoRecorder(line, fromList) {
+    stopMemo();
+    rec.line = line || "";
+    rec.fromList = !!fromList;
+    rec.blob = null; rec.dur = 0;
+    document.getElementById("memo-title").textContent = "Record a Voice Memo";
+    document.getElementById("memo-for").textContent = rec.line ? "\u201C" + rec.line + "\u201D" : "For this song";
+    document.getElementById("memo-list-view").hidden = true;
+    document.getElementById("memo-rec-view").hidden = false;
+    document.getElementById("memo-time").textContent = "0:00";
+    document.getElementById("memo-rec-hint").textContent = "Tap to record. Hum or sing how the line goes.";
+    document.getElementById("memo-rec-btn").classList.remove("on");
+    document.getElementById("memo-save").disabled = true;
+    document.getElementById("memo-play-take").disabled = true;
+    memoModal.classList.add("open");
+  }
+  function stopStream() { if (rec.stream) rec.stream.getTracks().forEach(function (t) { t.stop(); }); rec.stream = null; }
+  function startRecording() {
+    var hint = document.getElementById("memo-rec-hint");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      hint.textContent = "Recording isn\u2019t available on this device.";
+      return;
+    }
+    stopMemo();
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      rec.stream = stream; rec.chunks = []; rec.mime = pickMime();
+      rec.mr = rec.mime ? new MediaRecorder(stream, { mimeType: rec.mime }) : new MediaRecorder(stream);
+      rec.mr.ondataavailable = function (e) { if (e.data && e.data.size) rec.chunks.push(e.data); };
+      rec.mr.onstop = function () {
+        rec.dur = (Date.now() - rec.start) / 1000;
+        rec.blob = new Blob(rec.chunks, { type: rec.mr.mimeType || rec.mime || "audio/webm" });
+        stopStream();
+        document.getElementById("memo-save").disabled = !rec.blob.size;
+        document.getElementById("memo-play-take").disabled = !rec.blob.size;
+        hint.textContent = "Play it back, record again, or Save.";
+      };
+      rec.mr.start();
+      rec.start = Date.now();
+      document.getElementById("memo-rec-btn").classList.add("on");
+      document.getElementById("memo-rec-btn").setAttribute("aria-label", "Stop recording");
+      hint.textContent = "Recording\u2026 tap to stop.";
+      document.getElementById("memo-save").disabled = true;
+      document.getElementById("memo-play-take").disabled = true;
+      clearInterval(rec.timer);
+      rec.timer = setInterval(function () { document.getElementById("memo-time").textContent = fmtDur((Date.now() - rec.start) / 1000); }, 250);
+    }, function (err) {
+      hint.textContent = err && err.name === "NotAllowedError"
+        ? "Lyric Sheet can\u2019t use the microphone. Allow it in Settings \u203A Privacy & Security \u203A Microphone, then try again."
+        : "Couldn\u2019t start recording" + (err && err.message ? ": " + err.message : ".");
+    });
+  }
+  function stopRecording() {
+    clearInterval(rec.timer);
+    document.getElementById("memo-rec-btn").classList.remove("on");
+    document.getElementById("memo-rec-btn").setAttribute("aria-label", "Record");
+    if (rec.mr && rec.mr.state !== "inactive") rec.mr.stop();
+  }
+  var takeAudio = null;
+  function stopTake() { if (takeAudio) { takeAudio.pause(); URL.revokeObjectURL(takeAudio.src); takeAudio = null; } document.getElementById("memo-play-take").textContent = "Play"; }
+  document.getElementById("memo-rec-btn").addEventListener("click", function () {
+    stopTake();
+    if (rec.mr && rec.mr.state === "recording") stopRecording(); else startRecording();
+  });
+  document.getElementById("memo-play-take").addEventListener("click", function () {
+    if (takeAudio) { stopTake(); return; }
+    if (!rec.blob) return;
+    takeAudio = new Audio(URL.createObjectURL(rec.blob));
+    takeAudio.addEventListener("ended", stopTake);
+    this.textContent = "Stop";
+    var pr = takeAudio.play();
+    if (pr && pr.catch) pr.catch(stopTake);
+  });
+  function leaveRecorder(toList) {
+    if (rec.mr && rec.mr.state === "recording") { rec.mr.onstop = null; rec.mr.stop(); }
+    clearInterval(rec.timer); stopStream(); stopTake();
+    rec.mr = null; rec.blob = null;
+    if (toList) showMemoList(); else memoModal.classList.remove("open");
+  }
+  document.getElementById("memo-discard").addEventListener("click", function () { leaveRecorder(rec.fromList); });
+  document.getElementById("memo-save").addEventListener("click", function () {
+    var song = getActiveSong();
+    if (!song || !rec.blob) return;
+    var blob = rec.blob, line = rec.line, dur = rec.dur;
+    blob.arrayBuffer().then(function (buf) {
+      return saveMemo({ id: "m" + Date.now() + Math.random().toString(36).slice(2, 6), songId: song.id, line: line,
+        created: Date.now(), dur: dur, mime: blob.type, data: buf });
+    }).then(function () {
+      leaveRecorder(true);
+      drawMemoMarkers();
+      renderMoreMemos();
+    }, function () {
+      document.getElementById("memo-rec-hint").textContent = "Couldn\u2019t save the memo on this device.";
+    });
+  });
+  document.getElementById("memo-new").addEventListener("click", function () { openMemoRecorder(this.getAttribute("data-line") || "", true); });
+  document.getElementById("more-memos").addEventListener("click", function () { closeMorePanel(); openMemos(); });
+  document.getElementById("memo-done").addEventListener("click", function () { leaveRecorder(false); });
+  memoModal.addEventListener("click", function (e) { if (e.target === memoModal && !(rec.mr && rec.mr.state === "recording")) leaveRecorder(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && memoModal.classList.contains("open")) leaveRecorder(false); });
 
   // ---------- where a phrase appears across the catalog ----------
   // Words compared loosely: case, curly quotes and punctuation don't matter.

@@ -2179,6 +2179,20 @@
   }
   #unused-panel h2 { font-family: var(--font-lyric); font-weight: 500; font-size: 1.2rem; margin: 0 0 4px; }
   #unused-list { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 14px; }
+  #unused-tabs { margin: 10px 0 8px; }
+  #unused-tabs button[aria-selected="true"] { background: rgba(201,162,75,0.18); color: var(--shell-text); }
+  #unused-search { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  #unused-search[hidden] { display: none; }
+  #unused-q {
+    flex: 1; min-width: 0; height: var(--ctl); border-radius: 18px; border: 1px solid var(--shell-border);
+    background: var(--bg); color: var(--shell-text); padding: 0 14px; font-family: var(--font-ui); font-size: 0.9rem;
+  }
+  #unused-mode { flex-shrink: 0; border-radius: 18px; }
+  #unused-mode button { padding: 0 12px; height: calc(var(--ctl) - 2px); }
+  @media (max-width: 640px) { #unused-q { font-size: 16px; } }
+  .unused-item .u-from { font-size: 0.74rem; color: var(--accent); font-weight: 600; margin-top: 4px; }
+  .unused-item .u-from .u-rhyme { color: var(--shell-text-dim); font-weight: 400; margin-left: 6px; }
+  .unused-item .u-text mark { background: var(--hl-yellow, rgba(255,214,10,0.45)); color: inherit; border-radius: 3px; padding: 0 1px; }
   .unused-empty { color: var(--shell-text-dim); font-size: 0.88rem; padding: 8px 0; }
   .unused-item { border: 1px solid var(--shell-border); border-radius: var(--radius-sm); padding: 10px 12px; }
   .unused-item .u-text { font-family: var(--font-lyric); font-size: 1rem; white-space: pre-line; }
@@ -2910,7 +2924,18 @@
 <div id="unused-modal" role="dialog" aria-modal="true" aria-labelledby="unused-title">
   <div id="unused-panel">
     <h2 id="unused-title">Unused Lyrics</h2>
-    <p class="setting-help">Lines you've cut from this song. Put one back, copy it, or delete it for good.</p>
+    <div id="unused-tabs" class="seg" role="tablist">
+      <button data-tab="song" role="tab">This Song</button>
+      <button data-tab="all" role="tab">All Songs</button>
+    </div>
+    <p id="unused-help" class="setting-help"></p>
+    <div id="unused-search" hidden>
+      <input id="unused-q" type="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Search unused lyrics">
+      <div id="unused-mode" class="seg" role="group" aria-label="Search by">
+        <button data-mode="idea" aria-pressed="true">Idea</button>
+        <button data-mode="rhyme" aria-pressed="false">Rhyme</button>
+      </div>
+    </div>
     <div id="unused-list"></div>
     <button id="unused-done">Done</button>
   </div>
@@ -7503,14 +7528,43 @@
     var song = getActiveSong(), n = song && song.cuts ? song.cuts.length : 0;
     document.getElementById("more-unused").textContent = "Unused Lyrics" + (n ? " (" + n + ")" : "");
   }
+  // The drawer has two tabs: this song's cut lines, and every song's in one place ("All Songs"), searchable
+  // by idea (the words in them) or by rhyme (lines ending in a rhyme for a word). Lines stay with the song
+  // they were cut from; using one from All Songs puts a copy into the song you're writing.
+  var unusedTab = "song", unusedMode = "idea";
+  function allCuts() {
+    var out = [];
+    state.songs.forEach(function (sg) { (sg.cuts || []).forEach(function (c, i) { out.push({ song: sg, cut: c, i: i }); }); });
+    return out.sort(function (a, b) { return (b.cut.at || 0) - (a.cut.at || 0); });
+  }
   function openUnused() {
     var song = getActiveSong();
     if (!song) return;
+    unusedTab = (song.cuts && song.cuts.length) || !allCuts().length ? "song" : "all";
+    document.getElementById("unused-q").value = "";
     renderUnused(song);
     unusedModal.classList.add("open");
   }
+  function renderUnusedTabs(song) {
+    var mine = song.cuts ? song.cuts.length : 0, all = allCuts().length;
+    Array.prototype.forEach.call(document.querySelectorAll("#unused-tabs button"), function (b) {
+      var t = b.getAttribute("data-tab");
+      b.setAttribute("aria-selected", String(t === unusedTab));
+      b.textContent = (t === "song" ? "This Song" : "All Songs") + ((t === "song" ? mine : all) ? " (" + (t === "song" ? mine : all) + ")" : "");
+    });
+    document.getElementById("unused-search").hidden = unusedTab !== "all";
+    Array.prototype.forEach.call(document.querySelectorAll("#unused-mode button"), function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-mode") === unusedMode));
+    });
+    document.getElementById("unused-q").placeholder = unusedMode === "rhyme" ? "A word to rhyme with\u2026" : "Search by idea or words\u2026";
+    document.getElementById("unused-help").textContent = unusedTab === "song"
+      ? "Lines you've cut from this song. Put one back, copy it, or delete it for good."
+      : "Lines you've cut from all your songs. Use one in this song, copy it, or open the song it came from.";
+  }
   function closeUnused() { unusedModal.classList.remove("open"); }
   function renderUnused(song) {
+    renderUnusedTabs(song);
+    if (unusedTab === "all") { renderAllUnused(song); return; }
     var list = document.getElementById("unused-list");
     list.innerHTML = "";
     var cuts = song.cuts || [];
@@ -7556,8 +7610,17 @@
   function putBack(song, i) {
     var c = song.cuts[i];
     if (!c) return;
+    insertLinesInSong(song, c.t);
+    song.cuts.splice(i, 1);
+    if (!song.cuts.length) delete song.cuts;
+    linesChanged(song);
+    closeUnused();
+    renderMoreUnused();
+  }
+  // after the line the cursor was last on in the Write sheet, else at the end of the song
+  function insertLinesInSong(song, text) {
     flushReadSync();
-    var lines = c.t.split("\n");
+    var c = { t: text }, lines = text.split("\n");
     var ed = document.querySelector("#canvas .read-editor");
     if (ed && song.id === state.activeId) {
       var T = walkEditor(ed).text;
@@ -7578,12 +7641,138 @@
       markEdited(song);
       renderCanvas(song);
     }
-    song.cuts.splice(i, 1);
-    if (!song.cuts.length) delete song.cuts;
-    linesChanged(song);
-    closeUnused();
-    renderMoreUnused();
   }
+
+  // All Songs: search by idea (every word you type appears in the line, "love" also finds "loved",
+  // "lover"…) or by rhyme (a line ends in a rhyme, or near rhyme, for the word you type)
+  function ideaMatch(text, q) {
+    var words = phraseKey(q).trim().split(" ").filter(function (w) { return w.length > 1 || q.trim().length === 1; });
+    if (!words.length) return true;
+    var k = phraseKey(text);
+    return words.every(function (w) { return k.indexOf(" " + w) !== -1; });
+  }
+  function rhymeGrade(text, q, dict) {
+    var qp = dict && pronOf(dict, q.trim().split(/\s+/).pop());
+    if (!qp) return 0;
+    var qk = rhymeKeys(qp), best = 0;
+    text.split("\n").forEach(function (line) {
+      var w = lastWordOf(line), p = w && pronOf(dict, w);
+      if (!p || w === cleanWord(q.trim().split(/\s+/).pop())) return;
+      var k = rhymeKeys(p);
+      if (k.perfect === qk.perfect) best = 2;
+      else if (best < 1 && (k.near === qk.near || k.vowel === qk.vowel)) best = 1;
+    });
+    return best;
+  }
+  function markWords(el, text, q, mode) {
+    var re;
+    if (mode === "rhyme") {
+      // the word at the end of each line that rhymes
+      text.split("\n").forEach(function (line, i) {
+        if (i) el.appendChild(document.createTextNode("\n"));
+        var m = /([A-Za-z'\u2019]+)([^A-Za-z'\u2019]*)$/.exec(line);
+        if (!m || !rhymeGrade(line, q, rhymeDict)) { el.appendChild(document.createTextNode(line)); return; }
+        el.appendChild(document.createTextNode(line.slice(0, m.index)));
+        var mk = document.createElement("mark");
+        mk.textContent = m[1];
+        el.appendChild(mk);
+        el.appendChild(document.createTextNode(m[2]));
+      });
+      return;
+    } else {
+      var words = phraseKey(q).trim().split(" ").filter(Boolean);
+      if (!words.length) { el.textContent = text; return; }
+      re = new RegExp("\\b(" + words.map(escapeRe).join("|") + ")[a-z'\u2019]*", "ig");
+    }
+    var last = 0, m;
+    while ((m = re.exec(text))) {
+      if (!m[0].length) { re.lastIndex++; continue; }
+      el.appendChild(document.createTextNode(text.slice(last, m.index)));
+      var mk = document.createElement("mark");
+      mk.textContent = m[0];
+      el.appendChild(mk);
+      last = m.index + m[0].length;
+    }
+    el.appendChild(document.createTextNode(text.slice(last)));
+  }
+  function renderAllUnused(song) {
+    var list = document.getElementById("unused-list"), q = document.getElementById("unused-q").value.trim();
+    list.innerHTML = "";
+    var all = allCuts();
+    function empty(msg) {
+      var e = document.createElement("p");
+      e.className = "unused-empty";
+      e.textContent = msg;
+      list.appendChild(e);
+    }
+    if (!all.length) { empty("No unused lyrics yet. Lines you move to Unused Lyrics in any song show up here."); return; }
+    if (q && unusedMode === "rhyme" && !rhymeDict) {
+      empty("Loading rhymes\u2026");
+      loadRhymes().then(function () { if (unusedModal.classList.contains("open") && unusedTab === "all") renderAllUnused(song); }, function () {});
+      return;
+    }
+    var hits = all;
+    if (q && unusedMode === "idea") hits = all.filter(function (h) { return ideaMatch(h.cut.t, q) || ideaMatch(h.song.title || "", q); });
+    if (q && unusedMode === "rhyme") {
+      hits = all.map(function (h) { return { h: h, g: rhymeGrade(h.cut.t, q, rhymeDict) }; })
+        .filter(function (x) { return x.g; })
+        .sort(function (a, b) { return b.g - a.g; })
+        .map(function (x) { x.h.grade = x.g; return x.h; });
+      if (!pronOf(rhymeDict, q.split(/\s+/).pop())) { empty("\u201C" + q + "\u201D isn't in the rhyme dictionary. Try another word."); return; }
+    }
+    if (!hits.length) { empty(unusedMode === "rhyme" ? "None of your unused lines end in a rhyme for \u201C" + q + "\u201D." : "No unused lines match \u201C" + q + "\u201D."); return; }
+    hits.slice(0, 200).forEach(function (h) {
+      var item = document.createElement("div");
+      item.className = "unused-item";
+      var t = document.createElement("div");
+      t.className = "u-text";
+      if (q) markWords(t, h.cut.t, q, unusedMode); else t.textContent = h.cut.t;
+      var from = document.createElement("div");
+      from.className = "u-from";
+      from.textContent = (h.song.id === song.id ? "This song" : (h.song.title || untitled(h.song)));
+      var meta = document.createElement("span");
+      meta.className = "u-rhyme";
+      meta.textContent = (q && unusedMode === "rhyme" ? (h.grade === 2 ? "rhymes \u00B7 " : "near rhyme \u00B7 ") : "") + "cut " + fmtShort(h.cut.at);
+      from.appendChild(meta);
+      var acts = document.createElement("div");
+      acts.className = "u-actions";
+      function btn(label, cls, fn) {
+        var b = document.createElement("button");
+        b.textContent = label; b.className = cls;
+        b.addEventListener("click", fn);
+        acts.appendChild(b);
+        return b;
+      }
+      btn("Use Here", "u-back", function () {
+        if (h.song.id === song.id) { putBack(song, song.cuts.indexOf(h.cut)); return; }   // its own song: put it back
+        insertLinesInSong(song, h.cut.t);
+        closeUnused();
+      });
+      var cb = btn("Copy", "u-copy", function () { copyText(h.cut.t, cb); });
+      if (h.song.id !== song.id) btn("Open Song", "u-open", function () { closeUnused(); openSongAtLine(h.song.id, h.cut.t.split("\n")[0]); });
+      item.appendChild(t); item.appendChild(from); item.appendChild(acts);
+      list.appendChild(item);
+    });
+    if (hits.length > 200) empty("and " + (hits.length - 200) + " more \u2014 search to narrow them down");
+  }
+  document.getElementById("unused-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button"), song = getActiveSong();
+    if (!b || !song) return;
+    unusedTab = b.getAttribute("data-tab");
+    renderUnused(song);
+    if (unusedTab === "all" && !("ontouchstart" in window)) document.getElementById("unused-q").focus();
+  });
+  document.getElementById("unused-mode").addEventListener("click", function (e) {
+    var b = e.target.closest("button"), song = getActiveSong();
+    if (!b || !song) return;
+    unusedMode = b.getAttribute("data-mode");
+    renderUnused(song);
+  });
+  var unusedQTimer = null;
+  document.getElementById("unused-q").addEventListener("input", function () {
+    clearTimeout(unusedQTimer);
+    unusedQTimer = setTimeout(function () { var song = getActiveSong(); if (song) renderAllUnused(song); }, 150);
+  });
   document.getElementById("more-unused").addEventListener("click", function () { closeMorePanel(); openUnused(); });
   document.getElementById("unused-done").addEventListener("click", closeUnused);
   unusedModal.addEventListener("click", function (e) { if (e.target === unusedModal) closeUnused(); });
